@@ -5,7 +5,7 @@ function Header({ pregunta, textoEnlace, destino }) {
     <header className="barra-superior">
       <Link className="marca" to="/" aria-label="Huertos.ec, inicio">
         <span className="icono-planta" aria-hidden="true">🌱</span>
-        <span>Huertos Ec.</span>
+        <span className="nombre-marca">Huertos Ec.</span>
       </Link>
 
       <nav className="enlace-registro" aria-label="Navegación de cuenta">

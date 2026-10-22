@@ -65,6 +65,11 @@ input {
   text-decoration: none;
 }
 
+.nombre-marca{
+  font-family: 'Press Start 2P';
+  font-size: 10px;
+}
+
 .icono-planta {
   width: 30px;
   height: 30px;
@@ -88,6 +93,16 @@ input {
   border-radius: 18px;
   color: var(--hoja);
   text-decoration: none;
+}
+
+.enlace-registro span{
+  font-family: 'Press Start 2P';
+  font-size: 8px;
+}
+
+.enlace-registro .boton-pixel{
+  font-family: 'Press Start 2P';
+  font-size: 8px;
 }
 
 .contenido {
@@ -131,15 +146,17 @@ h1 {
 
 .descripcion {
   margin: 9px 0 25px;
-  color: var(--texto-suave);
+  color: var(--texto-suave);  
+  font-family: 'Press Start 2P';
   text-align: center;
-  font-size: 11px;
+  font-size: 6px;
 }
 
 form > label {
   display: block;
   margin: 0 0 7px;
-  font-size: 10px;
+  font-family: 'Press Start 2P';
+  font-size: 8px;
   font-weight: 700;
 }
 
@@ -152,7 +169,8 @@ form > input,
   border-radius: 5px;
   outline: none;
   background: #fffdf5;
-  font-size: 11px;
+  font-family: 'Press Start 2P';
+  font-size: 6px;
 }
 
 form > input {
@@ -209,9 +227,17 @@ form > input:focus,
   accent-color: #20c765;
 }
 
+.recordarme span {
+  font-family: 'Press Start 2P';
+  font-size: 8px;
+}
+
 .opciones a {
   color: var(--hoja);
-  font-weight: 700;
+  font-weight: 500;
+  font-family: 'Press Start 2P';
+  font-size: 8px;
+  text-decoration: none;
 }
 
 .boton-principal {
@@ -223,6 +249,7 @@ form > input:focus,
   box-shadow: 0 4px 0 #28623b;
   color: var(--blanco);
   font-size: 11px;
+  font-family: 'Press Start 2P';
   font-weight: 700;
   cursor: pointer;
   transition: transform 120ms ease, box-shadow 120ms ease;
@@ -250,7 +277,8 @@ form > input:focus,
   margin: 18px 0 0;
   color: #96a198;
   text-align: center;
-  font-size: 9px;
+  font-family: 'Press Start 2P';
+  font-size: 6px;
 }
 
 .pie {
@@ -288,11 +316,12 @@ form > input:focus,
   display: inline-block;
   padding: 8px 12px;
   border: 2px solid #28623b;
-  background: #43a653;
+  background: var(--hoja-clara);
   box-shadow: 0 3px 0 #28623b;
   color: var(--blanco);
   font-weight: 700;
   text-decoration: none;
+  transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
 .boton-pixel:hover {
@@ -313,3 +342,15 @@ form > input:focus,
   background: #43a653;
   box-shadow: 0 3px 0 #28623b;
 }
+
+.enlace-registro a.boton-pixel:hover {
+  background: #388e48;
+  transform: translateY(1px);
+  box-shadow: 0 2px 0 #28623b;
+}
+
+.pie {
+  font-family: 'Press Start 2P';
+  font-size: 8px;
+}
+

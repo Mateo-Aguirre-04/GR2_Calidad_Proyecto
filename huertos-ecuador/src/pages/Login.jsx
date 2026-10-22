@@ -57,9 +57,9 @@ function Login() {
             <div className="opciones">
               <label className="recordarme">
                 <input type="checkbox" name="recordarme" defaultChecked />
-                <span>Recordarme</span>
+                <span className='span'>Recordarme</span>
               </label>
-              <a href="#recuperar">¿Olvidaste tu contraseña</a>
+              <a href="#recuperar">¿Olvidaste tu contraseña?</a>
             </div>
 
             <button className="boton-principal" type="submit">
