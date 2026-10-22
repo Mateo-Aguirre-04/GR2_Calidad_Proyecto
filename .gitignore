@@ -1,3 +1,32 @@
+# Dependencias y builds
 **/node_modules/
 **/dist/
 **/dist-ssr/
+**/build/
+**/.vite/
+
+# Variables de entorno
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+pnpm-debug.log*
+npm-debug.log*
+
+# Cachés y cobertura
+.eslintcache
+coverage/
+*.tsbuildinfo
+
+# Editor / SO
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Notas personales
+huertos-ecuador/d.md
