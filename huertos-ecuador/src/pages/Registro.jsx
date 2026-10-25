@@ -99,7 +99,7 @@ function Registro() {
     <div className="pagina">
       <Header pregunta="¿Ya tienes una cuenta?" textoEnlace="Iniciar sesión" destino="/" />
       <main className={styles.contenido}>
-        <Tarjeta ancho={600} arialabelledby="registro-titulo">
+        <Tarjeta ancho={600} aria-labelledby="registro-titulo">
           <p className={styles.eyebrow}>CREA TU CUENTA</p>
           <h1 className={styles.titulo} id="registro-titulo">Queremos conocerte</h1>
           <p className={styles.descripcion}>Completa tus datos para personalizar tu experiencia.</p>
