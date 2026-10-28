@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import Header from '../components/Header'
-import '../App.css'
+import Header from '../components/Header/Header'
+import Button from '../components/Button/Button'
+import Tarjeta from '../components/Tarjeta/Tarjeta'
+import styles from './css/Registro.module.css'
 
 const camposIniciales = {
   nombre: '',
@@ -68,9 +70,9 @@ function Registro() {
   function campo({ id, label, name, placeholder, type = 'text', autoComplete }) {
     const error = errores[name]
     return (
-      <div className={`registro-campo${error ? ' tiene-error' : ''}`}>
+      <div className={`${styles.campo} ${error ? styles.conError : ''}`}>
         <label htmlFor={id}>{label}</label>
-        <div className="registro-input-wrap">
+        <div className={styles.inputWrap}>
           <input
             id={id}
             name={name}
@@ -82,77 +84,87 @@ function Registro() {
             aria-invalid={Boolean(error)}
             aria-describedby={error ? `${id}-error` : undefined}
           />
-          {error && <span className="registro-error-dot" aria-hidden="true">!</span>}
+          {error && <span className={styles.errorDot} aria-hidden="true">!</span>}
         </div>
-        {error && <span className="registro-error-text" id={`${id}-error`} role="alert"><span aria-hidden="true">⚠</span> {error}</span>}
+        {error && (
+          <span className={styles.errorTexto} id={`${id}-error`} role="alert">
+            <span aria-hidden="true">⚠</span> {error}
+          </span>
+        )}
       </div>
     )
   }
 
   return (
-    <div className="pagina pagina-registro">
+    <div className="pagina">
       <Header pregunta="¿Ya tienes una cuenta?" textoEnlace="Iniciar sesión" destino="/" />
-      <main className="registro-contenido">
-        <section className="registro-tarjeta" aria-labelledby="registro-titulo">
-          <p className="registro-eyebrow">CREA TU CUENTA</p>
-          <h1 id="registro-titulo">Queremos conocerte</h1>
-          <p className="registro-descripcion">Completa tus datos para personalizar tu experiencia.</p>
+      <main className={styles.contenido}>
+        <Tarjeta ancho={600} aria-labelledby="registro-titulo">
+          <p className={styles.eyebrow}>CREA TU CUENTA</p>
+          <h1 className={styles.titulo} id="registro-titulo">Queremos conocerte</h1>
+          <p className={styles.descripcion}>Completa tus datos para personalizar tu experiencia.</p>
 
-          <form className="registro-formulario" noValidate onSubmit={handleSubmit}>
-            <div className="registro-grid">
+          <form noValidate onSubmit={handleSubmit}>
+            <div className={styles.grid}>
               {campo({ id: 'registro-nombre', label: 'Nombre', name: 'nombre', placeholder: 'Escribe tu nombre', autoComplete: 'given-name' })}
               {campo({ id: 'registro-apellido', label: 'Apellido', name: 'apellido', placeholder: 'Escribe tu apellido', autoComplete: 'family-name' })}
 
-              <fieldset className={`registro-genero${errores.genero ? ' tiene-error' : ''}`}>
+              <fieldset className={`${styles.genero} ${errores.genero ? styles.conError : ''}`}>
                 <legend>¿Con qué género te identificas?</legend>
-                <div className="registro-opciones-genero">
+                <div className={styles.opcionesGenero}>
                   {['Mujer', 'Hombre', 'Otro'].map((opcion) => (
                     <button
-                      className={`registro-pill${genero === opcion ? ' activo' : ''}`}
+                      className={`${styles.pill} ${genero === opcion ? styles.activo : ''}`}
                       type="button"
                       key={opcion}
                       aria-pressed={genero === opcion}
                       onClick={() => actualizarGenero(opcion)}
                     >
-                      <span className="registro-pill-dot" aria-hidden="true" />{opcion}
+                      <span className={styles.pillDot} aria-hidden="true" />{opcion}
                     </button>
                   ))}
                 </div>
-                {errores.genero && <span className="registro-error-text" role="alert"><span aria-hidden="true">⚠</span> {errores.genero}</span>}
+                {errores.genero && (
+                  <span className={styles.errorTexto} role="alert">
+                    <span aria-hidden="true">⚠</span> {errores.genero}
+                  </span>
+                )}
               </fieldset>
 
-              <div className="registro-ancho-completo">
+              <div className={styles.anchoCompleto}>
                 {campo({ id: 'registro-usuario', label: 'Nombre de usuario', name: 'usuario', placeholder: 'Crea tu nombre de usuario', autoComplete: 'username' })}
               </div>
               {campo({ id: 'registro-contrasena', label: 'Contraseña', name: 'contrasena', placeholder: 'Mínimo 8 caracteres', type: 'password', autoComplete: 'new-password' })}
               {campo({ id: 'registro-confirmar', label: 'Confirmar contraseña', name: 'confirmar', placeholder: 'Repite tu contraseña', type: 'password', autoComplete: 'new-password' })}
             </div>
 
-            <div className={`registro-terminos${errores.terminos ? ' tiene-error' : ''}`}>
+            <div className={`${styles.terminos} ${errores.terminos ? styles.conError : ''}`}>
               <label htmlFor="registro-acepta-terminos">
                 <input id="registro-acepta-terminos" type="checkbox" checked={aceptaTerminos} onChange={actualizarTerminos} />
                 <span>Acepto los <a href="#terminos" onClick={(event) => event.preventDefault()}>términos y condiciones</a> y la política de privacidad.</span>
               </label>
-              {errores.terminos && <span className="registro-error-text" role="alert">{errores.terminos}</span>}
+              {errores.terminos && <span className={styles.errorTexto} role="alert">{errores.terminos}</span>}
             </div>
 
-            <div className="registro-submit-wrap">
-              {intentoEnviar && Object.keys(errores).length > 0 && <span className="registro-tooltip" role="status">⚠ Revisa los campos marcados</span>}
-              <button className="registro-submit" type="submit">Crear mi cuenta</button>
+            <div className={styles.submitWrap}>
+              {intentoEnviar && Object.keys(errores).length > 0 && (
+                <span className={styles.tooltip} role="status">⚠ Revisa los campos marcados</span>
+              )}
+              <Button type="submit" variante="bloque">Crear mi cuenta</Button>
             </div>
           </form>
-          <p className="registro-seguridad">Al registrarte, tus datos estarán protegidos de forma segura.</p>
-        </section>
+          <p className={styles.seguridad}>Al registrarte, tus datos estarán protegidos de forma segura.</p>
+        </Tarjeta>
       </main>
 
       {modalAbierto && (
-        <div className="registro-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) cerrarModal() }}>
-          <section className="registro-modal" role="dialog" aria-modal="true" aria-labelledby="registro-modal-titulo">
-            <button className="registro-modal-cerrar" type="button" onClick={cerrarModal} aria-label="Cerrar">×</button>
-            <div className="registro-modal-check" aria-hidden="true">✓</div>
+        <div className={styles.overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) cerrarModal() }}>
+          <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="registro-modal-titulo">
+            <button className={styles.modalCerrar} type="button" onClick={cerrarModal} aria-label="Cerrar">×</button>
+            <div className={styles.modalCheck} aria-hidden="true">✓</div>
             <h2 id="registro-modal-titulo">¡REGISTRO EXITOSO!</h2>
             <p>Gracias por unirte a Huertos.ec. Tu cuenta ha sido creada correctamente.</p>
-            <Link className="registro-modal-accion" to="/" onClick={cerrarModal}>COMENZAR</Link>
+            <Button as={Link} to="/" variante="bloque" onClick={cerrarModal}>COMENZAR</Button>
           </section>
         </div>
       )}

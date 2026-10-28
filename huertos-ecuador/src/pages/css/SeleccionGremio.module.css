@@ -1,0 +1,47 @@
+.conVideo { isolation: isolate; }
+
+.video {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+}
+
+.capa {
+  position: fixed;
+  inset: 0; 
+  backdrop-filter: blur(2px); 
+  -webkit-backdrop-filter: blur(2px);
+  z-index: -1;
+}
+
+.contenido{
+    flex: 1;
+    display: grid;
+    place-items: center;
+    padding: 38px 20px;
+}
+
+.titulo{
+    text-align: center;
+    font-family: var(--fuente-pixel);
+    font-size: 24px;
+    text-wrap: pretty;
+    padding-bottom: 40px;
+}
+
+.botones{
+    display: flex;
+    justify-content: space-around;
+    gap: 40px
+}
+
+.boton{
+    width: 200px;
+    height: 100px;
+    text-wrap: pretty;
+    font-size: 16px;
+    text-align: center;
+}

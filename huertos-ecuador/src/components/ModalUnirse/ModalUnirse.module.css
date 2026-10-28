@@ -1,0 +1,148 @@
+.overlay {
+  position: fixed;
+  z-index: 10;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(48 74 53 / 55%);
+  backdrop-filter: blur(3px);
+}
+
+.modal {
+  position: relative;
+  width: min(100%, 420px);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 38px 32px 30px;
+  border: 3px solid var(--madera);
+  border-radius: 6px;
+  background: var(--crema);
+  box-shadow:
+    inset 0 0 0 3px #f2e7c9,
+    0 5px 0 var(--madera-oscura),
+    0 24px 60px rgb(0 0 0 / 25%);
+  animation: aparecer 180ms ease-out;
+}
+
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal h2 {
+  margin: 0 0 22px;
+  color: #365c38;
+  text-align: center;
+  font-family: var(--fuente-pixel);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.7;
+}
+
+/* Botón cerrar */
+.cerrar {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--madera);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cerrar:hover {
+  border-color: var(--borde-campo);
+  background: #f2e7c9;
+}
+
+.cerrar:focus-visible {
+  outline: 3px solid #d7a94b;
+  outline-offset: 2px;
+}
+
+/* Pestañas Código / QR */
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.tabs > * {
+  width: 100%;
+  font-size: 8px;
+}
+
+.tabs .tabActiva {
+  background: #e3f0d2;
+  color: var(--hoja);
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #28623b;
+}
+
+/* Formulario del código */
+.modal form label {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--tinta);
+  font-family: var(--fuente-pixel);
+  font-size: 8px;
+  line-height: 1.6;
+}
+
+.modal form input {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin-bottom: 18px;
+  padding: 0 11px;
+  border: 2px solid var(--borde-campo);
+  border-radius: 5px;
+  outline: none;
+  background: #fffdf5;
+  color: var(--tinta);
+  text-align: center;
+  font-family: var(--fuente-pixel);
+  font-size: 16px;
+  letter-spacing: 8px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.modal form input::placeholder {
+  color: #a2afa6;
+  letter-spacing: 8px;
+}
+
+.modal form input:focus {
+  border-color: var(--hoja);
+  box-shadow: 0 0 0 3px rgb(84 137 70 / 18%);
+}
+
+/* Escáner QR */
+.escaner {
+  overflow: hidden;
+  border: 3px solid var(--madera);
+  border-radius: 4px;
+  background: #000;
+  aspect-ratio: 1 / 1;
+}
+
+.ayuda {
+  margin: 14px 0 0;
+  color: var(--texto-suave);
+  text-align: center;
+  font-family: var(--fuente-pixel);
+  font-size: 6px;
+  line-height: 1.8;
+}
+
+@media (max-width: 480px) {
+  .modal { padding: 36px 20px 26px; }
+  .modal form input { font-size: 14px; letter-spacing: 6px; }
+}
