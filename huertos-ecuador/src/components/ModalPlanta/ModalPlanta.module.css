@@ -1,0 +1,225 @@
+.overlay {
+  position: fixed;
+  z-index: 2000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(48 74 53 / 55%);
+  backdrop-filter: blur(3px);
+}
+
+/* Contenedor: tamaño fijo, no depende del contenido */
+.ventana {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 780px);
+  height: min(560px, 90vh);
+  animation: aparecer 180ms ease-out;
+}
+
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ===== Pestañas tipo carpeta ===== */
+.pestanas {
+  display: flex;
+  gap: 6px;
+  padding-left: 18px;
+}
+
+.pestana {
+  position: relative;
+  z-index: 1;
+  padding: 10px 20px 8px;
+  border: 3px solid var(--madera-oscura);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background-color: #f2e2c8;
+  color: #451f3aaf;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.pestana:hover { background-color: #f7ebd6; }
+
+.pestana:focus-visible {
+  outline: 3px solid #d7a94b;
+  outline-offset: 2px;
+}
+
+/* La pestaña activa tapa el borde superior de la tarjeta */
+.activa {
+  z-index: 3;
+  margin-bottom: -3px;
+  padding-bottom: 11px;
+  background-color: var(--crema);
+  color: #451f3a;
+  font-weight: bold;
+}
+
+/* ===== Tarjeta ===== */
+.modal {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;                 /* necesario para el scroll interno */
+  border: 3px solid var(--madera-oscura);
+  border-radius: 0 4px 4px 4px;
+  background-color: var(--crema);
+  box-shadow:
+    inset 0 0 0 3px #f2e7c9,
+    0 4px 0 #222,
+    0 24px 60px rgb(0 0 0 / 25%);
+}
+
+/* Rellena la tarjeta y hace scroll si el texto es largo */
+.contenido {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 25px 24px;
+}
+
+.cerrar {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--madera-oscura);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cerrar:hover {
+  border-color: var(--madera);
+  background-color: #f2e2c8;
+}
+
+/* Título + línea divisoria */
+.encabezado {
+  margin-bottom: 24px;
+  padding: 0 40px 32px 0;
+  border-bottom: 2px solid var(--madera);
+}
+
+.encabezado h2 {
+  margin: 0;
+  color: #451f3a;
+  padding-top: 12px;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.8;
+}
+
+.encabezado p {
+  margin: 0;
+  padding: 6px 0 0;
+  color: var(--hoja-clara);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.8;
+}
+
+/* Panel de la pestaña: ocupa el espacio libre y centra su contenido */
+.panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;   /* centrado vertical */
+  align-items: center;       /* centrado horizontal */
+}
+
+/* ===== Pestaña Fases: 4 fotos con nombre debajo ===== */
+.fases {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fase {
+  display: flex;
+  flex: 0 1 150px;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.foto {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: 2px solid var(--madera);
+  border-radius: 4px;
+  background-color: var(--crema);
+  font-size: 40px;
+}
+
+.foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.faseNombre {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: var(--madera-oscura);
+  color: var(--blanco);
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* ===== Pestaña Cuidados ===== */
+.texto {
+  width: 100%;
+  margin: 0;
+  padding: 14px 12px;
+  border: 2px solid var(--madera-oscura);
+  background-color: #f2e2c8;
+  color: #451f3aaf;
+  font-size: 10px;
+  font-weight: 300;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.vacio {
+  margin: 20px 0;
+  color: #451f3aaf;
+  text-align: center;
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .pestanas { padding-left: 10px; }
+  .contenido { padding: 18px 16px 20px; }
+  .fases {
+    flex-wrap: wrap;
+    row-gap: 18px;
+  }
+  .fase { flex: 0 0 40%; }   /* 2 fotos por fila en móvil */
+}

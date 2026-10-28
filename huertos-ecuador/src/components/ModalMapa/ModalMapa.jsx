@@ -61,7 +61,7 @@ function ModalMapa({ inicial, onConfirmar, onCerrar }) {
     >
       <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="modal-mapa-titulo">
         <button className={styles.cerrar} type="button" onClick={onCerrar} aria-label="Cerrar">×</button>
-        <h2 id="modal-mapa-titulo">Ubicación del huerto</h2>
+        <h2 id="modal-mapa-titulo">Ubicación del huerto</h2>ññ
         <p className={styles.ayuda}>Toca el mapa para colocar el marcador</p>
 
         <div className={styles.mapa}>
