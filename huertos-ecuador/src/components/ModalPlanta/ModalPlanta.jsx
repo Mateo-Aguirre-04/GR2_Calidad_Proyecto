@@ -1,9 +1,28 @@
 import { useEffect, useState } from 'react'
 import styles from './ModalPlanta.module.css'
 
+import iconoSuelo from '../../assets/iconos/suelo.png'
+import iconoAmbiente from '../../assets/iconos/ambiente.png'
+import iconoAbono from '../../assets/iconos/abono.png'
+import iconoExtras from '../../assets/iconos/extras.png'
+
+// Iconos y etiquetas fijos para todas las plantas
+const CATEGORIAS = [
+  { clave: 'suelo',    etiqueta: 'Suelo',    icono: iconoSuelo },
+  { clave: 'ambiente', etiqueta: 'Ambiente', icono: iconoAmbiente },
+  { clave: 'abono',    etiqueta: 'Abono',    icono: iconoAbono },
+  { clave: 'extras',   etiqueta: 'Extras',   icono: iconoExtras },
+]
+
 function ModalPlanta({ planta, onCerrar }) {
   const fases = planta.fases ?? []
+  const cuidados = planta.cuidados ?? {}
   const [pestana, setPestana] = useState('fases') // 'fases' | 'cuidados'
+
+  // Solo las categorías que tienen texto
+  const categorias = CATEGORIAS
+    .map((c) => ({ ...c, textos: [].concat(cuidados[c.clave] ?? []) }))
+    .filter((c) => c.textos.length > 0)
 
   useEffect(() => {
     function alPulsar(e) {
@@ -19,7 +38,6 @@ function ModalPlanta({ planta, onCerrar }) {
       onMouseDown={(e) => { if (e.target === e.currentTarget) onCerrar() }}
     >
       <div className={styles.ventana}>
-        {/* Pestañas tipo carpeta */}
         <div className={styles.pestanas} role="tablist" aria-label="Información de la planta">
           <button
             type="button"
@@ -75,10 +93,24 @@ function ModalPlanta({ planta, onCerrar }) {
                     ))}
                   </ul>
                 )
+              ) : categorias.length === 0 ? (
+                <p className={styles.vacio}>Sin cuidados registrados.</p>
               ) : (
-                <p className={styles.texto}>
-                  {planta.descripcion || planta.cuidados || 'Sin descripción disponible.'}
-                </p>
+                <ul className={styles.listaCuidados}>
+                  {categorias.map(({ clave, etiqueta, icono, textos }) => (
+                    <li key={clave} className={styles.fila}>
+                      <div className={styles.iconoCuidado}>
+                        <img src={icono} alt="" loading="lazy" />
+                      </div>
+                      <div className={styles.info}>
+                        <span className={styles.etiqueta}>{etiqueta}</span>
+                        <ul className={styles.textos}>
+                          {textos.map((t, i) => <li key={i}>{t}</li>)}
+                        </ul>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           </div>

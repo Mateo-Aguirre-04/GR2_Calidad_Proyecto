@@ -1,0 +1,17 @@
+/* El punto (x, y) es la base de la planta: queda "plantada" en esa coordenada */
+.cultivo {
+  position: absolute;
+  display: grid;
+  place-items: end center;
+  width: clamp(36px, 5vw, 72px);
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -100%);
+  font-size: clamp(24px, 3vw, 42px);
+}
+
+.cultivo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
