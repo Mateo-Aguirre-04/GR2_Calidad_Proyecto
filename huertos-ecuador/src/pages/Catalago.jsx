@@ -31,7 +31,7 @@ function Catalogo() {
         <Header 
             pregunta=""
             textoEnlace="Regresar"
-            destino="/"
+            destino="/juego"
         />
 
         <main className={styles.contenido}>

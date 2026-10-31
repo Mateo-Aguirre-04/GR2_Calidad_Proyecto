@@ -1,7 +1,11 @@
-// Esto lo hizo chat para poder probar el renderizado, luego tenemos que cambiarlo para que se adapte a nuestra base
-// y luego de adpatarlo a la base refactorizamos el código del front
-
 import { useEffect, useState } from 'react'
+
+const FASES = [
+  { nombre: 'Siembra', imagen: '' },
+  { nombre: 'Germinación', imagen: '' },
+  { nombre: 'Crecimiento', imagen: '' },
+  { nombre: 'Cosecha', imagen: '' },
+]
 
 const PLANTAS_PRUEBA = [
   {
@@ -9,64 +13,59 @@ const PLANTAS_PRUEBA = [
     nombre: 'Papa Chaucha',
     tipo: 'Tubérculo',
     region: 'Sierra',
-    cuidados: 'Suelo bien drenado, clima frío. Riego regular sin anegar.',
-    descripcion:
-      'La papa chaucha prefiere suelos sueltos y ricos en materia orgánica.\n\nRiega de forma regular, evitando encharcamientos. Aporca la tierra alrededor del tallo cuando la planta alcance unos 20 cm.\n\nCosecha cuando las hojas empiecen a secarse.',
+    resumen: 'Suelo bien drenado, clima frío. Riego regular sin anegar.',
+    cuidados: {
+      suelo: ['Suelo suelto y bien drenado.', 'Rico en materia orgánica.'],
+      ambiente: ['Clima frío.', 'Evitar heladas fuertes.'],
+      abono: ['Compost antes de sembrar.', 'Aporcar cuando la planta mida 20 cm.'],
+      extras: ['Cosechar cuando las hojas empiecen a secarse.'],
+    },
     imagen: '',
-    fases: [
-      { nombre: 'Siembra', imagen: '' },
-      { nombre: 'Germinación', imagen: '' },
-      { nombre: 'Crecimiento', imagen: '' },
-      { nombre: 'Cosecha', imagen: '' },
-    ],
+    fases: FASES,
   },
   {
     id: 2,
     nombre: 'Tomate de Árbol',
     tipo: 'Fruta',
     region: 'Sierra',
-    cuidados: 'Soporta temperaturas templadas. Requiere buen abono orgánico.',
-    descripcion:
-      'El tomate de árbol necesita un suelo fértil y protegido del viento fuerte.\n\nAbona cada dos meses con compost y poda las ramas secas para favorecer la producción.',
+    resumen: 'Soporta temperaturas templadas. Requiere buen abono orgánico.',
+    cuidados: {
+      suelo: ['El suelo debe ser fértil.', 'Debe estar protegido.'],
+      ambiente: ['No debe existir viento fuerte.'],
+      abono: ['Cada dos meses con compost.', 'Poda las ramas secas para favorecer la producción.'],
+      extras: ['Revisar plagas con frecuencia.'],
+    },
     imagen: '',
-    fases: [
-      { nombre: 'Siembra', imagen: '' },
-      { nombre: 'Germinación', imagen: '' },
-      { nombre: 'Crecimiento', imagen: '' },
-      { nombre: 'Cosecha', imagen: '' },
-    ],
+    fases: FASES,
   },
   {
     id: 3,
     nombre: 'Menta / Hierbabuena',
     tipo: 'Hierba',
     region: 'Sierra',
-    cuidados: 'Riego constante, semisombra. Crece rápido en macetas.',
-    descripcion:
-      'La menta se adapta bien a macetas porque sus raíces se extienden con rapidez.\n\nMantén la tierra húmeda y córtala con frecuencia para que rebrote.',
+    resumen: 'Riego constante, semisombra. Crece rápido en macetas.',
+    cuidados: {
+      suelo: 'Tierra húmeda y ligera.',
+      ambiente: ['Semisombra.', 'Crece bien en macetas.'],
+      abono: 'Humus de lombriz una vez al mes.',
+    },
     imagen: '',
-    fases: [
-      { nombre: 'Siembra', imagen: '' },
-      { nombre: 'Germinación', imagen: '' },
-      { nombre: 'Crecimiento', imagen: '' },
-      { nombre: 'Cosecha', imagen: '' },
-    ],
+    fases: FASES,
   },
   {
     id: 4,
     nombre: 'Maíz',
     tipo: 'Cereal',
     region: 'Costa',
-    cuidados: 'Pleno sol y riego frecuente. Necesita suelo profundo.',
-    descripcion:
-      'El maíz requiere sol directo y suelo profundo y fértil.\n\nRiega con frecuencia durante la floración y espera a que las mazorcas estén firmes para cosechar.',
+    resumen: 'Pleno sol y riego frecuente. Necesita suelo profundo.',
+    cuidados: {
+      suelo: ['Suelo profundo y fértil.'],
+      ambiente: ['Pleno sol.', 'Riego frecuente en la floración.'],
+      abono: ['Abonar al sembrar y al aparecer las primeras hojas.'],
+      extras: ['Cosechar cuando las mazorcas estén firmes.'],
+    },
     imagen: '',
-    fases: [
-      { nombre: 'Siembra', imagen: '' },
-      { nombre: 'Germinación', imagen: '' },
-      { nombre: 'Crecimiento', imagen: '' },
-      { nombre: 'Cosecha', imagen: '' },
-    ],
+    fases: FASES,
   },
 ]
 
@@ -76,12 +75,10 @@ export function usePlantas() {
   const [error] = useState('')
 
   useEffect(() => {
-    // Simula la espera de una API
     const temporizador = setTimeout(() => {
       setPlantas(PLANTAS_PRUEBA)
       setCargando(false)
     }, 400)
-
     return () => clearTimeout(temporizador)
   }, [])
 

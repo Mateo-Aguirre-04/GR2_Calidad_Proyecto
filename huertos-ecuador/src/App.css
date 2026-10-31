@@ -21,7 +21,7 @@ body {
   margin: 0;
   color: var(--tinta);
   background: var(--fondo);
-  font-family: 'Nunito', Arial, sans-serif;
+  font-family: var(--fuente-pixel);
 }
 
 button, input { font: inherit; }

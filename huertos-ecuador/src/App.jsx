@@ -4,6 +4,7 @@ import Registro from './pages/Registro'
 import SeleccionGremio from './pages/SeleccionGremio'
 import CrearGremio from "./pages/CrearGremio"
 import Catalogo from './pages/Catalago'
+import Juego from './pages/Juego'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/seleccion-gremio" element={<SeleccionGremio />} />
         <Route path="/crear-gremio" element={<CrearGremio />} />
         <Route path="/catalogo-plantas" element={<Catalogo />} />
+        <Route path="/juego" element={<Juego />} />
       </Routes>
     </BrowserRouter>
   )
