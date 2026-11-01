@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 const PERFIL_PRUEBA = {
   nombre: 'Juanito Pérez',
-  gremio: 'Sembradores de Ficoa - Ambato',
+  gremio: 'Gremio Huerto San Francisco',
   rango: 'Oficial',
   puntuacion: 130,
   posicionGremio: 2,

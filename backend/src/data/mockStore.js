@@ -1,4 +1,4 @@
-// In-memory data store with exact seed data from seed_datos_iniciales.sql and schema
+// In-memory data store with seed data for Quito, Cuenca and Tungurahua guilds
 // Provides complete offline functionality if PostgreSQL is not currently running.
 
 export const mockData = {
@@ -6,31 +6,31 @@ export const mockData = {
     {
       id: 1,
       codigo: '000001',
-      nombre: 'Sembradores de Ficoa - Ambato',
+      nombre: 'Gremio Huerto San Francisco',
       areaTotal: 450.0,
       puntos: 450,
-      ubicacion: { lat: -1.2417, lng: -78.6295 },
-      direccion: 'Ambato (Ficoa), Tungurahua',
+      ubicacion: { lat: -0.1807, lng: -78.4678 },
+      direccion: 'Quito, Pichincha',
       miembrosCount: 4,
     },
     {
       id: 2,
       codigo: '000002',
-      nombre: 'Huerto Comunitario Pelileo',
+      nombre: 'Sembradores del Tomebamba',
       areaTotal: 320.5,
       puntos: 320,
-      ubicacion: { lat: -1.3292, lng: -78.5434 },
-      direccion: 'San Pedro de Pelileo, Tungurahua',
+      ubicacion: { lat: -2.9001, lng: -79.0059 },
+      direccion: 'Cuenca, Azuay',
       miembrosCount: 4,
     },
     {
       id: 3,
       codigo: '000003',
-      nombre: 'Guardianes del Valle de Patate',
+      nombre: 'Guardianes de la Tierra Tungurahua',
       areaTotal: 580.0,
       puntos: 210,
-      ubicacion: { lat: -1.3119, lng: -78.5083 },
-      direccion: 'Patate, Tungurahua',
+      ubicacion: { lat: -1.2491, lng: -78.6168 },
+      direccion: 'Ambato, Tungurahua',
       miembrosCount: 4,
     },
   ],
@@ -47,7 +47,7 @@ export const mockData = {
       puntos: 340,
       rango: 'Maestro',
       gremioId: 1,
-      gremioNombre: 'Sembradores de Ficoa - Ambato',
+      gremioNombre: 'Gremio Huerto San Francisco',
       rolGremio: 'Líder de Gremio',
       posicionGremio: 1,
       avatar: '',
@@ -63,7 +63,7 @@ export const mockData = {
       puntos: 130,
       rango: 'Oficial',
       gremioId: 1,
-      gremioNombre: 'Sembradores de Ficoa - Ambato',
+      gremioNombre: 'Gremio Huerto San Francisco',
       rolGremio: 'Coordinador de Parcela',
       posicionGremio: 2,
       avatar: '',
@@ -79,7 +79,7 @@ export const mockData = {
       puntos: 45,
       rango: 'Aprendiz',
       gremioId: 1,
-      gremioNombre: 'Sembradores de Ficoa - Ambato',
+      gremioNombre: 'Gremio Huerto San Francisco',
       rolGremio: 'Técnico de Riego',
       posicionGremio: 3,
       avatar: '',
@@ -95,7 +95,7 @@ export const mockData = {
       puntos: 20,
       rango: 'Novato',
       gremioId: 1,
-      gremioNombre: 'Sembradores de Ficoa - Ambato',
+      gremioNombre: 'Gremio Huerto San Francisco',
       rolGremio: 'Miembro Colaborador',
       posicionGremio: 4,
       avatar: '',
@@ -111,7 +111,7 @@ export const mockData = {
       puntos: 320,
       rango: 'Maestro',
       gremioId: 2,
-      gremioNombre: 'Huerto Comunitario Pelileo',
+      gremioNombre: 'Sembradores del Tomebamba',
       rolGremio: 'Líder de Gremio',
       posicionGremio: 1,
       avatar: '',
@@ -175,7 +175,7 @@ export const mockData = {
       puntos: 380,
       rango: 'Maestro',
       gremioId: 3,
-      gremioNombre: 'Guardianes del Valle de Patate',
+      gremioNombre: 'Guardianes de la Tierra Tungurahua',
       rolGremio: 'Líder de Gremio',
       posicionGremio: 1,
       avatar: '',
@@ -191,7 +191,7 @@ export const mockData = {
       puntos: 140,
       rango: 'Oficial',
       gremioId: 3,
-      gremioNombre: 'Guardianes del Valle de Patate',
+      gremioNombre: 'Guardianes de la Tierra Tungurahua',
       rolGremio: 'Coordinador Fitosanitario',
       posicionGremio: 2,
       avatar: '',
@@ -207,7 +207,7 @@ export const mockData = {
       puntos: 75,
       rango: 'Aprendiz',
       gremioId: 3,
-      gremioNombre: 'Guardianes del Valle de Patate',
+      gremioNombre: 'Guardianes de la Tierra Tungurahua',
       rolGremio: 'Miembro Activo',
       posicionGremio: 3,
       avatar: '',
@@ -223,7 +223,7 @@ export const mockData = {
       puntos: 25,
       rango: 'Novato',
       gremioId: 3,
-      gremioNombre: 'Guardianes del Valle de Patate',
+      gremioNombre: 'Guardianes de la Tierra Tungurahua',
       rolGremio: 'Auxiliar de Parcela',
       posicionGremio: 4,
       avatar: '',
@@ -245,7 +245,7 @@ export const mockData = {
         abono: ['Compost antes de sembrar.', 'Aporcar cuando la planta mida 20 cm.'],
         extras: ['Cosechar cuando las hojas comiencen a secarse.'],
       },
-      imagen: '', // Ruta para /plantas/papa-chaucha/icono.png
+      imagen: '',
       fases: [
         { nombre: 'Siembra', imagen: '' },
         { nombre: 'Germinación', imagen: '' },
@@ -267,7 +267,7 @@ export const mockData = {
         abono: ['Cada dos meses con compost maduro.', 'Poda regular de ramas secas.'],
         extras: ['Revisar presencia de mosca blanca periódicamente.'],
       },
-      imagen: '', // Ruta para /plantas/tomate-arbol/icono.png
+      imagen: '',
       fases: [
         { nombre: 'Siembra', imagen: '' },
         { nombre: 'Germinación', imagen: '' },
@@ -289,7 +289,7 @@ export const mockData = {
         abono: ['Humus de lombriz una vez al mes.'],
         extras: ['Podar las puntas estimula la ramificación frondosa.'],
       },
-      imagen: '', // Ruta para /plantas/menta/icono.png
+      imagen: '',
       fases: [
         { nombre: 'Siembra', imagen: '' },
         { nombre: 'Germinación', imagen: '' },
@@ -311,7 +311,7 @@ export const mockData = {
         abono: ['Abonar al sembrar y al aparecer las primeras 6 hojas.'],
         extras: ['Aporcar para brindar estabilidad a la raíz.'],
       },
-      imagen: '', // Ruta para /plantas/maiz/icono.png
+      imagen: '',
       fases: [
         { nombre: 'Siembra', imagen: '' },
         { nombre: 'Germinación', imagen: '' },
@@ -369,8 +369,8 @@ export const mockData = {
     {
       id: 1,
       gremioId: 1,
-      tipo: 'campo', // define el fondo: /fondos/campo.png
-      ubicacion: { lat: -1.2417, lng: -78.6295 }, // Ambato, Tungurahua
+      tipo: 'campo',
+      ubicacion: { lat: -0.1807, lng: -78.4678 }, // Quito, Pichincha
       cultivos: [
         {
           id: 1,
@@ -441,7 +441,7 @@ export const mockData = {
       id: 2,
       gremioId: 2,
       tipo: 'campo',
-      ubicacion: { lat: -1.3292, lng: -78.5434 }, // Pelileo, Tungurahua
+      ubicacion: { lat: -2.9001, lng: -79.0059 }, // Cuenca, Azuay
       cultivos: [
         {
           id: 8,
@@ -467,7 +467,7 @@ export const mockData = {
       id: 3,
       gremioId: 3,
       tipo: 'campo',
-      ubicacion: { lat: -1.3119, lng: -78.5083 }, // Patate, Tungurahua
+      ubicacion: { lat: -1.2491, lng: -78.6168 }, // Ambato, Tungurahua
       cultivos: [
         {
           id: 10,
@@ -487,7 +487,7 @@ export const mockData = {
       id: 1,
       usuarioId: 2, // Juanito Pérez
       tipo: 'riego',
-      texto: 'Regar los tomates en Ficoa',
+      texto: 'Regar los tomates en Huerto San Francisco (Quito)',
       venceEn: new Date(Date.now() - 2 * 3_600_000).toISOString(),
       completado: false,
     },

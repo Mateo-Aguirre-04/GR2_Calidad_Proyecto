@@ -17,7 +17,7 @@ const icono = L.icon({
   iconAnchor: [12, 41],
 })
 
-const CENTRO_INICIAL = [-1.2417, -78.6295] // Ambato, Tungurahua
+const CENTRO_INICIAL = [-0.1807, -78.4678] // Quito
 
 function AlHacerClic({ onElegir }) {
   useMapEvents({

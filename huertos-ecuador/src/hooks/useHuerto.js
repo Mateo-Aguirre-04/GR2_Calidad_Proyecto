@@ -11,7 +11,7 @@ const MAIZ = { nombre: 'Maíz Chulpi', diasCrecimiento: 90, imagenes: ['', '', '
 
 const HUERTO_PRUEBA = {
   tipo: 'campo',
-  ubicacion: { lat: -1.2417, lng: -78.6295 }, // Sector Ficoa, Ambato (Tungurahua)
+  ubicacion: { lat: -0.1807, lng: -78.4678 }, // Quito
   cultivos: [
     { id: 1, planta: TOMATE, x: 8,  y: 36, sembradoEn: hace(5),  cosechado: false },
     { id: 2, planta: TOMATE, x: 14, y: 36, sembradoEn: hace(25), cosechado: false },
