@@ -11,7 +11,7 @@ Este documento explica cómo configurar, ejecutar y probar la API REST del backe
 * **Proxy Inverso:** Vite redirige automáticamente todas las peticiones con prefijo `/api/*` hacia `http://localhost:3001`, eliminando cualquier problema de CORS en desarrollo.
 * **Base de Datos (Modo Dual):**
   * **Con PostgreSQL:** Se conecta a la base configurada en `.env` ejecutando las consultas contra las tablas de `sistema_agricola_gamificacion.sql`.
-  * **Sin PostgreSQL (Modo Resiliente / Semilla):** Si el motor PostgreSQL no está activo, el backend activa automáticamente su almacén local en memoria precargado con los datos de Tungurahua de `seed_datos_iniciales.sql`. Esto permite probar la interfaz y los flujos inmediatamente sin dependencias externas.
+  * **Sin PostgreSQL (Modo Resiliente / Semilla):** Si el motor PostgreSQL no está activo, el backend activa automáticamente su almacén local en memoria precargado con los datos iniciales de Quito, Cuenca y Ambato/Tungurahua de `seed_datos_iniciales.sql`. Esto permite probar la interfaz y los flujos inmediatamente sin dependencias externas.
 
 ---
 
