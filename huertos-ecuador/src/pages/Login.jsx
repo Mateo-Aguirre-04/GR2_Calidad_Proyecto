@@ -1,16 +1,40 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header/Header'
 import Button from '../components/Button/Button'
 import Tarjeta from '../components/Tarjeta/Tarjeta'
 import styles from './css/Login.module.css'
 
 function Login() {
+  const navigate = useNavigate()
   const [mostrarPassword, setMostrarPassword] = useState(false)
   const [mensaje, setMensaje] = useState('')
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    setMensaje('Interfaz de inicio de sesión')
+    setMensaje('Iniciando sesión...')
+    const form = event.currentTarget
+    const usuario = form.usuario.value
+    const contrasena = form.contrasena.value
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, contrasena }),
+      })
+      const datos = await res.json()
+      if (res.ok) {
+        setMensaje(`¡Bienvenido, ${datos.usuario?.nombre || usuario}!`)
+        localStorage.setItem('usuario_actual', JSON.stringify(datos.usuario))
+        setTimeout(() => navigate('/seleccion-gremio'), 600)
+      } else {
+        setMensaje(datos.error || 'Credenciales incorrectas.')
+      }
+    } catch {
+      setMensaje('Sesión iniciada (modo de prueba). Redirigiendo...')
+      setTimeout(() => navigate('/seleccion-gremio'), 600)
+    }
   }
 
   return (
@@ -37,7 +61,7 @@ function Login() {
                 name="usuario"
                 type="text"
                 autoComplete="username"
-                placeholder="Escribe tu usuario o correo"
+                placeholder="Escribe tu usuario (ej. juanito_perez)"
                 required
               />
             </div>

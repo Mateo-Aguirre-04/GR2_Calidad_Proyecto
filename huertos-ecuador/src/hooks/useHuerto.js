@@ -3,16 +3,15 @@ import { useEffect, useState } from 'react'
 const hace = (dias) => new Date(Date.now() - dias * 86_400_000).toISOString()
 
 const TOMATE = {
-  nombre: 'Tomate',
+  nombre: 'Tomate de Árbol',
   diasCrecimiento: 60,
-  imagenes: ['', '', '', ''], // fase 1, 2, 3 y cosechada
+  imagenes: ['', '', '', ''],
 }
-const MAIZ = { nombre: 'Maíz', diasCrecimiento: 90, imagenes: ['', '', '', ''] }
+const MAIZ = { nombre: 'Maíz Chulpi', diasCrecimiento: 90, imagenes: ['', '', '', ''] }
 
-// x e y son porcentajes sobre la pantalla: así la posición es igual en cualquier tamaño
 const HUERTO_PRUEBA = {
-  tipo: 'campo', // define el fondo: /fondos/campo.png
-  ubicacion: { lat: -0.1807, lng: -78.4678 }, // la que se guardó al crear el gremio
+  tipo: 'campo',
+  ubicacion: { lat: -1.2417, lng: -78.6295 }, // Sector Ficoa, Ambato (Tungurahua)
   cultivos: [
     { id: 1, planta: TOMATE, x: 8,  y: 36, sembradoEn: hace(5),  cosechado: false },
     { id: 2, planta: TOMATE, x: 14, y: 36, sembradoEn: hace(25), cosechado: false },
@@ -24,17 +23,32 @@ const HUERTO_PRUEBA = {
   ],
 }
 
-export function useHuerto() {
+export function useHuerto(huertoId = 1) {
   const [huerto, setHuerto] = useState(null)
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
-    const temporizador = setTimeout(() => {
-      setHuerto(HUERTO_PRUEBA)
-      setCargando(false)
-    }, 300)
-    return () => clearTimeout(temporizador)
-  }, [])
+    const controlador = new AbortController()
+
+    async function cargar() {
+      try {
+        const res = await fetch(`/api/huertos/${huertoId}`, { signal: controlador.signal })
+        if (!res.ok) throw new Error('Error al consultar huerto')
+        const datos = await res.json()
+        setHuerto(datos)
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.warn('[useHuerto] No se pudo conectar a la API, usando huerto de reserva:', err.message)
+          setHuerto(HUERTO_PRUEBA)
+        }
+      } finally {
+        setCargando(false)
+      }
+    }
+
+    cargar()
+    return () => controlador.abort()
+  }, [huertoId])
 
   return { huerto, cargando }
 }

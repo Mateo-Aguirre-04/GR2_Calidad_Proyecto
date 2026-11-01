@@ -45,18 +45,18 @@ const PLANTAS_PRUEBA = [
     region: 'Sierra',
     resumen: 'Riego constante, semisombra. Crece rápido en macetas.',
     cuidados: {
-      suelo: 'Tierra húmeda y ligera.',
+      suelo: ['Tierra húmeda y ligera.'],
       ambiente: ['Semisombra.', 'Crece bien en macetas.'],
-      abono: 'Humus de lombriz una vez al mes.',
+      abono: ['Humus de lombriz una vez al mes.'],
     },
     imagen: '',
     fases: FASES,
   },
   {
     id: 4,
-    nombre: 'Maíz',
+    nombre: 'Maíz Chulpi',
     tipo: 'Cereal',
-    region: 'Costa',
+    region: 'Sierra',
     resumen: 'Pleno sol y riego frecuente. Necesita suelo profundo.',
     cuidados: {
       suelo: ['Suelo profundo y fértil.'],
@@ -75,11 +75,26 @@ export function usePlantas() {
   const [error] = useState('')
 
   useEffect(() => {
-    const temporizador = setTimeout(() => {
-      setPlantas(PLANTAS_PRUEBA)
-      setCargando(false)
-    }, 400)
-    return () => clearTimeout(temporizador)
+    const controlador = new AbortController()
+
+    async function cargar() {
+      try {
+        const res = await fetch('/api/plantas', { signal: controlador.signal })
+        if (!res.ok) throw new Error('Error al consultar plantas')
+        const datos = await res.json()
+        setPlantas(datos)
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.warn('[usePlantas] No se pudo conectar a la API, usando datos de reserva:', err.message)
+          setPlantas(PLANTAS_PRUEBA)
+        }
+      } finally {
+        setCargando(false)
+      }
+    }
+
+    cargar()
+    return () => controlador.abort()
   }, [])
 
   return { plantas, cargando, error }

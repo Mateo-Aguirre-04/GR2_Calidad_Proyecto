@@ -3,7 +3,7 @@ import Login from './pages/Login'
 import Registro from './pages/Registro'
 import SeleccionGremio from './pages/SeleccionGremio'
 import CrearGremio from "./pages/CrearGremio"
-import Catalogo from './pages/Catalago'
+import Catalogo from './pages/Catalogo'
 import Juego from './pages/Juego'
 
 function App() {
