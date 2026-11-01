@@ -4,7 +4,7 @@ const EMOJI_FASE = ['🌱', '🌿', '🪴', '🧺']
 const DIA_MS = 86_400_000
 
 // 0, 1 y 2: crecimiento (el tiempo total se divide en tres). 3: cosechada.
-export function calcularFase({ sembradoEn, cosechado, planta }, ahora) {
+function calcularFase({ sembradoEn, cosechado, planta }, ahora) {
   if (cosechado) return 3
   const dias = (ahora - new Date(sembradoEn).getTime()) / DIA_MS
   const progreso = dias / planta.diasCrecimiento

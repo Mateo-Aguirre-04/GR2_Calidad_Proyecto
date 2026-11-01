@@ -38,7 +38,7 @@ export function useClima(ubicacion) {
         const datos = await res.json()
         const clave = codigoAClave(datos.current.weather_code)
         setClima({ clave, ...ESTADOS[clave] })
-      } catch (e) {
+      } catch {
         // si falla, se queda el último valor: el clima no debe romper el juego
       }
     }
