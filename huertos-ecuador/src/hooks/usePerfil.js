@@ -17,16 +17,33 @@ export function usePerfil(usuarioId = 2) {
   useEffect(() => {
     const controlador = new AbortController()
 
+    let gremioGuardado = null
+    try {
+      const raw = localStorage.getItem('gremio_activo')
+      if (raw) gremioGuardado = JSON.parse(raw)
+    } catch {
+      // Ignorar
+    }
+
     async function cargar() {
       try {
         const res = await fetch(`/api/perfil/${usuarioId}`, { signal: controlador.signal })
         if (!res.ok) throw new Error('Error al consultar perfil')
         const datos = await res.json()
+
+        if (gremioGuardado?.nombre) {
+          datos.gremio = gremioGuardado.nombre
+        }
+
         setPerfil(datos)
       } catch (err) {
         if (err.name !== 'AbortError') {
           console.warn('[usePerfil] No se pudo conectar a la API, usando perfil de reserva:', err.message)
-          setPerfil(PERFIL_PRUEBA)
+          const fallback = { ...PERFIL_PRUEBA }
+          if (gremioGuardado?.nombre) {
+            fallback.gremio = gremioGuardado.nombre
+          }
+          setPerfil(fallback)
         }
       } finally {
         setCargando(false)

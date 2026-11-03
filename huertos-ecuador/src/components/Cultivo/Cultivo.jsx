@@ -11,16 +11,25 @@ function calcularFase({ sembradoEn, cosechado, planta }, ahora) {
   return Math.min(2, Math.max(0, Math.floor(progreso * 3)))
 }
 
-function Cultivo({ cultivo, ahora }) {
+function Cultivo({ cultivo, ahora, onSelect, selectable }) {
   const fase = calcularFase(cultivo, ahora)
   const { planta, x, y } = cultivo
   const imagen = planta.imagenes?.[fase]
+
+  const handleClick = () => {
+    if (selectable && onSelect) {
+      onSelect(cultivo)
+    }
+  }
 
   return (
     <div
       className={styles.cultivo}
       style={{ left: `${x}%`, top: `${y}%`, zIndex: Math.round(y) }}
       title={`${planta.nombre} · fase ${fase + 1} de 4`}
+      onClick={handleClick}
+      role={selectable ? 'button' : undefined}
+      aria-pressed={selectable ? 'false' : undefined}
     >
       {imagen
         ? <img src={imagen} alt={`${planta.nombre}, fase ${fase + 1}`} />
