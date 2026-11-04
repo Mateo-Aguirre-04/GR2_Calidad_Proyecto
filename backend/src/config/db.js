@@ -11,7 +11,7 @@ export const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'huertos_db',
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 2000,ñ
 })
 
 let connected = false

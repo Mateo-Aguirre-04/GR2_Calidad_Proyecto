@@ -9,6 +9,7 @@
 }
 
 .modal {
+  position: relative;
   background: var(--color-fondo, #fff);
   border-radius: 8px;
   max-width: 90vw;
@@ -16,16 +17,28 @@
   overflow: auto;
   padding: 1rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  padding: 50px;
 }
 
 .cerrar {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
+  top: 16px;
+  right: 14px;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--madera-oscura);
+  font-size: 22px;
+  line-height: 1;
   cursor: pointer;
+}
+
+.cerrar:hover {
+  border-color: var(--madera);
+  background-color: #f2e2c8;
 }
 
 .estado {
@@ -35,9 +48,10 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
   margin-top: 1rem;
+  grid-auto-rows: 1fr;
 }
 
 .item {
@@ -60,3 +74,12 @@
   margin-bottom: 0.5rem;
 }
 
+.modal h2 {
+  margin: 0 0 8px;
+  color: #365c38;
+  text-align: center;
+  font-family: var(--fuente-pixel);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.7;
+}

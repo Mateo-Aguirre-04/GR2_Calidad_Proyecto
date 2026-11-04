@@ -65,7 +65,7 @@ function Juego() {
   // Callback when a plant is chosen from the catalog modal
   function onPlantaElegida(planta) {
     setPlantaSeleccionada(planta)
-    setModal('mapa')
+    setModal(null)
   }
 
   // Callback when map location is confirmed
