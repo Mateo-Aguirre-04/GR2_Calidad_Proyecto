@@ -1,14 +1,14 @@
 import styles from './BotonLateral.module.css'
 
 function BotonLateral({ boton, onSeleccionar, tooltipArriba = false }) {
-  const { clave, etiqueta, descripcion, emoji, nombre, cantidad } = boton
+  const { clave, etiqueta, descripcion, emoji, nombre, cantidad, pulsar } = boton
   const idTooltip = `tooltip-${clave}`
 
   return (
     <div className={styles.contenedor}>
       <button
         type="button"
-        className={`${styles.boton} ${cantidad ? styles.aviso : ''}`}
+        className={`${styles.boton} ${cantidad || pulsar ? styles.aviso : ''}`}
         onClick={() => onSeleccionar(boton)}
         aria-label={cantidad ? `${nombre} (${cantidad} pendientes)` : nombre}
         aria-describedby={idTooltip}

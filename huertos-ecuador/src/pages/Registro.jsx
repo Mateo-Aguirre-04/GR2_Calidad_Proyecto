@@ -60,7 +60,20 @@ function Registro() {
     setIntentoEnviar(true)
     const nuevosErrores = validar(valores, genero, aceptaTerminos)
     setErrores(nuevosErrores)
-    if (Object.keys(nuevosErrores).length === 0) setModalAbierto(true)
+    if (Object.keys(nuevosErrores).length === 0) {
+      fetch('/api/auth/registro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: valores.nombre,
+          apellido: valores.apellido,
+          usuario: valores.usuario,
+          contrasena: valores.contrasena,
+          genero,
+        }),
+      }).catch((err) => console.warn('[Registro] API offline:', err))
+      setModalAbierto(true)
+    }
   }
 
   function cerrarModal() {

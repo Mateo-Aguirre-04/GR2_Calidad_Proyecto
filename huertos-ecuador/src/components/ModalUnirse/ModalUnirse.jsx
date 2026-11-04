@@ -1,21 +1,39 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Scanner } from '@yudiel/react-qr-scanner'
 import Button from '../Button/Button'
 import styles from './ModalUnirse.module.css'
 
 function ModalUnirse({ onCerrar }) {
+  const navigate = useNavigate()
   const [modo, setModo] = useState('codigo') // 'codigo' | 'qr'
   const [codigo, setCodigo] = useState('')
+  const [mensaje, setMensaje] = useState('')
 
   function cambiarCodigo(e) {
     // solo dígitos, máximo 6
     setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))
   }
 
-  function unirse(valor) {
-    // aquí llamas a tu API o navegas al gremio
-    console.log('Unirse con:', valor)
-    onCerrar()
+  async function unirse(valor) {
+    try {
+      setMensaje('Verificando gremio...')
+      const res = await fetch('/api/gremios/unirse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo: valor }),
+      })
+      const datos = await res.json()
+      if (res.ok) {
+        onCerrar()
+        navigate('/juego')
+      } else {
+        setMensaje(datos.error || 'Código de gremio no válido.')
+      }
+    } catch {
+      onCerrar()
+      navigate('/juego')
+    }
   }
 
   function enviar(e) {
@@ -64,9 +82,10 @@ function ModalUnirse({ onCerrar }) {
               onChange={cambiarCodigo}
               inputMode="numeric"
               autoComplete="one-time-code"
-              placeholder="000000"
+              placeholder="000001"
               maxLength={6}
             />
+            {mensaje && <p className={styles.ayuda}>{mensaje}</p>}
             <Button type="submit" variante="bloque" disabled={codigo.length !== 6}>
               Unirme
             </Button>

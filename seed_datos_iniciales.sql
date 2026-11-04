@@ -8,8 +8,8 @@
 -- segura sin duplicar registros ni violar restricciones de clave primaria/única.
 --
 -- DISTRIBUCIÓN:
--- 1. 3 Gremios comunitarios ubicados exclusivamente en la provincia de Tungurahua
---    (Ambato, Pelileo y Patate).
+-- 1. 3 Gremios comunitarios ubicados en Quito (Pichincha), Cuenca (Azuay) y Ambato (Tungurahua).
+--    (Pichincha, Azuay y Tungurahua).
 -- 2. 12 Usuarios únicos (4 por gremio, sin repetición, progresión completa:
 --    Maestro, Oficial, Aprendiz y Novato).
 -- 3. Membresías por gremio (12 miembros).
@@ -18,26 +18,26 @@
 -- =============================================================================
 
 -- =============================================================================
--- 1. GREMIOS COMUNITARIOS EN TUNGURAHUA (Tabla: Gremio)
+-- 1. GREMIOS COMUNITARIOS (Tabla: Gremio)
 -- =============================================================================
 INSERT INTO Gremio (Nombre_Gremio, Area_total, Puntos_Gremio, Ubicacion_Geografica)
-SELECT 'Sembradores de Ficoa - Ambato', 450.00, 450, 'Ambato (Ficoa), Tungurahua (Lat: -1.2417, Lng: -78.6295)'
-WHERE NOT EXISTS (SELECT 1 FROM Gremio WHERE Nombre_Gremio = 'Sembradores de Ficoa - Ambato');
+SELECT 'Gremio Huerto San Francisco', 450.00, 450, 'Quito, Pichincha (Lat: -0.1807, Lng: -78.4678)'
+WHERE NOT EXISTS (SELECT 1 FROM Gremio WHERE Nombre_Gremio = 'Gremio Huerto San Francisco');
 
 INSERT INTO Gremio (Nombre_Gremio, Area_total, Puntos_Gremio, Ubicacion_Geografica)
-SELECT 'Huerto Comunitario Pelileo', 320.50, 320, 'San Pedro de Pelileo, Tungurahua (Lat: -1.3292, Lng: -78.5434)'
-WHERE NOT EXISTS (SELECT 1 FROM Gremio WHERE Nombre_Gremio = 'Huerto Comunitario Pelileo');
+SELECT 'Sembradores del Tomebamba', 320.50, 320, 'Cuenca, Azuay (Lat: -2.9001, Lng: -79.0059)'
+WHERE NOT EXISTS (SELECT 1 FROM Gremio WHERE Nombre_Gremio = 'Sembradores del Tomebamba');
 
 INSERT INTO Gremio (Nombre_Gremio, Area_total, Puntos_Gremio, Ubicacion_Geografica)
-SELECT 'Guardianes del Valle de Patate', 580.00, 210, 'Patate, Tungurahua (Lat: -1.3119, Lng: -78.5083)'
-WHERE NOT EXISTS (SELECT 1 FROM Gremio WHERE Nombre_Gremio = 'Guardianes del Valle de Patate');
+SELECT 'Guardianes de la Tierra Tungurahua', 580.00, 210, 'Ambato, Tungurahua (Lat: -1.2491, Lng: -78.6168)'
+WHERE NOT EXISTS (SELECT 1 FROM Gremio WHERE Nombre_Gremio = 'Guardianes de la Tierra Tungurahua');
 
 
 -- =============================================================================
 -- 2. IDENTIDADES BASE (Tabla: Usuario) - 12 USUARIOS ÚNICOS
 -- =============================================================================
 
--- --- GRUPO 1: Usuarios para Sembradores de Ficoa - Ambato (Tungurahua) ---
+-- --- GRUPO 1: Usuarios para Gremio Huerto San Francisco (Quito, Pichincha) ---
 INSERT INTO Usuario (Nombre_Usuario, Fecha_Nacimiento, Genero)
 SELECT 'patricia_reyes', '1985-09-30', 'F'
 WHERE NOT EXISTS (SELECT 1 FROM Usuario WHERE Nombre_Usuario = 'patricia_reyes');
@@ -54,7 +54,7 @@ INSERT INTO Usuario (Nombre_Usuario, Fecha_Nacimiento, Genero)
 SELECT 'gabriel_mendoza', '2003-06-21', 'M'
 WHERE NOT EXISTS (SELECT 1 FROM Usuario WHERE Nombre_Usuario = 'gabriel_mendoza');
 
--- --- GRUPO 2: Usuarios para Huerto Comunitario Pelileo (Tungurahua) ---
+-- --- GRUPO 2: Usuarios para Sembradores del Tomebamba (Cuenca, Azuay) ---
 INSERT INTO Usuario (Nombre_Usuario, Fecha_Nacimiento, Genero)
 SELECT 'maria_quispe', '1988-08-23', 'F'
 WHERE NOT EXISTS (SELECT 1 FROM Usuario WHERE Nombre_Usuario = 'maria_quispe');
@@ -71,7 +71,7 @@ INSERT INTO Usuario (Nombre_Usuario, Fecha_Nacimiento, Genero)
 SELECT 'diego_alvarez', '2004-07-19', 'M'
 WHERE NOT EXISTS (SELECT 1 FROM Usuario WHERE Nombre_Usuario = 'diego_alvarez');
 
--- --- GRUPO 3: Usuarios para Guardianes del Valle de Patate (Tungurahua) ---
+-- --- GRUPO 3: Usuarios para Guardianes de la Tierra Tungurahua (Ambato, Tungurahua) ---
 INSERT INTO Usuario (Nombre_Usuario, Fecha_Nacimiento, Genero)
 SELECT 'rosa_vallejo', '1980-05-16', 'F'
 WHERE NOT EXISTS (SELECT 1 FROM Usuario WHERE Nombre_Usuario = 'rosa_vallejo');
@@ -108,7 +108,7 @@ FROM Usuario u WHERE u.Nombre_Usuario = 'carmen_mag_supervisor'
 --   - Maestro (300+ pts)
 -- =============================================================================
 
--- --- Perfiles Grupo 1 (Ambato - Ficoa) ---
+-- --- Perfiles Grupo 1 (Quito - Pichincha) ---
 INSERT INTO Usuario_General (ID_usuario, Talento, Puntos, Rol_Gremio)
 SELECT u.ID_usuario, 'Permacultura andina y banco de semillas nativas', 340, 'Maestro'
 FROM Usuario u WHERE u.Nombre_Usuario = 'patricia_reyes'
@@ -129,7 +129,7 @@ SELECT u.ID_usuario, 'Elaboración de biofertilizantes y deshierbe', 20, 'Novato
 FROM Usuario u WHERE u.Nombre_Usuario = 'gabriel_mendoza'
   AND NOT EXISTS (SELECT 1 FROM Usuario_General ug WHERE ug.ID_usuario = u.ID_usuario);
 
--- --- Perfiles Grupo 2 (Pelileo) ---
+-- --- Perfiles Grupo 2 (Cuenca - Azuay) ---
 INSERT INTO Usuario_General (ID_usuario, Talento, Puntos, Rol_Gremio)
 SELECT u.ID_usuario, 'Medicina ancestral andina y plantas aromáticas', 320, 'Maestro'
 FROM Usuario u WHERE u.Nombre_Usuario = 'maria_quispe'
@@ -150,7 +150,7 @@ SELECT u.ID_usuario, 'Siembra de maíz y leguminosas andinas', 15, 'Novato'
 FROM Usuario u WHERE u.Nombre_Usuario = 'diego_alvarez'
   AND NOT EXISTS (SELECT 1 FROM Usuario_General ug WHERE ug.ID_usuario = u.ID_usuario);
 
--- --- Perfiles Grupo 3 (Patate) ---
+-- --- Perfiles Grupo 3 (Ambato - Tungurahua) ---
 INSERT INTO Usuario_General (ID_usuario, Talento, Puntos, Rol_Gremio)
 SELECT u.ID_usuario, 'Conservación de suelos volcánicos y rotación de cultivos', 380, 'Maestro'
 FROM Usuario u WHERE u.Nombre_Usuario = 'rosa_vallejo'
@@ -180,80 +180,80 @@ FROM Usuario u WHERE u.Nombre_Usuario = 'mateo_solis'
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2025-10-10', 'Líder de Gremio'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'patricia_reyes' AND g.Nombre_Gremio = 'Sembradores de Ficoa - Ambato'
+WHERE u.Nombre_Usuario = 'patricia_reyes' AND g.Nombre_Gremio = 'Gremio Huerto San Francisco'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2026-01-15', 'Coordinador de Parcela'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'juanito_perez' AND g.Nombre_Gremio = 'Sembradores de Ficoa - Ambato'
+WHERE u.Nombre_Usuario = 'juanito_perez' AND g.Nombre_Gremio = 'Gremio Huerto San Francisco'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2026-02-01', 'Técnico de Riego'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'carlos_andrade' AND g.Nombre_Gremio = 'Sembradores de Ficoa - Ambato'
+WHERE u.Nombre_Usuario = 'carlos_andrade' AND g.Nombre_Gremio = 'Gremio Huerto San Francisco'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2026-03-15', 'Miembro Colaborador'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'gabriel_mendoza' AND g.Nombre_Gremio = 'Sembradores de Ficoa - Ambato'
+WHERE u.Nombre_Usuario = 'gabriel_mendoza' AND g.Nombre_Gremio = 'Gremio Huerto San Francisco'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 -- --- Miembros de: Huerto Comunitario Pelileo ---
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2025-11-10', 'Líder de Gremio'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'maria_quispe' AND g.Nombre_Gremio = 'Huerto Comunitario Pelileo'
+WHERE u.Nombre_Usuario = 'maria_quispe' AND g.Nombre_Gremio = 'Sembradores del Tomebamba'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2025-12-01', 'Encargado de Frutales'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'esteban_vintimilla' AND g.Nombre_Gremio = 'Huerto Comunitario Pelileo'
+WHERE u.Nombre_Usuario = 'esteban_vintimilla' AND g.Nombre_Gremio = 'Sembradores del Tomebamba'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2026-01-20', 'Miembro Activo'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'lucia_serrano' AND g.Nombre_Gremio = 'Huerto Comunitario Pelileo'
+WHERE u.Nombre_Usuario = 'lucia_serrano' AND g.Nombre_Gremio = 'Sembradores del Tomebamba'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2026-04-05', 'Miembro Aprendiz'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'diego_alvarez' AND g.Nombre_Gremio = 'Huerto Comunitario Pelileo'
+WHERE u.Nombre_Usuario = 'diego_alvarez' AND g.Nombre_Gremio = 'Sembradores del Tomebamba'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 -- --- Miembros de: Guardianes del Valle de Patate ---
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2025-09-01', 'Líder de Gremio'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'rosa_vallejo' AND g.Nombre_Gremio = 'Guardianes del Valle de Patate'
+WHERE u.Nombre_Usuario = 'rosa_vallejo' AND g.Nombre_Gremio = 'Guardianes de la Tierra Tungurahua'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2025-10-20', 'Coordinador Fitosanitario'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'jorge_pazmino' AND g.Nombre_Gremio = 'Guardianes del Valle de Patate'
+WHERE u.Nombre_Usuario = 'jorge_pazmino' AND g.Nombre_Gremio = 'Guardianes de la Tierra Tungurahua'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2026-02-15', 'Miembro Activo'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'elena_moran' AND g.Nombre_Gremio = 'Guardianes del Valle de Patate'
+WHERE u.Nombre_Usuario = 'elena_moran' AND g.Nombre_Gremio = 'Guardianes de la Tierra Tungurahua'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Fecha_ingreso, Rol)
 SELECT u.ID_usuario, g.ID_gremio, '2026-03-25', 'Auxiliar de Parcela'
 FROM Usuario u, Gremio g
-WHERE u.Nombre_Usuario = 'mateo_solis' AND g.Nombre_Gremio = 'Guardianes del Valle de Patate'
+WHERE u.Nombre_Usuario = 'mateo_solis' AND g.Nombre_Gremio = 'Guardianes de la Tierra Tungurahua'
   AND NOT EXISTS (SELECT 1 FROM Miembro_Gremio mg WHERE mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = g.ID_gremio);
 
 
 -- =============================================================================
--- 5. HUERTOS COMUNITARIOS EN TUNGURAHUA (Tabla: Huerto)
+-- 5. HUERTOS COMUNITARIOS (Tabla: Huerto)
 -- Parámetros según catálogos existentes en sistema_agricola_gamificacion.sql:
 --   Cerca/SubCerca: (1, 1: Perimetral madera), (1, 2: Perimetral malla), (3, 4: Seto vivo ciprés)
 --   Abono: (1: Orgánico), (3: Verde), (4: Compost)
@@ -262,29 +262,29 @@ WHERE u.Nombre_Usuario = 'mateo_solis' AND g.Nombre_Gremio = 'Guardianes del Val
 --   Diseño/SubDiseño: (1, 1: Rectangular simple), (2, 3: Circular concéntrico), (3, 4: Terrazas escalonadas)
 -- =============================================================================
 
--- Huerto 1: Sembradores de Ficoa - Ambato
+-- Huerto 1: Gremio Huerto San Francisco (Quito)
 INSERT INTO Huerto (ID_gremio, ID_Cerca, ID_SubCerca, ID_Abono, ID_Suelo, ID_Riego, ID_Diseño, ID_SubDiseño)
 SELECT g.ID_gremio, 1, 1, 4, 3, 1, 1, 1
 FROM Gremio g
-WHERE g.Nombre_Gremio = 'Sembradores de Ficoa - Ambato'
+WHERE g.Nombre_Gremio = 'Gremio Huerto San Francisco'
   AND NOT EXISTS (
       SELECT 1 FROM Huerto h WHERE h.ID_gremio = g.ID_gremio
   );
 
--- Huerto 2: Huerto Comunitario Pelileo
+-- Huerto 2: Sembradores del Tomebamba (Cuenca)
 INSERT INTO Huerto (ID_gremio, ID_Cerca, ID_SubCerca, ID_Abono, ID_Suelo, ID_Riego, ID_Diseño, ID_SubDiseño)
 SELECT g.ID_gremio, 3, 4, 1, 1, 2, 3, 4
 FROM Gremio g
-WHERE g.Nombre_Gremio = 'Huerto Comunitario Pelileo'
+WHERE g.Nombre_Gremio = 'Sembradores del Tomebamba'
   AND NOT EXISTS (
       SELECT 1 FROM Huerto h WHERE h.ID_gremio = g.ID_gremio
   );
 
--- Huerto 3: Guardianes del Valle de Patate
+-- Huerto 3: Guardianes de la Tierra Tungurahua (Ambato)
 INSERT INTO Huerto (ID_gremio, ID_Cerca, ID_SubCerca, ID_Abono, ID_Suelo, ID_Riego, ID_Diseño, ID_SubDiseño)
 SELECT g.ID_gremio, 1, 2, 3, 3, 3, 2, 3
 FROM Gremio g
-WHERE g.Nombre_Gremio = 'Guardianes del Valle de Patate'
+WHERE g.Nombre_Gremio = 'Guardianes de la Tierra Tungurahua'
   AND NOT EXISTS (
       SELECT 1 FROM Huerto h WHERE h.ID_gremio = g.ID_gremio
   );

@@ -20,34 +20,72 @@ function CrearGremio() {
     suelo: '',
     riego: '',
   })
-  const [ubicacion, setUbicacion] = useState(null) // { lat, lng }
+  const [ubicacion, setUbicacion] = useState(null) // { lat, lng, direccion }
   const [mapaAbierto, setMapaAbierto] = useState(false)
   const [foto, setFoto] = useState(null)
   const [aceptaTerminos, setAceptaTerminos] = useState(false)
   const [error, setError] = useState('')
+  const [enviando, setEnviando] = useState(false)
 
   function actualizar(e) {
     const { name, value } = e.target
     setValores((prev) => ({ ...prev, [name]: value }))
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    if (!ubicacion) return setError('Selecciona la ubicación del huerto')
-    if (!aceptaTerminos) return setError('Debes aceptar los términos')
+    if (!ubicacion) return setError('Selecciona la ubicación del huerto en el mapa')
+    if (!aceptaTerminos) return setError('Debes aceptar los términos y condiciones')
     setError('')
+    setEnviando(true)
 
-    const datos = new FormData()
-    datos.append('nombre', valores.nombre)
-    datos.append('area', valores.area)
-    datos.append('suelo', valores.suelo)
-    datos.append('riego', valores.riego)
-    datos.append('lat', ubicacion.lat)
-    datos.append('lng', ubicacion.lng)
-    if (foto) datos.append('foto', foto)
+    try {
+      const cuerpo = {
+        nombre: valores.nombre,
+        area: parseFloat(valores.area),
+        suelo: valores.suelo,
+        riego: valores.riego,
+        lat: ubicacion.lat,
+        lng: ubicacion.lng,
+        direccion: ubicacion.direccion || 'Ecuador',
+      }
 
-    // aquí envías `datos` a tu API
-    console.log([...datos.entries()])
+      const res = await fetch('/api/gremios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cuerpo),
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        const gremioGuardado = {
+          id: data.gremio?.id || Date.now(),
+          nombre: valores.nombre,
+          areaTotal: parseFloat(valores.area),
+          ubicacion: { lat: ubicacion.lat, lng: ubicacion.lng },
+          direccion: ubicacion.direccion || 'Ecuador',
+        }
+        localStorage.setItem('gremio_activo', JSON.stringify(gremioGuardado))
+        localStorage.setItem('huerto_activo_id', String(gremioGuardado.id))
+        navigate('/juego')
+      } else {
+        setError(data.error || 'Error al registrar el gremio')
+      }
+    } catch {
+      // Modo resiliente en desarrollo ante fallo de red
+      const gremioLocal = {
+        id: Date.now(),
+        nombre: valores.nombre,
+        areaTotal: parseFloat(valores.area),
+        ubicacion: { lat: ubicacion.lat, lng: ubicacion.lng },
+        direccion: ubicacion.direccion || 'Ecuador',
+      }
+      localStorage.setItem('gremio_activo', JSON.stringify(gremioLocal))
+      localStorage.setItem('huerto_activo_id', String(gremioLocal.id))
+      navigate('/juego')
+    } finally {
+      setEnviando(false)
+    }
   }
 
   return (
@@ -60,32 +98,34 @@ function CrearGremio() {
           <h1 className={styles.titulo} id="registro-gremio">Cuestionario de Huerto</h1>
 
           <form className={styles.formulario} onSubmit={handleSubmit}>
-            {/* Ubicación: ahora abre el modal con el mapa */}
+            {/* Ubicación: abre el modal con el mapa y geocodificación */}
             <div className={styles.anchoCompleto}>
-                <span className={styles.etiqueta}>Ubicación</span>
-                <div className={`${styles.mapa} ${error && !ubicacion ? styles.mapaError : ''}`}>
-                    {ubicacion ? (
-                    <>
-                        <MapaMiniatura posicion={ubicacion} />
-                        <span className={styles.coordenadas}>
-                        {ubicacion.lat.toFixed(4)}, {ubicacion.lng.toFixed(4)}
-                        </span>
-                    </>
-                    ) : (
-                    <div className={styles.vacio}>
-                        <span className={styles.pin} aria-hidden="true">📍</span>
-                        <span className={styles.mapaTexto}>Seleccionar</span>
-                    </div>
-                    )}
+              <span className={styles.etiqueta}>Ubicación Geocodificada</span>
+              <div className={`${styles.mapa} ${error && !ubicacion ? styles.mapaError : ''}`}>
+                {ubicacion ? (
+                  <>
+                    <MapaMiniatura posicion={ubicacion} />
+                    <span className={styles.coordenadas}>
+                      {ubicacion.direccion
+                        ? `${ubicacion.direccion} (${ubicacion.lat.toFixed(3)}, ${ubicacion.lng.toFixed(3)})`
+                        : `${ubicacion.lat.toFixed(4)}, ${ubicacion.lng.toFixed(4)}`}
+                    </span>
+                  </>
+                ) : (
+                  <div className={styles.vacio}>
+                    <span className={styles.pin} aria-hidden="true">📍</span>
+                    <span className={styles.mapaTexto}>Buscar o seleccionar en mapa</span>
+                  </div>
+                )}
 
-                    {/* Capa transparente que recibe el clic y abre el modal */}
-                    <button
-                    type="button"
-                    className={styles.abrirMapa}
-                    onClick={() => setMapaAbierto(true)}
-                    aria-label={ubicacion ? 'Cambiar ubicación del huerto' : 'Seleccionar ubicación del huerto'}
-                    />
-                </div>
+                {/* Capa transparente que recibe el clic y abre el modal */}
+                <button
+                  type="button"
+                  className={styles.abrirMapa}
+                  onClick={() => setMapaAbierto(true)}
+                  aria-label={ubicacion ? 'Cambiar ubicación del huerto' : 'Seleccionar ubicación del huerto'}
+                />
+              </div>
             </div>
 
             <div className={styles.campo}>
@@ -162,16 +202,18 @@ function CrearGremio() {
             )}
 
             <div className={`${styles.acciones} ${styles.anchoCompleto}`}>
-              <Button variante="bloque" onClick={() => navigate(-1)}>Cancelar</Button>
-              <Button type="submit" variante="bloque">Enviar</Button>
+              <Button variante="bloque" onClick={() => navigate(-1)} disabled={enviando}>Cancelar</Button>
+              <Button type="submit" variante="bloque" disabled={enviando}>
+                {enviando ? 'Guardando...' : 'Enviar'}
+              </Button>
             </div>
           </form>
 
-          <p className={styles.nota}>Formulario para iniciar tu huerto.</p>
+          <p className={styles.nota}>Formulario para iniciar tu huerto comunitario.</p>
         </Tarjeta>
       </main>
 
-      {/* Modal del mapa */}
+      {/* Modal del mapa con Geocodificación y Leaflet */}
       {mapaAbierto && (
         <ModalMapa
           inicial={ubicacion}
