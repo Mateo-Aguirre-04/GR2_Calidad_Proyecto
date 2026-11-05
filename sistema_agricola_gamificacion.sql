@@ -66,7 +66,10 @@ DROP TABLE IF EXISTS Usuario CASCADE;
 --    Es el origen común para los subtipos Usuario_Ministerio y Usuario_General.
 CREATE TABLE Usuario (
     ID_usuario        SERIAL PRIMARY KEY,
-    Nombre_Usuario   VARCHAR(50) NOT NULL,
+    Nombre           Varchar(50) NOT NULL,
+    Apellido         Varchar(50) NOT NULL,
+    Nombre_Usuario   VARCHAR(50) NOT NULL UNIQUE,
+    Contraseña          PASSWORD NOT NULL,
     Fecha_Nacimiento DATE NOT NULL,
     Genero           VARCHAR(3) NOT NULL
                      CHECK (Genero IN ('M', 'F', 'NB', 'O')),  -- C11: ampliado a 3 chars para inclusión
@@ -96,10 +99,9 @@ COMMENT ON TABLE Usuario_Ministerio IS 'Subtipo de Usuario para representantes d
 --    CORRECCIÓN C5: ID_usuario pasa de SERIAL propio a INTEGER PK+FK.
 CREATE TABLE Usuario_General (
     ID_usuario    INTEGER PRIMARY KEY,                 -- C5: era SERIAL propio
-    Talento       VARCHAR(1024),                       -- Lista libre de talentos del usuario
+    Descripción       VARCHAR(1024),                       -- Lista libre de talentos del usuario
     Puntos        INTEGER NOT NULL DEFAULT 0
                   CHECK (Puntos >= 0),                 -- No se admiten puntos negativos
-    Rol_Gremio    VARCHAR(200) NOT NULL,               -- Rol global del usuario en el sistema de gremios
     Creado_En     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- C8: auditoría
     Modificado_En TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- C8: auditoría
     CONSTRAINT fk_Usuario_General_Usuario
@@ -147,10 +149,11 @@ CREATE INDEX idx_Historial_Puntos_fecha   ON Historial_Puntos(Fecha_Corte DESC);
 CREATE TABLE Gremio (
     ID_gremio            SERIAL PRIMARY KEY,
     Nombre_Gremio       VARCHAR(150) NOT NULL,
-    Area_total           NUMERIC(8,2) NOT NULL
+    Area_total           NUMERIC(8,2) NOT NULL,
                          CHECK (Area_total > 0),
     Puntos_Gremio        INTEGER DEFAULT 0,             -- Opcional según modelo original
-    Ubicacion_Geografica VARCHAR(255),                  -- C2: era <Undefined>
+    Latitud               NUMERIC(8,2) NOT NULL,                  -- C2: era <Undefined>
+    Longitud             NUMERIC(8,2) NOT NULL,                 -- C2: era <Undefined>
     Creado_En            TIMESTAMP DEFAULT CURRENT_TIMESTAMP  -- C8: auditoría
 );
 COMMENT ON COLUMN Gremio.Ubicacion_Geografica IS 'Dirección textual. Para consultas espaciales, migrar a PostGIS geometry(Point, 4326).';

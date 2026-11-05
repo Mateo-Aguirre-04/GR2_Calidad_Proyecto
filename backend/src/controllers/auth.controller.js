@@ -1,5 +1,6 @@
 import { isDbConnected, query } from '../config/db.js'
 import { mockData } from '../data/mockStore.js'
+import bcrypt from 'bcryptjs'
 
 export async function login(req, res) {
   try {
@@ -12,33 +13,39 @@ export async function login(req, res) {
     if (isDbConnected()) {
       try {
         const sql = `
-          SELECT u.ID_usuario, u.Nombre_Usuario, ug.Talento, ug.Puntos, ug.Rol_Gremio,
+          SELECT u.ID_usuario, u.Nombres, u.Apellidos, u.Contrasenia_hash, ug.Nombre_Usuario, ug.Descripcion, ug.Puntos,
                  g.ID_gremio, g.Nombre_Gremio, mg.Rol AS Rol_En_Gremio
           FROM Usuario u
           LEFT JOIN Usuario_General ug ON u.ID_usuario = ug.ID_usuario
           LEFT JOIN Miembro_Gremio mg ON u.ID_usuario = mg.ID_usuario
           LEFT JOIN Gremio g ON mg.ID_gremio = g.ID_gremio
-          WHERE LOWER(u.Nombre_Usuario) = LOWER($1)
+          WHERE LOWER(ug.Nombre_Usuario) = LOWER($1)
           LIMIT 1
         `
         const { rows } = await query(sql, [usuario])
-        if (rows.length > 0) {
-          const user = rows[0]
-          return res.json({
-            mensaje: 'Inicio de sesión exitoso',
-            usuario: {
-              id: user.id_usuario,
-              usuario: user.nombre_usuario,
-              nombre: user.nombre_usuario,
-              talento: user.talento,
-              puntos: user.puntos || 0,
-              rango: user.rol_gremio || 'Novato',
-              gremioId: user.id_gremio,
-              gremioNombre: user.nombre_gremio,
-              rolGremio: user.rol_en_gremio,
-            },
-          })
+        const user = rows[0]
+
+        const valida = user?.contrasenia_hash
+        ? await bcrypt.compare(contrasena, user.contrasenia_hash)
+        : false
+
+        if (!valida) {
+          return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' })
         }
+
+        return res.json({
+          mensaje: 'Inicio de sesión exitoso',
+          usuario: {
+            id: user.id_usuario,
+            usuario: user.nombre_usuario,
+            nombre: `${user.nombres} ${user.apellidos ?? ''}`.trim(),
+            descripcion: user.descripcion,
+            puntos: user.puntos || 0,
+            gremioId: user.id_gremio,
+            gremioNombre: user.nombre_gremio,
+            rolGremio: user.rol_en_gremio,
+          },
+        })
       } catch (dbErr) {
         console.warn('[Auth] Error consultando PostgreSQL, usando fallback:', dbErr.message)
       }
@@ -66,6 +73,7 @@ export async function login(req, res) {
     return res.status(500).json({ error: 'Error interno en el servidor.' })
   }
 }
+
 
 export async function registro(req, res) {
   try {
