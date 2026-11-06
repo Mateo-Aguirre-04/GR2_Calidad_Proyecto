@@ -2,9 +2,33 @@ import { isDbConnected, query } from '../config/db.js'
 import { mockData } from '../data/mockStore.js'
 
 export async function getHuerto(req, res) {
+    const SQL_HUERTO = `
+    SELECT h.id_huerto, h.id_gremio, sd.imagen AS tipo, sd.nombre AS subdiseno, d.nombre AS diseno
+    FROM huerto h
+    JOIN subdiseño_huerto sd ON sd.id_diseño = h.id_diseño AND sd.id_subdiseño = h.id_subdiseño
+    JOIN diseño_huerto d     ON d.id_diseño  = h.id_diseño
+    WHERE h.id_huerto = $1
+  `
+
   try {
     const id = parseInt(req.params.id, 10) || 1
     const huerto = mockData.huertos.find((h) => h.id === id) || mockData.huertos[0]
+
+    if (isDbConnected()) {
+      const { rows } = await query(SQL_HUERTO, [id])
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Huerto no encontrado.' })
+      }
+      const h = rows[0]
+      return res.json({
+        ...huerto,
+        id: Number(h.id_huerto),
+        gremioId: Number(h.id_gremio),
+        tipo: h.tipo,
+        diseno: h.diseno,
+        subdiseno: h.subdiseno,
+      })
+    }
 
     return res.json(huerto)
   } catch (error) {

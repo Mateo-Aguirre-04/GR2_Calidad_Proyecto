@@ -126,7 +126,7 @@ function Juego() {
   });
 
   return (
-    <div className={styles.pantalla} style={{ backgroundImage: `url(/fondos/${huerto.tipo}.png)` }}>
+    <div className={styles.pantalla} style={{ backgroundImage: `url(/huertos/${huerto.tipo ?? 'surcos'}.png)` }}>
       {/* Jugador (arriba a la izquierda): abre el perfil */}
       <button type="button" className={styles.jugador} onClick={() => setModal('perfil')} aria-label="Abrir mi perfil">
         <span className={styles.avatar}>

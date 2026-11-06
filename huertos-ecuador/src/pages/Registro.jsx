@@ -11,6 +11,7 @@ const camposIniciales = {
   usuario: '',
   contrasena: '',
   confirmar: '',
+  descripcion: '',
 }
 
 function validar(valores, genero, aceptaTerminos) {
@@ -25,6 +26,7 @@ function validar(valores, genero, aceptaTerminos) {
   if (!valores.confirmar || valores.confirmar !== valores.contrasena) {
     errores.confirmar = 'contraseñas no coinciden'
   }
+  if (!descripcion.trim()) errores.descripcion = 'requerido'
   if (!aceptaTerminos) errores.terminos = 'Debes aceptar los términos para continuar'
   return errores
 }
@@ -49,11 +51,14 @@ function Registro() {
     if (intentoEnviar) setErrores(validar(valores, opcion, aceptaTerminos))
   }
 
+
   function actualizarTerminos(event) {
     const aceptado = event.target.checked
     setAceptaTerminos(aceptado)
     if (intentoEnviar) setErrores(validar(valores, genero, aceptado))
   }
+
+
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -125,7 +130,7 @@ function Registro() {
               <fieldset className={`${styles.genero} ${errores.genero ? styles.conError : ''}`}>
                 <legend>¿Con qué género te identificas?</legend>
                 <div className={styles.opcionesGenero}>
-                  {['Mujer', 'Hombre', 'Otro'].map((opcion) => (
+                  {['Mujer', 'Hombre', 'No Binario','Otro'].map((opcion) => (
                     <button
                       className={`${styles.pill} ${genero === opcion ? styles.activo : ''}`}
                       type="button"
@@ -149,7 +154,12 @@ function Registro() {
               </div>
               {campo({ id: 'registro-contrasena', label: 'Contraseña', name: 'contrasena', placeholder: 'Mínimo 8 caracteres', type: 'password', autoComplete: 'new-password' })}
               {campo({ id: 'registro-confirmar', label: 'Confirmar contraseña', name: 'confirmar', placeholder: 'Repite tu contraseña', type: 'password', autoComplete: 'new-password' })}
+              <div className={styles.anchoCompleto}>
+                  {campo({ id: 'descripcion-usuario', label: 'Talentos y habilidades', name: 'descripcion', placeholder: 'Queremos saber tus habilidades dentro de los huertos comunitarios!', autoComplete: 'Descripción'})}
+              </div>
+              
             </div>
+
 
             <div className={`${styles.terminos} ${errores.terminos ? styles.conError : ''}`}>
               <label htmlFor="registro-acepta-terminos">
