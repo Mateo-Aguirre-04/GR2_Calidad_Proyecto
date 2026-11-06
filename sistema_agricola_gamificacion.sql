@@ -254,12 +254,10 @@ CREATE TABLE SubCerca_Seguridad (
 CREATE TABLE Huerto (
     ID_Huerto     SERIAL PRIMARY KEY,                    -- C1: PK simplificada
     ID_gremio     INTEGER NOT NULL,                      -- C4: FK a Gremio (resuelve Relationship_14)
-    ID_Cerca      INTEGER NOT NULL,
     ID_SubCerca   INTEGER NOT NULL,
     ID_Abono      INTEGER NOT NULL,
     ID_Suelo      INTEGER NOT NULL,
     ID_Riego      INTEGER NOT NULL,
-    ID_Diseño     INTEGER NOT NULL,
     ID_SubDiseño  INTEGER NOT NULL,
     Creado_En     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,   -- C8: auditoría
     Modificado_En TIMESTAMP DEFAULT CURRENT_TIMESTAMP,   -- C8: auditoría

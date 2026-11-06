@@ -12,9 +12,6 @@ export const pool = new Pool({
   connectionTimeoutMillis: 10000,
 })
 
-pool.on('connect', (client) => {
-  client.query('SET search_path TO huertos, public')
-})
 let connected = false
 
 export async function checkDbConnection() {
