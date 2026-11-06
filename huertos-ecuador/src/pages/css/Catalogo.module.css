@@ -1,0 +1,106 @@
+.box{
+
+    font-family: var(--fuente-pixel);
+}
+
+.contenido {
+    flex: 1;
+    padding: 28px 32px 40px;
+}
+
+.stickyHeader {
+    position: sticky;
+    top: 0;
+    background-color: var(--crema);
+    border-bottom: 2px solid var(--madera-oscura);
+    z-index: 10;
+}
+
+.titulo {
+    color: var(--tinta);
+    margin: 0;
+    font-weight: 400;
+    line-height: 1.8;
+    font-size: 16px;
+}
+
+.subtitulo {
+    
+    color: var(--texto-suave);
+    font-size: 10px;
+    line-height: 1.8;
+}
+
+.filtros {
+    border: 3px solid var(--madera); 
+    padding: 16px 18px 20px;
+    margin-bottom: 24px;
+    background-color: var(--crema);
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 3px #f2e7c9, 0 4px 0 var(--madera-oscura);
+}
+
+.tituloFiltro {
+    line-height: 16px;
+    font-weight: 400;
+    color: var(--tinta);
+    font-weight: 400;
+    font-size: 14px;
+}
+
+.filtrosGrid{
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.filtrosGrid .label{
+    font-size: 10px;
+    font-weight: 400;
+    line-height: 1.8;
+
+    display: block;
+    margin-bottom: 8px;
+}
+
+.filtrosGrid input,
+.filtrosGrid select {
+    width: 100%;
+    height: 40px;
+    padding: 0 11px;
+    border: 2px solid var(--madera-oscura);
+    border-radius: 4px;
+    outline: none;
+    background-color: #fffdf5;
+    font-family: var(--fuente-pixel);
+    font-size: 10px;
+
+}
+
+.filtrosGrid input::placeholder { color: #a2afa6; }
+
+.filtrosGrid input:focus,
+.filtrosGrid select:focus {
+  border-color: var(--hoja);
+  box-shadow: 0 0 0 3px rgb(84 137 70 / 18%);
+}
+
+/* Cuadrícula: se adapta sola a cualquier número de plantas */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 22px;
+}
+
+.estado {
+  margin: 40px 0;
+  color: var(--texto-suave);
+  text-align: center;
+  font-family: var(--fuente-pixel);
+  font-size: 26px;
+}
+
+@media (max-width: 720px) {
+  .contenido { padding: 20px 16px 32px; }
+  .filtrosGrid { grid-template-columns: 1fr; }
+}

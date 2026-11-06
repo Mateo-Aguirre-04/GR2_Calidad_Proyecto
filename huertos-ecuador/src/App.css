@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Press+Start+2P&display=swap');
+
+:root {
+  --tinta: #304a35;
+  --hoja: #347747;
+  --hoja-clara: #43a653;
+  --crema: #fff9e8;
+  --fondo: #edf2df;
+  --madera: #87613d;
+  --madera-oscura: #6d4e34;
+  --borde-campo: #bdc99f;
+  --texto-suave: #839087;
+  --blanco: #fff;
+  --fuente-pixel: 'Press Start 2P', monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-width: 320px;
+  margin: 0;
+  color: var(--tinta);
+  background: var(--fondo);
+  font-family: var(--fuente-pixel);
+}
+
+button, input { font: inherit; }
+
+.pagina {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--fondo);
+  background-image:
+    radial-gradient(ellipse at 16% 18%, rgb(255 255 255 / 65%), transparent 32%),
+    radial-gradient(ellipse at 87% 78%, rgb(191 215 160 / 25%), transparent 35%);
+}

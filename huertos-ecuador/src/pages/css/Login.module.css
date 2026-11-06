@@ -1,0 +1,140 @@
+.contenido {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 38px 20px;
+}
+
+.bienvenida {
+  margin: 0 0 8px;
+  color: var(--hoja);
+  text-align: center;
+  font-family: var(--fuente-pixel);
+  font-size: 8px;
+  line-height: 1.8;
+  letter-spacing: 0.4px;
+}
+
+.titulo {
+  margin: 0;
+  color: #365c38;
+  text-align: center;
+  font-family: var(--fuente-pixel);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.8;
+}
+
+.descripcion {
+  margin: 9px 0 25px;
+  color: var(--texto-suave);
+  text-align: center;
+  font-family: var(--fuente-pixel);
+  font-size: 6px;
+  line-height: 1.8;
+}
+
+/* Campos */
+.campo { margin-bottom: 16px; }
+
+.campo label {
+  display: block;
+  margin: 0 0 7px;
+  font-family: var(--fuente-pixel);
+  font-size: 8px;
+}
+
+.campo input {
+  width: 100%;
+  height: 40px;
+  padding: 0 11px;
+  border: 2px solid var(--borde-campo);
+  border-radius: 5px;
+  outline: none;
+  background: #fffdf5;
+  color: var(--tinta);
+  font-family: var(--fuente-pixel);
+  font-size: 6px;
+}
+
+.campo input::placeholder { color: #a2afa6; }
+
+.campo input:focus {
+  border-color: var(--hoja);
+  box-shadow: 0 0 0 3px rgb(84 137 70 / 18%);
+}
+
+.campoPassword { position: relative; }
+
+.campoPassword input { padding-right: 42px; }
+
+.verPassword {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  width: 36px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: #70867a;
+  cursor: pointer;
+}
+
+/* Opciones */
+.opciones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 19px;
+}
+
+.recordarme {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #627269;
+}
+
+.recordarme input { accent-color: #20c765; }
+
+.recordarme span {
+  font-family: var(--fuente-pixel);
+  font-size: 8px;
+}
+
+.opciones a {
+  color: var(--hoja);
+  font-family: var(--fuente-pixel);
+  font-size: 8px;
+  text-decoration: none;
+}
+
+.opciones a:hover { text-decoration: underline; }
+
+/* Mensajes y pie */
+.mensaje {
+  margin: 9px 0 0;
+  color: var(--hoja);
+  text-align: center;
+  font-size: 10px;
+}
+
+.notaSeguridad {
+  margin: 18px 0 0;
+  color: #96a198;
+  text-align: center;
+  font-family: var(--fuente-pixel);
+  font-size: 6px;
+  line-height: 1.7;
+}
+
+.pie {
+  padding: 14px 12px;
+  color: #96a198;
+  text-align: center;
+  font-size: 9px;
+}
+
+@media (max-width: 480px) {
+  .titulo { font-size: 13px; }
+}

@@ -1,0 +1,50 @@
+/* components/Button/Button.module.css */
+.boton {
+  --sombra: 3px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border: 2px solid #28623b;
+  border-radius: 4px;
+  background: var(--hoja-clara);
+  box-shadow: 0 var(--sombra) 0 #28623b;
+  color: var(--blanco);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.boton:hover:not(:disabled) {
+  background: #388e48;
+  transform: translateY(1px);
+  box-shadow: 0 calc(var(--sombra) - 1px) 0 #28623b;
+}
+
+.boton:active:not(:disabled) {
+  transform: translateY(var(--sombra));
+  box-shadow: none;
+}
+
+.boton:focus-visible {
+  outline: 3px solid #d7a94b;
+  outline-offset: 3px;
+}
+
+.boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Variante: ancho completo (login, registro, modal) */
+.bloque {
+  --sombra: 4px;
+
+  width: 100%;
+  min-height: 44px;
+  border-radius: 5px;
+  font-size: 10px;
+}

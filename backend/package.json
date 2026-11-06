@@ -1,0 +1,19 @@
+{
+  "name": "huertos-ecuador-backend",
+  "version": "1.0.0",
+  "description": "API Backend para Huertos.ec - Gestión Agrícola Comunitaria con Gamificación",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "morgan": "^1.10.0",
+    "pg": "^8.13.1"
+  }
+}
