@@ -13,7 +13,8 @@ export async function login(req, res) {
     if (isDbConnected()) {
       try {
         const sql = `
-          SELECT u.ID_usuario, u.Nombres, u.Apellidos, u.Contrasenia_hash, ug.Nombre_Usuario, ug.Descripcion, ug.Puntos,
+          SELECT u.ID_usuario, u.Nombres, u.Apellidos, u.Contrasenia_hash,
+                 ug.Nombre_Usuario, ug.Descripcion, ug.Puntos,
                  g.ID_gremio, g.Nombre_Gremio, g.Area_Total, g.Puntos_Gremio, g.Latitud, g.Longitud,
                  mg.Rol AS Rol_En_Gremio,
                  h.ID_Huerto
@@ -29,7 +30,7 @@ export async function login(req, res) {
         const user = rows[0]
 
         if (!user) {
-          // Si no está en BD, verificar si es un usuario de prueba en mockData
+          // No está en BD, caer al fallback mock más abajo
           const userFound = mockData.usuarios.find(
             (u) => u.usuario.toLowerCase() === usuario.toLowerCase()
           )
@@ -46,7 +47,8 @@ export async function login(req, res) {
           return res.status(401).json({ error: 'Usuario no encontrado.' })
         }
 
-        const valida = user?.contrasenia_hash
+        // Verificar contraseña con bcrypt
+        const valida = user.contrasenia_hash
           ? await bcrypt.compare(contrasena, user.contrasenia_hash)
           : false
 
@@ -54,6 +56,7 @@ export async function login(req, res) {
           return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' })
         }
 
+        // Construir objeto gremio si pertenece a uno
         const gremioIdNum = user.id_gremio ? Number(user.id_gremio) : null
         const gremioObj = gremioIdNum
           ? {
@@ -74,7 +77,7 @@ export async function login(req, res) {
           usuario: {
             id: Number(user.id_usuario),
             usuario: user.nombre_usuario,
-            nombre: `${user.nombres || ''} ${user.apellidos ?? ''}`.trim() || user.nombre_usuario,
+            nombre: `${user.nombres || ''} ${user.apellidos || ''}`.trim() || user.nombre_usuario,
             descripcion: user.descripcion,
             puntos: Number(user.puntos || 0),
             gremioId: gremioIdNum,
@@ -106,7 +109,6 @@ export async function login(req, res) {
       })
     }
 
-    // Si no existe, para desarrollo permitimos crear sesión temporal o sugerir usuarios existentes
     const nombresDisponibles = mockData.usuarios.map((u) => u.usuario).slice(0, 4).join(', ')
     return res.status(401).json({
       error: `Usuario no encontrado. Usuarios de prueba disponibles: ${nombresDisponibles}`,
@@ -120,10 +122,10 @@ export async function login(req, res) {
 
 export async function registro(req, res) {
   try {
-    const { nombre, apellido, usuario, contrasena, genero } = req.body
+    const { nombre, apellido, usuario, contrasena, genero, fechaNacimiento, descripcion } = req.body
 
-    if (!nombre || !usuario) {
-      return res.status(400).json({ error: 'Nombre y nombre de usuario son obligatorios.' })
+    if (!nombre || !usuario || !contrasena) {
+      return res.status(400).json({ error: 'Nombre, nombre de usuario y contraseña son obligatorios.' })
     }
 
     const gen = genero && ['M', 'F', 'NB', 'O'].includes(genero) ? genero : 'O'
@@ -131,28 +133,41 @@ export async function registro(req, res) {
 
     if (isDbConnected()) {
       try {
+        // 1. Verificar que el nombre de usuario no exista ya
+        const checkSql = `SELECT 1 FROM Usuario_General WHERE LOWER(Nombre_Usuario) = LOWER($1)`
+        const checkRes = await query(checkSql, [usuario])
+        if (checkRes.rows.length > 0) {
+          return res.status(409).json({ error: 'El nombre de usuario ya está en uso.' })
+        }
+
+        // 2. Hashear la contraseña
+        const salt = await bcrypt.genSalt(10)
+        const hash = await bcrypt.hash(contrasena, salt)
+
+        // 3. Insertar en tabla Usuario (columnas reales: Nombres, Apellidos, Contrasenia_hash, Fecha_Nacimiento, Genero)
         const insertUser = `
-          INSERT INTO Usuario (Nombre_Usuario, Fecha_Nacimiento, Genero)
-          VALUES ($1, CURRENT_DATE - INTERVAL '20 years', $2)
-          RETURNING ID_usuario, Nombre_Usuario
+          INSERT INTO Usuario (Nombres, Apellidos, Contrasenia_hash, Fecha_Nacimiento, Genero)
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING ID_usuario
         `
-        const userRes = await query(insertUser, [usuario, gen])
+        const fechaNac = fechaNacimiento || '2000-01-01'
+        const userRes = await query(insertUser, [nombre, apellido || '', hash, fechaNac, gen])
         const newId = userRes.rows[0].id_usuario
 
+        // 4. Insertar en tabla Usuario_General (columnas reales: ID_usuario, Nombre_Usuario, Descripcion, Puntos)
         const insertGen = `
-          INSERT INTO Usuario_General (ID_usuario, Talento, Puntos, Rol_Gremio)
-          VALUES ($1, 'Nuevo agricultor urbano', 0, 'Novato')
+          INSERT INTO Usuario_General (ID_usuario, Nombre_Usuario, Descripcion, Puntos)
+          VALUES ($1, $2, $3, 0)
         `
-        await query(insertGen, [newId])
+        await query(insertGen, [newId, usuario, descripcion || 'Nuevo agricultor urbano'])
 
         return res.status(201).json({
-          mensaje: 'Cuenta registrada exitosamente en la base de datos',
+          mensaje: 'Cuenta registrada exitosamente',
           usuario: {
-            id: newId,
+            id: Number(newId),
             usuario,
             nombre: nombreCompleto,
             puntos: 0,
-            rango: 'Novato',
           },
         })
       } catch (dbErr) {
@@ -172,9 +187,9 @@ export async function registro(req, res) {
       talento: 'Nuevo agricultor comunitario',
       puntos: 0,
       rango: 'Novato',
-      gremioId: 1, // Por defecto asignado a Ficoa
-      gremioNombre: 'Sembradores de Ficoa - Ambato',
-      rolGremio: 'Miembro',
+      gremioId: null,
+      gremioNombre: null,
+      rolGremio: null,
       posicionGremio: mockData.usuarios.length + 1,
       avatar: '',
     }
