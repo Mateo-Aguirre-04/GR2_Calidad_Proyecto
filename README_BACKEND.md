@@ -89,10 +89,11 @@ DB_NAME=huertos_db
 | **Salud** | `GET` | `/api/health` | Estado del backend y timestamp. |
 | **Autenticación** | `POST` | `/api/auth/login` | Inicia sesión con `usuario` y `contrasena`. |
 | | `POST` | `/api/auth/registro` | Registra cuenta con rol `Novato` y 0 puntos. |
-| **Gremios** | `GET` | `/api/gremios` | Lista gremios en Tungurahua con conteo de miembros. |
+| **Gremios** | `GET` | `/api/gremios` | Lista gremios con conteo de miembros. |
 | | `GET` | `/api/gremios/:id` | Detalle de gremio, miembros y huerto. |
 | | `POST` | `/api/gremios` | Crea gremio y huerto inicial con coordenadas. |
-| | `POST` | `/api/gremios/unirse` | Valida código de 6 dígitos (ej. `000001` para Ficoa). |
+| | `POST` | `/api/gremios/:id/invitaciones` | Genera código aleatorio de 6 dígitos (24h de caducidad) y su QR. |
+| | `POST` | `/api/gremios/unirse` | Valida código o invitación temporal y vincula al usuario (`usuarioId`). |
 | **Plantas** | `GET` | `/api/plantas` | Catálogo de plantas con cuidados y fases de crecimiento. |
 | | `GET` | `/api/plantas/:id` | Ficha técnica de una planta. |
 | **Huertos** | `GET` | `/api/huertos/:id` | Posición y estado de cultivos del huerto virtual. |
@@ -113,4 +114,90 @@ DB_NAME=huertos_db
   * Verifica el clima de Ambato (Tungurahua) consultado en tiempo real a Open-Meteo.
 * **Catálogo botánico:** [http://localhost:5173/catalogo-plantas](http://localhost:5173/catalogo-plantas)
 * **Crear nuevo gremio con mapa:** [http://localhost:5173/crear-gremio](http://localhost:5173/crear-gremio)
+* **Vista y Gestión del Gremio (Generar Invitación y QR):** [http://localhost:5173/gremio](http://localhost:5173/gremio)
+* **Unirse a un Gremio (Ingresar Código o Escanear QR):** [http://localhost:5173/seleccion-gremio](http://localhost:5173/seleccion-gremio)
 * **Verificación de la API:** [http://localhost:3001/api/health](http://localhost:3001/api/health)
+
+---
+
+## 7. Sistema de Invitaciones a Gremios (Códigos Temporales y Códigos QR)
+
+Se ha integrado un mecanismo seguro y dinámico para invitar a nuevos miembros a un gremio mediante códigos aleatorios de 6 dígitos y códigos QR generados al instante.
+
+### 7.1. Flujo de Funcionamiento
+
+1. **Generación:**
+   * Un miembro activo dentro de `/gremio` pulsa el botón **«✉️ Invitar»**.
+   * El cliente realiza una petición `POST /api/gremios/:id/invitaciones`.
+   * El backend genera un código criptográficamente seguro mediante `crypto.randomInt(100000, 1000000)` con vigencia de 24 horas (`expira_en = NOW() + 24h`).
+   * Se almacena en la tabla `invitacion_gremio` (o en `mockData.invitaciones` en modo resiliente).
+   * El frontend muestra el código en tipografía legible junto con su código QR generado en formato SVG mediante `qrcode.react`.
+2. **Unión del nuevo miembro:**
+   * El nuevo usuario accede a la pantalla de selección de gremio y abre **«Unirme a un Gremio»** (`ModalUnirse`).
+   * Puede **escribir el código de 6 dígitos** o **apuntar con su cámara al código QR** (procesado con `@yudiel/react-qr-scanner`).
+   * El cliente envía `POST /api/gremios/unirse` con `{ codigo, usuarioId }`.
+   * El backend valida que el código exista y que `expira_en > NOW()`.
+   * Al ser válido:
+     * Incrementa el contador de `usos` en `invitacion_gremio`.
+     * Inserta la relación en la tabla `miembro_gremio (id_usuario, id_gremio, rol)`.
+     * Retorna la información completa del gremio.
+   * El frontend sincroniza el gremio activo en `localStorage` y redirige a la experiencia de juego.
+
+### 7.2. Esquema de Base de Datos (PostgreSQL / Supabase)
+
+```sql
+CREATE TABLE IF NOT EXISTS invitacion_gremio (
+    codigo      VARCHAR(6) PRIMARY KEY,
+    id_gremio   BIGINT NOT NULL REFERENCES gremio (id_gremio) ON DELETE CASCADE,
+    creado_por  BIGINT,
+    expira_en   TIMESTAMPTZ NOT NULL,
+    usos        INTEGER NOT NULL DEFAULT 0
+);
+```
+
+### 7.3. Especificación de Endpoints
+
+#### `POST /api/gremios/:id/invitaciones`
+* **Parámetros de ruta:** `id` (ID del gremio).
+* **Body:**
+  ```json
+  {
+    "creadoPor": 2
+  }
+  ```
+* **Respuesta exitosa (`201 Created`):**
+  ```json
+  {
+    "mensaje": "Invitación creada exitosamente",
+    "invitacion": {
+      "codigo": "853048",
+      "idGremio": "1",
+      "expiraEn": "2026-11-08T17:36:41.114Z"
+    }
+  }
+  ```
+
+#### `POST /api/gremios/unirse`
+* **Body:**
+  ```json
+  {
+    "codigo": "853048",
+    "usuarioId": 2
+  }
+  ```
+* **Respuesta exitosa (`200 OK`):**
+  ```json
+  {
+    "mensaje": "Te has unido exitosamente al gremio: Gremio Huerto San Francisco",
+    "gremio": {
+      "id": 1,
+      "nombre": "Gremio Huerto San Francisco",
+      "areaTotal": 450.0,
+      "puntos": 450,
+      "direccion": "Tungurahua (Lat: -0.1807, Lng: -78.4678)"
+    }
+  }
+  ```
+* **Respuestas de error:**
+  * `400 Bad Request`: `{ "error": "El código de invitación ha expirado." }`
+  * `404 Not Found`: `{ "error": "No se encontró ningún gremio con ese código o invitación." }`

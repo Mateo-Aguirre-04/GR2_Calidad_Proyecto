@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useGremio } from '../hooks/useGremio'
 import Header from '../components/Header/Header'
 import Button from '../components/Button/Button'
+import ModalInvitar from '../components/ModalInvitar/ModalInvitar'
 import styles from './css/Gremio.module.css'
 
 const PESTANAS = [
@@ -47,6 +48,7 @@ function Gremio() {
   const [editando, setEditando] = useState(false)
   const [borrador, setBorrador] = useState({ descripcion: '', anuncio: '' })
   const [filtro, setFiltro] = useState('todos')
+  const [modalInvitar, setModalInvitar] = useState(false)
 
   function empezarEdicion() {
     setBorrador({ descripcion: gremio.descripcion ?? '', anuncio: gremio.anuncio ?? '' })
@@ -98,6 +100,9 @@ function Gremio() {
                 <h1 id="gremio-titulo">
                   {titulo} - Gremio: {gremio.nombre} - (En línea: {enLinea} / {miembros.length})
                 </h1>
+                <Button type="button" onClick={() => setModalInvitar(true)}>
+                  ✉️ Invitar
+                </Button>
                 <button
                   className={styles.cerrar}
                   type="button"
@@ -193,44 +198,52 @@ function Gremio() {
                           <Button onClick={() => setEditando(false)}>Cancelar</Button>
                         </>
                       ) : (
-                        <Button onClick={empezarEdicion}>Editar Perfil del Gremio</Button>
+                        <>
+                          <Button onClick={empezarEdicion}>Editar Perfil del Gremio</Button>
+                          <Button onClick={() => setModalInvitar(true)}>✉️ Invitar al Gremio</Button>
+                        </>
                       )}
                     </div>
                   </>
                 )}
 
                 {pestana === 'miembros' && (
-                  ranking.length === 0 ? (
-                    <p className={styles.vacio}>Este gremio aún no tiene miembros.</p>
-                  ) : (
-                    <div className={styles.tablaScroll}>
-                      <table className={styles.tabla}>
-                        <thead>
-                          <tr>
-                            <th scope="col">Ranking</th>
-                            <th scope="col">Nivel</th>
-                            <th scope="col">En línea</th>
-                            <th scope="col">Jugador</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ranking.map((m, i) => (
-                            <tr key={m.id}>
-                              <td>{i + 1}</td>
-                              <td className={styles.nivel}>
-                                <span aria-hidden="true">{NIVELES[m.nivel] ?? NIVELES.Miembro}</span> {m.nivel}
-                              </td>
-                              <td>
-                                <span className={`${styles.punto} ${m.enLinea ? styles.conectado : ''}`} aria-hidden="true" />
-                                {m.enLinea ? 'en línea' : 'desconectado'}
-                              </td>
-                              <td>{m.nombre}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  <>
+                    <div className={styles.barraMiembros}>
+                      <Button onClick={() => setModalInvitar(true)}>✉️ Invitar a un Jugador</Button>
                     </div>
-                  )
+                    {ranking.length === 0 ? (
+                      <p className={styles.vacio}>Este gremio aún no tiene miembros.</p>
+                    ) : (
+                      <div className={styles.tablaScroll}>
+                        <table className={styles.tabla}>
+                          <thead>
+                            <tr>
+                              <th scope="col">Ranking</th>
+                              <th scope="col">Nivel</th>
+                              <th scope="col">En línea</th>
+                              <th scope="col">Jugador</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ranking.map((m, i) => (
+                              <tr key={m.id}>
+                                <td>{i + 1}</td>
+                                <td className={styles.nivel}>
+                                  <span aria-hidden="true">{NIVELES[m.nivel] ?? NIVELES.Miembro}</span> {m.nivel}
+                                </td>
+                                <td>
+                                  <span className={`${styles.punto} ${m.enLinea ? styles.conectado : ''}`} aria-hidden="true" />
+                                  {m.enLinea ? 'en línea' : 'desconectado'}
+                                </td>
+                                <td>{m.nombre}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {pestana === 'historia' && (
@@ -294,6 +307,14 @@ function Gremio() {
               </div>
             </section>
           </div>
+        )}
+
+        {modalInvitar && (
+          <ModalInvitar
+            gremioId={gremio?.id}
+            gremioNombre={gremio?.nombre}
+            onCerrar={() => setModalInvitar(false)}
+          />
         )}
       </main>
     </div>

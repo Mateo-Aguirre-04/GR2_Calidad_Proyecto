@@ -261,6 +261,12 @@
   margin-top: 18px;
 }
 
+.barraMiembros {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
 /* ===== Miembros e Historia: tablas ===== */
 .vacio {
   margin: 30px 0;
