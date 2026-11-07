@@ -6,6 +6,7 @@ const MAX_DESCRIPCION = 120
 
 function ModalPerfil({ perfil, onGuardar, onCerrar }) {
   const [editando, setEditando] = useState(false)
+  const [error, setError] = useState('')
   const [borrador, setBorrador] = useState(perfil.descripcion)
 
   useEffect(() => {
@@ -21,7 +22,7 @@ function ModalPerfil({ perfil, onGuardar, onCerrar }) {
     { etiqueta: 'Gremio', valor: perfil.gremio },
     { etiqueta: 'Rango', valor: perfil.rango },
     { etiqueta: 'Puntuación', valor: `${perfil.puntuacion} puntos` },
-    { etiqueta: 'Posición Gremio', valor: `${perfil.posicionGremio}º` },
+    { etiqueta: 'Posición Gremio', valor: perfil.posicionGremio ? `${perfil.posicionGremio}º` : '—' },
   ]
 
   function empezarEdicion() {
@@ -29,9 +30,12 @@ function ModalPerfil({ perfil, onGuardar, onCerrar }) {
     setEditando(true)
   }
 
-  function guardar() {
-    onGuardar(borrador.trim())
-    setEditando(false)
+  async function guardar() {
+    try {
+      await onGuardar(borrador.trim())
+      setEditando(false)
+      setError('')
+    } catch (err) { setError(err.message || 'No se pudo guardar el perfil.') }
   }
 
   return (
@@ -48,6 +52,7 @@ function ModalPerfil({ perfil, onGuardar, onCerrar }) {
         <header className={styles.encabezado}>
           <span className={styles.logo} aria-hidden="true">🌱</span>
           <h2 id="modal-perfil-titulo">Mi Perfil</h2>
+          {error && <p role="alert">{error}</p>}
           <button className={styles.cerrar} type="button" onClick={onCerrar} aria-label="Cerrar">
             ×
           </button>

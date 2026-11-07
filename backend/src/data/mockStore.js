@@ -2,7 +2,6 @@
 // Provides complete offline functionality if PostgreSQL is not currently running.
 
 export const mockData = {
-  actividades: [],
   gremios: [
     {
       id: 1,

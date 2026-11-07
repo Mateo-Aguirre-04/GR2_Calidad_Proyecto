@@ -31,7 +31,7 @@ export function useGremio() {
     }
     async function cargar() {
       try {
-        if (!id) throw new Error('Selecciona un gremio para ver sus miembros y actividades.')
+        if (!id) throw new Error('Selecciona un gremio para ver sus miembros.')
         const res = await fetch(`/api/gremios/${id}`, { signal: controlador.signal, credentials: 'include' })
         const datos = await res.json()
         if (!res.ok) throw new Error(datos.error || 'No se pudo consultar el gremio.')
@@ -40,7 +40,6 @@ export function useGremio() {
           ...prev,
           ...datos,
           miembros: (datos.miembros ?? []).map(adaptarMiembro),
-          actividades: datos.actividades ?? [],
         }))
         setError('')
       } catch (err) {

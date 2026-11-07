@@ -3,6 +3,7 @@ import cors from 'cors'
 import morgan from 'morgan'
 import dotenv from 'dotenv'
 
+import { isDbConnected, schema } from './config/db.js'
 import { sessionMiddleware } from './config/sessions.js'
 import authRoutes from './routes/auth.routes.js'
 import gremiosRoutes from './routes/gremios.routes.js'
@@ -32,6 +33,8 @@ export function createApp(store) {
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
+      fuente: isDbConnected() ? 'postgres' : 'mock',
+      schema: isDbConnected() ? schema : null,
       servicio: 'Huertos.ec Backend API',
       version: '1.0.0',
       timestamp: new Date().toISOString(),

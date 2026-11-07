@@ -36,7 +36,7 @@ function Juego() {
   const [usuarioActual] = useState(() => {
     try { return JSON.parse(localStorage.getItem('usuario_actual')) } catch { return null }
   })
-  const { huerto, cargando, recargar } = useHuerto()
+  const { huerto, cargando, error: errorHuerto, recargar } = useHuerto()
   const { perfil, guardarDescripcion } = usePerfil(usuarioActual?.id)
   const clima = useClima(huerto?.ubicacion)
   const luna = useFaseLunar()
@@ -46,6 +46,7 @@ function Juego() {
   // UI state
   const [modal, setModal] = useState(null) // 'perfil' | 'seleccionarPlanta' | null
   const [loadingAccion, setLoadingAccion] = useState(false)
+  const [errorAccion, setErrorAccion] = useState('')
   const [herramientaActiva, setHerramientaActiva] = useState(null) // 'siembra' | 'cosecha'
   const [plantaSeleccionada, setPlantaSeleccionada] = useState(null) // plant chosen for planting
 
@@ -82,17 +83,18 @@ function Juego() {
   async function onPosicionConfirmada({ x, y }) {
     if (!plantaSeleccionada) return
     setLoadingAccion(true)
+    setErrorAccion('')
     try {
       const resp = await fetch(`/api/huertos/${huerto.id}/sembrar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plantaId: plantaSeleccionada.id, x, y }),
       })
-      if (!resp.ok) throw new Error('Error al sembrar')
+      if (!resp.ok) throw new Error((await resp.json()).error || 'No se pudo guardar la siembra.')
       await resp.json()
       recargar()
     } catch (e) {
-      console.warn(e)
+      setErrorAccion(e.message)
     } finally {
       setLoadingAccion(false)
       setModal(null)
@@ -104,22 +106,25 @@ function Juego() {
   // Callback when a mature crop is selected for harvest
   async function onCultivoSeleccionado(cultivo) {
     setLoadingAccion(true)
+    setErrorAccion('')
     try {
       const resp = await fetch(`/api/huertos/${huerto.id}/cosechar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cultivoId: cultivo.id }),
       })
-      if (!resp.ok) throw new Error('Error al cosechar')
+      if (!resp.ok) throw new Error((await resp.json()).error || 'No se pudo guardar la cosecha.')
       await resp.json()
       recargar()
     } catch (e) {
-      console.warn(e)
+      setErrorAccion(e.message)
     } finally {
       setLoadingAccion(false)
       setHerramientaActiva(null)
     }
   }
+
+  if (errorHuerto) return <p role="alert">{errorHuerto} <button onClick={() => navigate('/seleccion-gremio')}>Seleccionar gremio</button></p>
 
   if (cargando || !huerto) {
     return <p className={styles.cargando} role="status">Cargando huerto...</p>
@@ -137,6 +142,7 @@ function Juego() {
 
   return (
     <div className={styles.pantalla} style={{ backgroundImage: `url(/huertos/${huerto.tipo ?? 'surcos'}.png)` }}>
+      {errorAccion && <p className={styles.avisoSiembra} role="alert">{errorAccion}</p>}
       {/* Jugador (arriba a la izquierda): abre el perfil */}
       <button type="button" className={styles.jugador} onClick={() => setModal('perfil')} aria-label="Abrir mi perfil">
         <span className={styles.avatar}>

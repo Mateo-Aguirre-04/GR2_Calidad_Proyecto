@@ -29,6 +29,7 @@ function Login() {
         setMensaje(`¡Bienvenido, ${datos.usuario?.nombre || usuario}!`)
         localStorage.setItem('usuario_actual', JSON.stringify(datos.usuario))
         localStorage.removeItem('gremio_activo')
+        localStorage.removeItem('huerto_activo_id')
         setTimeout(() => navigate('/seleccion-gremio'), 600)
       } else {
         setMensaje(datos.error || 'Credenciales incorrectas.')

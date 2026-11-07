@@ -8,7 +8,6 @@ import styles from './css/Gremio.module.css'
 const PESTANAS = [
   { clave: 'comunidad', titulo: 'Comunidad' },
   { clave: 'miembros',  titulo: 'Miembros' },
-  { clave: 'historia',  titulo: 'Historia' },
 ]
 
 // Únicos niveles dentro de un gremio
@@ -19,14 +18,6 @@ const NIVELES = {
   Miembro:  '🌱',
 }
 
-const TIPOS_ACTIVIDAD = {
-  cosecha: { etiqueta: 'Cosechas', emoji: '🧺' },
-  siembra: { etiqueta: 'Siembras', emoji: '🌱' },
-  riego:   { etiqueta: 'Riegos',   emoji: '💧' },
-  abono:   { etiqueta: 'Abonos',   emoji: '🧪' },
-  otro: { etiqueta: 'Otras', emoji: '📋' },
-}
-
 const MAX_DESCRIPCION = 120
 const MAX_ANUNCIO = 160
 
@@ -35,19 +26,23 @@ function formatearFecha(fecha) {
   return fecha ? String(fecha).slice(0, 10).replaceAll('-', '/') : '—'
 }
 
-function haceCuanto(fecha) {
-  const dias = Math.floor((Date.now() - new Date(fecha).getTime()) / (24 * 60 * 60 * 1000))
-  if (dias <= 0) return 'Hoy'
-  return dias === 1 ? 'Hace 1 día' : `Hace ${dias} días`
-}
-
 function Gremio() {
   const navigate = useNavigate()
   const { gremio, cargando, error, reintentar, guardarPerfil } = useGremio()
   const [pestana, setPestana] = useState('comunidad')
   const [editando, setEditando] = useState(false)
   const [borrador, setBorrador] = useState({ descripcion: '', anuncio: '' })
-  const [filtro, setFiltro] = useState('todos')
+  const [invitacion, setInvitacion] = useState('')
+  const [errorInvitacion, setErrorInvitacion] = useState('')
+  async function crearInvitacion() {
+    try {
+      const res = await fetch(`/api/gremios/${gremio.id}/invitacion`, { method: 'POST', credentials: 'include' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'No se pudo generar la invitación.')
+      setInvitacion(data.codigo)
+      setErrorInvitacion('')
+    } catch (err) { setErrorInvitacion(err.message) }
+  }
 
   function empezarEdicion() {
     setBorrador({ descripcion: gremio.descripcion ?? '', anuncio: gremio.anuncio ?? '' })
@@ -63,7 +58,6 @@ function Gremio() {
   const miembros = gremio?.miembros ?? []
   const enLinea = miembros.filter((m) => m.enLinea).length
   const ranking = [...miembros].sort((a, b) => b.puntos - a.puntos)
-  const actividades = (gremio?.actividades ?? []).filter((a) => filtro === 'todos' || a.tipo === filtro)
 
   return (
     <div className="pagina">
@@ -172,6 +166,11 @@ function Gremio() {
 
                     <div className={styles.anuncios}>
                       <h2>Anuncios del Gremio</h2>
+                      {gremio.fuente === 'postgres' && <div>
+                        <p>Código de invitación: {invitacion || gremio.codigo || 'Sin invitación vigente'}</p>
+                        <Button onClick={crearInvitacion}>Generar invitación</Button>
+                        {errorInvitacion && <p role="alert">{errorInvitacion}</p>}
+                      </div>}
                       {editando ? (
                         <>
                           <textarea
@@ -236,64 +235,6 @@ function Gremio() {
                   )
                 )}
 
-                {pestana === 'historia' && (
-                  <>
-                    <div className={styles.tablaScroll}>
-                      <table className={styles.tabla}>
-                        <thead>
-                          <tr>
-                            <th scope="col">Jugador</th>
-                            <th scope="col">Actividad</th>
-                            <th scope="col">Fecha</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {actividades.length === 0 ? (
-                            <tr>
-                              <td colSpan={3} className={styles.vacio}>No hay actividades de este tipo.</td>
-                            </tr>
-                          ) : (
-                            actividades.map((a) => (
-                              <tr key={a.id}>
-                                <td>{a.jugador}</td>
-                                <td>
-                                  <span className={`${styles.actividad} ${styles[a.tipo] ?? ''}`}>
-                                    <span aria-hidden="true">{TIPOS_ACTIVIDAD[a.tipo]?.emoji}</span> {a.texto}
-                                  </span>
-                                </td>
-                                <td>{haceCuanto(a.fecha)}</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className={styles.filtros} role="group" aria-label="Filtrar actividades">
-                      <span>Filtrar:</span>
-                      <button
-                        type="button"
-                        className={`${styles.filtro} ${filtro === 'todos' ? styles.filtroActivo : ''}`}
-                        aria-pressed={filtro === 'todos'}
-                        onClick={() => setFiltro('todos')}
-                      >
-                        Todos
-                      </button>
-                      {Object.entries(TIPOS_ACTIVIDAD).map(([clave, { etiqueta, emoji }]) => (
-                        <button
-                          key={clave}
-                          type="button"
-                          className={`${styles.filtro} ${filtro === clave ? styles.filtroActivo : ''}`}
-                          aria-pressed={filtro === clave}
-                          onClick={() => setFiltro(clave)}
-                        >
-                          <span aria-hidden="true">{emoji}</span> {etiqueta}
-                        </button>
-                      ))}
-                    </div>
-                    <p className={styles.total} role="status">Mostrando {actividades.length} registros</p>
-                  </>
-                )}
               </div>
             </section>
           </div>

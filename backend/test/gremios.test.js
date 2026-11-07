@@ -3,8 +3,6 @@ import assert from 'node:assert/strict'
 import session from 'express-session'
 import { createApp } from '../src/app.js'
 import { isOnline, ONLINE_MS } from '../src/config/sessions.js'
-import { mockData } from '../src/data/mockStore.js'
-import { activityType } from '../src/controllers/gremios.controller.js'
 
 test('presencia: frontera estricta de 15 minutos y fechas inválidas', () => {
   const now = Date.now()
@@ -12,12 +10,6 @@ test('presencia: frontera estricta de 15 minutos y fechas inválidas', () => {
   assert.equal(isOnline(new Date(now - ONLINE_MS), now), false)
   assert.equal(isOnline('inválida', now), false)
   assert.equal(isOnline(new Date(now + 1), now), false)
-})
-
-test('clasifica el catálogo de actividades, incluidas otras actividades', () => {
-  for (const [text, type] of [['Regó el huerto', 'riego'], ['Abonar', 'abono'], ['Cosechar', 'cosecha'], ['Sembrar', 'siembra'], ['Reunión', 'otro']]) {
-    assert.equal(activityType(text), type)
-  }
 })
 
 test('API: cookies, miembros, acciones reales, dos sesiones, expiración y logout', async (t) => {
@@ -39,7 +31,7 @@ test('API: cookies, miembros, acciones reales, dos sesiones, expiración y logou
   const initial = await call('/api/gremios/1')
   assert.equal(member(initial.data).enLinea, false)
   assert.equal(initial.cookie, undefined)
-  assert.equal(initial.data.actividades.length, 0)
+  assert.equal('actividades' in initial.data, false)
   assert.equal('contrasena' in member(initial.data), false)
   assert.equal((await call('/api/gremios/0')).res.status, 400)
   assert.equal((await call('/api/gremios/999')).res.status, 404)
@@ -56,11 +48,6 @@ test('API: cookies, miembros, acciones reales, dos sesiones, expiración y logou
   assert.equal(member((await call('/api/gremios/1')).data).enLinea, true)
   const planted = await call('/api/huertos/1/sembrar', { cookie: first.cookie, body: { plantaId: 3, x: 10, y: 20 } })
   assert.equal(planted.res.status, 201)
-  const history = (await call('/api/gremios/1')).data.actividades
-  assert.equal(history.length, 1)
-  assert.equal(history[0].jugador, 'Carlos Andrade')
-  assert.equal(history[0].tipo, 'siembra')
-  assert.equal((await call('/api/gremios/2')).data.actividades.length, 0)
   const second = await call('/api/auth/login', { body: credentials })
   assert.notEqual(first.cookie, second.cookie)
   await call('/api/auth/logout', { cookie: first.cookie, method: 'POST' })
@@ -77,6 +64,4 @@ test('API: cookies, miembros, acciones reales, dos sesiones, expiración y logou
   assert.equal(member((await call('/api/gremios/1')).data).enLinea, true)
   await call('/api/auth/logout', { cookie: second.cookie, method: 'POST' })
   assert.equal(member((await call('/api/gremios/1')).data).enLinea, false)
-  // Evitar que la prueba deje datos en otros tests del mismo proceso.
-  mockData.actividades.length = 0
 })

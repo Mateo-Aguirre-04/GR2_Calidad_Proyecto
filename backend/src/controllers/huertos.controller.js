@@ -1,6 +1,5 @@
 import { isDbConnected, query } from '../config/db.js'
 import { mockData } from '../data/mockStore.js'
-import { recordMockActivity } from '../data/activities.js'
 
 export async function getHuerto(req, res) {
     const SQL_HUERTO = `
@@ -61,7 +60,6 @@ export async function sembrarCultivo(req, res) {
     }
 
     huerto.cultivos.push(nuevoCultivo)
-    recordMockActivity(req, huerto, 'siembra', `sembró ${planta.nombre}`)
 
     // Si la BD está conectada, registrar también en Huerto_Planta
     if (isDbConnected()) {
@@ -100,7 +98,6 @@ export async function cosecharCultivo(req, res) {
 
     if (!cultivo.cosechado) {
       cultivo.cosechado = true
-      recordMockActivity(req, huerto, 'cosecha', `cosechó ${cultivo.planta.nombre}`)
     }
 
     return res.json({

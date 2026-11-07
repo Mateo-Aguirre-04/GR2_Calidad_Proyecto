@@ -2,15 +2,6 @@ import { isDbConnected, query } from '../config/db.js'
 import { mockData } from '../data/mockStore.js'
 import { getPresence, isOnline } from '../config/sessions.js'
 
-export function activityType(text) {
-  const value = String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-  if (/riego|regar|rego/.test(value)) return 'riego'
-  if (/abon|compost|fertiliz/.test(value)) return 'abono'
-  if (/cosech/.test(value)) return 'cosecha'
-  if (/siembr|sembr/.test(value)) return 'siembra'
-  return 'otro'
-}
-
 function memberResponse(user, presence) {
   const lastSeen = presence.get(Number(user.id)) ?? user.lastSeen ?? null
   return {
@@ -82,29 +73,10 @@ export async function getGremioById(req, res) {
         JOIN Usuario u ON u.ID_usuario = mg.ID_usuario
         JOIN Usuario_General ug ON ug.ID_usuario = u.ID_usuario
         WHERE mg.ID_gremio = $1 ORDER BY ug.Puntos DESC, u.ID_usuario`, [id])
-      const activitiesResult = await query(`
-        SELECT CONCAT(au.ID_Actividad, '-', au.ID_usuario) AS id,
-               COALESCE(NULLIF(TRIM(CONCAT(
-                 COALESCE(to_jsonb(u)->>'nombres', to_jsonb(u)->>'nombre'), ' ',
-                 COALESCE(to_jsonb(u)->>'apellidos', to_jsonb(u)->>'apellido'))), ''),
-                 to_jsonb(u)->>'nombre_usuario', to_jsonb(ug)->>'nombre_usuario') AS jugador,
-               a.Actividad AS texto, au.Fecha_Cumplimiento AS fecha
-        FROM Actividades_Usuario au
-        JOIN Actividades a ON a.ID_Actividad = au.ID_Actividad
-        JOIN Usuario u ON u.ID_usuario = au.ID_usuario
-        JOIN Usuario_General ug ON ug.ID_usuario = u.ID_usuario
-        JOIN Miembro_Gremio mg ON mg.ID_usuario = u.ID_usuario AND mg.ID_gremio = $1
-        LEFT JOIN Huerto h ON h.ID_Huerto = au.ID_Huerto
-        WHERE au.Cumplimiento = TRUE AND au.Fecha_Cumplimiento IS NOT NULL
-          AND au.Fecha_Cumplimiento >= mg.Fecha_ingreso
-          AND (h.ID_gremio = $1 OR au.ID_Huerto IS NULL)
-        ORDER BY au.Fecha_Cumplimiento DESC, au.ID_Actividad DESC, au.ID_usuario
-        LIMIT 100`, [id])
       const presence = await getPresence(req.sessionStore, 'postgres')
       return res.json({
         ...rows[0], fuente: 'postgres',
         miembros: membersResult.rows.map((u) => memberResponse(u, presence)),
-        actividades: activitiesResult.rows.map((a) => ({ ...a, tipo: activityType(a.texto) })),
       })
     }
     const gremio = mockData.gremios.find((g) => g.id === id)
@@ -120,8 +92,6 @@ export async function getGremioById(req, res) {
       ...gremio,
       fuente: 'mock',
       miembros,
-      actividades: mockData.actividades.filter((a) => a.gremioId === id)
-        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)),
       huerto,
     })
   } catch (error) {

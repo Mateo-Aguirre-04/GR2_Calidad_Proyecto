@@ -1,3 +1,5 @@
+> Esta guía describe la demostración inicial. Para la integración actual con la base real, consultar [SUPABASE.md](SUPABASE.md).
+
 # Gremios: presencia e historial
 
 ## Ejecutar en modo local

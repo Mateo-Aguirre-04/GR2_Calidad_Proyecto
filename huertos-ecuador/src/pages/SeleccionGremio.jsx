@@ -11,12 +11,25 @@ function SeleccionGremio() {
 
     const navigate = useNavigate()
     const [error, setError] = useState('')
+    const [usuario] = useState(() => { try { return JSON.parse(localStorage.getItem('usuario_actual')) } catch { return null } })
+    async function entrar() {
+        try {
+            const res = await fetch(`/api/gremios/${usuario.gremioId}`, { credentials: 'include' })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error)
+            if (!data.huerto?.id) throw new Error('El gremio no tiene un huerto configurado.')
+            localStorage.setItem('gremio_activo', JSON.stringify(data))
+            localStorage.setItem('huerto_activo_id', String(data.huerto.id))
+            navigate('/juego')
+        } catch (err) { setError(err.message || 'No se pudo abrir el gremio.') }
+    }
     async function cerrarSesion() {
         try {
             const res = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
             if (!res.ok) throw new Error('No se pudo cerrar la sesión.')
             localStorage.removeItem('usuario_actual')
             localStorage.removeItem('gremio_activo')
+            localStorage.removeItem('huerto_activo_id')
             navigate('/')
         } catch {
             setError('No se pudo cerrar la sesión. Inténtalo de nuevo.')
@@ -44,6 +57,7 @@ function SeleccionGremio() {
                 <Tarjeta ancho={600} aria-labelledby="Selección">
                     <h1 className={styles.titulo}>Selecciona una Opción</h1>
                     <div className={styles.botones}>
+                        {usuario?.gremioId && <Button variante="bloque" onClick={entrar}>Entrar a mi gremio</Button>}
                         <Button className={styles.boton} variante='bloque' onClick={() => setModalAbierto(true)}> Unirme a un Gremio </Button>
                         <Button className={styles.boton} as={Link} to="/crear-gremio" variante='bloque'> Crear un Gremio </Button>
                     </div>

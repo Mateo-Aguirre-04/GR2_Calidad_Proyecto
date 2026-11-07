@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header/Header'
 import Tarjeta from '../components/Tarjeta/Tarjeta'
@@ -7,11 +7,9 @@ import ModalMapa from '../components/ModalMapa/ModalMapa'
 import MapaMiniatura from '../components/MapaMiniatura/MapaMiniatura'
 import styles from './css/CrearGremio.module.css'
 
-const TIPOS_SUELO = ['Arcilloso', 'Arenoso', 'Limoso', 'Franco', 'Humífero']
-const TIPOS_RIEGO = ['Manual', 'Goteo', 'Aspersión', 'Lluvia / secano']
-
 function CrearGremio() {
   const navigate = useNavigate()
+  const [configuracion, setConfiguracion] = useState({ suelos: [], riegos: [] })
   const inputFoto = useRef(null)
 
   const [valores, setValores] = useState({
@@ -26,6 +24,15 @@ function CrearGremio() {
   const [aceptaTerminos, setAceptaTerminos] = useState(false)
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch('/api/gremios/configuracion', { signal: controller.signal, credentials: 'include' })
+      .then(async (res) => { const data = await res.json(); if (!res.ok) throw new Error(data.error); return data })
+      .then(setConfiguracion)
+      .catch((err) => { if (!controller.signal.aborted) setError(err.message) })
+    return () => controller.abort()
+  }, [])
+
 
   function actualizar(e) {
     const { name, value } = e.target
@@ -59,30 +66,21 @@ function CrearGremio() {
       const data = await res.json()
       if (res.ok) {
         const gremioGuardado = {
-          id: data.gremio?.id || Date.now(),
+          id: data.gremio.id,
+          codigo: data.gremio.codigo,
           nombre: valores.nombre,
           areaTotal: parseFloat(valores.area),
           ubicacion: { lat: ubicacion.lat, lng: ubicacion.lng },
           direccion: ubicacion.direccion || 'Ecuador',
         }
         localStorage.setItem('gremio_activo', JSON.stringify(gremioGuardado))
-        localStorage.setItem('huerto_activo_id', String(gremioGuardado.id))
+        localStorage.setItem('huerto_activo_id', String(data.gremio.huerto?.id ?? gremioGuardado.id))
         navigate('/juego')
       } else {
         setError(data.error || 'Error al registrar el gremio')
       }
     } catch {
-      // Modo resiliente en desarrollo ante fallo de red
-      const gremioLocal = {
-        id: Date.now(),
-        nombre: valores.nombre,
-        areaTotal: parseFloat(valores.area),
-        ubicacion: { lat: ubicacion.lat, lng: ubicacion.lng },
-        direccion: ubicacion.direccion || 'Ecuador',
-      }
-      localStorage.setItem('gremio_activo', JSON.stringify(gremioLocal))
-      localStorage.setItem('huerto_activo_id', String(gremioLocal.id))
-      navigate('/juego')
+      setError('No se pudo guardar el gremio en el servidor. Inténtalo de nuevo.')
     } finally {
       setEnviando(false)
     }
@@ -160,7 +158,7 @@ function CrearGremio() {
               <label htmlFor="suelo">Tipo de suelo</label>
               <select id="suelo" name="suelo" value={valores.suelo} onChange={actualizar} required>
                 <option value="" disabled>Selecciona</option>
-                {TIPOS_SUELO.map((t) => <option key={t} value={t}>{t}</option>)}
+                {configuracion.suelos.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
 
@@ -168,7 +166,7 @@ function CrearGremio() {
               <label htmlFor="riego">Tipo de riego</label>
               <select id="riego" name="riego" value={valores.riego} onChange={actualizar} required>
                 <option value="" disabled>Selecciona</option>
-                {TIPOS_RIEGO.map((t) => <option key={t} value={t}>{t}</option>)}
+                {configuracion.riegos.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
 

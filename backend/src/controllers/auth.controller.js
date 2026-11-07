@@ -49,12 +49,12 @@ export async function login(req, res) {
         return res.json({
           mensaje: 'Inicio de sesión exitoso',
           usuario: {
-            id: user.id_usuario,
+            id: Number(user.id_usuario),
             usuario: user.nombre_usuario,
             nombre: `${user.nombres} ${user.apellidos ?? ''}`.trim(),
             descripcion: user.descripcion,
             puntos: user.puntos || 0,
-            gremioId: user.id_gremio,
+            gremioId: user.id_gremio ? Number(user.id_gremio) : null,
             gremioNombre: user.nombre_gremio,
             rolGremio: user.rol_en_gremio,
           },

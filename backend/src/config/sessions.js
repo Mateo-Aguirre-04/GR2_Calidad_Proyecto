@@ -1,7 +1,7 @@
 import session from 'express-session'
 import connectPgSimple from 'connect-pg-simple'
 import { randomBytes } from 'node:crypto'
-import { pool, isDbConnected, query } from './db.js'
+import { pool, isDbConnected, query, schema } from './db.js'
 
 export const ONLINE_MS = 15 * 60 * 1000
 export const COOKIE_NAME = 'huertos.sid'
@@ -22,7 +22,7 @@ export async function createSessionStore() {
   )`)
   await query('CREATE INDEX IF NOT EXISTS huertos_sessions_expire_idx ON huertos_sessions (expire)')
   const PgStore = connectPgSimple(session)
-  return new PgStore({ pool, tableName: 'huertos_sessions' })
+  return new PgStore({ pool, schemaName: schema, tableName: 'huertos_sessions' })
 }
 
 export function sessionMiddleware(store) {
