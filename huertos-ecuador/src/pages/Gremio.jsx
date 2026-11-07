@@ -144,9 +144,6 @@ function Gremio() {
                             ) : (
                               <>
                                 {gremio.descripcion || 'Sin descripción.'}{' '}
-                                <button type="button" className={styles.editar} onClick={empezarEdicion}>
-                                  (Edit) <span aria-hidden="true">✎</span>
-                                </button>
                               </>
                             )}
                           </dd>
@@ -172,9 +169,6 @@ function Gremio() {
                     <div className={styles.anuncios}>
                       <h2>Anuncios del Gremio</h2>
                       {gremio.fuente === 'postgres' && <div>
-                        <p>Código de invitación: {invitacion || gremio.codigo || 'Sin invitación vigente'}</p>
-                        <Button onClick={crearInvitacion}>Generar invitación</Button>
-                        {errorInvitacion && <p role="alert">{errorInvitacion}</p>}
                       </div>}
                       {editando ? (
                         <>
@@ -202,7 +196,6 @@ function Gremio() {
                       ) : (
                         <>
                           <Button onClick={empezarEdicion}>Editar Perfil del Gremio</Button>
-                          <Button onClick={() => setModalInvitar(true)}>✉️ Invitar al Gremio</Button>
                         </>
                       )}
                     </div>

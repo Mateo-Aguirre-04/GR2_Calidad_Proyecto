@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header/Header'
 import Tarjeta from '../components/Tarjeta/Tarjeta'
