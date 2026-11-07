@@ -62,8 +62,17 @@ export function useGremio() {
     return () => { controlador.abort(); clearTimeout(timer) }
   }, [intento])
 
-  function guardarPerfil(cambios) {
-    setGremio((prev) => prev ? { ...prev, ...cambios } : prev)
+  async function guardarPerfil(cambios) {
+    if (!gremio?.id) throw new Error('No se pudo identificar el gremio.')
+    const response = await authenticatedFetch(`/api/gremios/${gremio.id}/perfil`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cambios),
+    })
+    const result = await response.json()
+    if (!response.ok) {
+      if (response.status === 403) setGremio((prev) => prev ? { ...prev, puedeEditar: false } : prev)
+      throw new Error(result.error || 'No se pudo guardar el perfil del gremio.')
+    }
+    setGremio((prev) => prev ? { ...prev, ...result } : prev)
   }
 
   return { gremio, cargando, error, reintentar: () => setIntento((n) => n + 1), guardarPerfil }

@@ -40,6 +40,7 @@ test('API: cookies, miembros, acciones reales, dos sesiones, expiración y logou
   }
   const member = (data) => data.miembros.find((u) => u.id === 3)
   const initial = await call('/api/gremios/1')
+  assert.equal((await call('/api/gremios/1/perfil', { method: 'PATCH', body: { descripcion: 'Sin sesión', anuncios: 'No autorizado', rol: 'Maestro' } })).res.status, 401)
   assert.equal(member(initial.data).enLinea, false)
   assert.equal(initial.cookie, undefined)
   assert.equal('actividades' in initial.data, false)

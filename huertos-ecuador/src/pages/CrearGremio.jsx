@@ -17,6 +17,7 @@ function CrearGremio() {
     area: '',
     suelo: '',
     riego: '',
+    descripcion: '',
   })
   const [ubicacion, setUbicacion] = useState(null) // { lat, lng, direccion }
   const [mapaAbierto, setMapaAbierto] = useState(false)
@@ -35,7 +36,7 @@ function CrearGremio() {
           navigate('/juego', { replace: true })
         }
       }
-    } catch {}
+    } catch { /* Un perfil local inválido no determina la autorización del servidor. */ }
   }, [navigate])
   useEffect(() => {
     const controller = new AbortController()
@@ -67,10 +68,11 @@ function CrearGremio() {
           const u = JSON.parse(raw)
           usuarioId = u.id || u.id_usuario
         }
-      } catch {}
+      } catch { /* El servidor obtiene la identidad desde la sesión. */ }
 
       const cuerpo = {
         nombre: valores.nombre,
+        descripcion: valores.descripcion,
         area: parseFloat(valores.area),
         suelo: valores.suelo,
         riego: valores.riego,
@@ -92,6 +94,8 @@ function CrearGremio() {
           id: data.gremio.id,
           codigo: data.gremio.codigo,
           nombre: valores.nombre,
+          descripcion: data.gremio.descripcion,
+          anuncios: data.gremio.anuncios,
           areaTotal: parseFloat(valores.area),
           ubicacion: { lat: ubicacion.lat, lng: ubicacion.lng },
           direccion: ubicacion.direccion || 'Ecuador',
@@ -201,6 +205,7 @@ function CrearGremio() {
                 value={valores.descripcion}
                 onChange={actualizar}
                 placeholder="Descripción de mi gremio"
+                maxLength={120}
                 required
               />
             </div>
