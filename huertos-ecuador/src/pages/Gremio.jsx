@@ -24,6 +24,7 @@ const TIPOS_ACTIVIDAD = {
   siembra: { etiqueta: 'Siembras', emoji: '🌱' },
   riego:   { etiqueta: 'Riegos',   emoji: '💧' },
   abono:   { etiqueta: 'Abonos',   emoji: '🧪' },
+  otro: { etiqueta: 'Otras', emoji: '📋' },
 }
 
 const MAX_DESCRIPCION = 120
@@ -42,7 +43,7 @@ function haceCuanto(fecha) {
 
 function Gremio() {
   const navigate = useNavigate()
-  const { gremio, cargando, guardarPerfil } = useGremio()
+  const { gremio, cargando, error, reintentar, guardarPerfil } = useGremio()
   const [pestana, setPestana] = useState('comunidad')
   const [editando, setEditando] = useState(false)
   const [borrador, setBorrador] = useState({ descripcion: '', anuncio: '' })
@@ -69,10 +70,12 @@ function Gremio() {
       <Header pregunta="" textoEnlace="Regresar" destino="/juego" />
 
       <main className={styles.contenido}>
-        {cargando || !gremio ? (
+        {error && <div role="alert"><p>{error}</p><Button onClick={reintentar}>Reintentar</Button></div>}
+        {gremio?.fuente === 'mock' && <p role="status">Modo demostración: datos locales, sin conexión a PostgreSQL.</p>}
+        {cargando ? (
           <p className={styles.estado} role="status">Cargando gremio...</p>
         ) : (
-          <div className={styles.ventana}>
+          gremio && <div className={styles.ventana}>
             <div className={styles.pestanas} role="tablist" aria-label="Secciones del gremio">
               {PESTANAS.map((p) => (
                 <button

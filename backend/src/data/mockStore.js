@@ -2,6 +2,7 @@
 // Provides complete offline functionality if PostgreSQL is not currently running.
 
 export const mockData = {
+  actividades: [],
   gremios: [
     {
       id: 1,
@@ -516,4 +517,10 @@ export const mockData = {
       completado: false,
     },
   ],
+}
+
+// Presencia simulada solo para la demostración sin PostgreSQL; caduca a los 15 minutos.
+for (const user of mockData.usuarios) {
+  user.enLinea = user.posicionGremio === 1
+  user.lastSeen = new Date(Date.now() - (user.enLinea ? 2 : 30) * 60_000).toISOString()
 }

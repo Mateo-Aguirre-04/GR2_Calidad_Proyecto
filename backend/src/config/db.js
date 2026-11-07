@@ -15,6 +15,11 @@ export const pool = new Pool({
 let connected = false
 
 export async function checkDbConnection() {
+  if (!process.env.DATABASE_URL) {
+    connected = false
+    console.info('[DB] Sin DATABASE_URL: usando datos mock.')
+    return false
+  }
   try {
     const client = await pool.connect()
     connected = true

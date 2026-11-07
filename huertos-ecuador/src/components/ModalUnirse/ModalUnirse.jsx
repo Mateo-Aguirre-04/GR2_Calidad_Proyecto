@@ -25,14 +25,14 @@ function ModalUnirse({ onCerrar }) {
       })
       const datos = await res.json()
       if (res.ok) {
+        localStorage.setItem('gremio_activo', JSON.stringify(datos.gremio))
         onCerrar()
         navigate('/juego')
       } else {
         setMensaje(datos.error || 'Código de gremio no válido.')
       }
     } catch {
-      onCerrar()
-      navigate('/juego')
+      setMensaje('No se pudo conectar con el servidor.')
     }
   }
 

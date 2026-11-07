@@ -1,4 +1,5 @@
 import { mockData } from '../data/mockStore.js'
+import { recordMockActivity } from '../data/activities.js'
 
 export async function getRecordatorios(req, res) {
   try {
@@ -21,11 +22,14 @@ export async function completarRecordatorio(req, res) {
       return res.status(404).json({ error: 'Recordatorio no encontrado.' })
     }
 
+    if (recordatorio.completado) return res.status(409).json({ error: 'La actividad ya está completada.' })
     recordatorio.completado = true
 
     // Premiar al usuario con puntos de gamificación (ej. 15 puntos)
     const usuario = mockData.usuarios.find((u) => u.id === recordatorio.usuarioId) || mockData.usuarios[1]
     usuario.puntos += 15
+    const huerto = mockData.huertos.find((h) => h.gremioId === usuario.gremioId)
+    recordMockActivity(req, huerto, recordatorio.tipo, recordatorio.texto, usuario.id)
 
     return res.json({
       mensaje: '¡Actividad completada! Has sumado 15 puntos de gamificación.',

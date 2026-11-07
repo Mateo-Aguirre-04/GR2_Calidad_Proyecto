@@ -20,6 +20,7 @@ function Login() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario, contrasena }),
       })
@@ -27,13 +28,13 @@ function Login() {
       if (res.ok) {
         setMensaje(`¡Bienvenido, ${datos.usuario?.nombre || usuario}!`)
         localStorage.setItem('usuario_actual', JSON.stringify(datos.usuario))
+        localStorage.removeItem('gremio_activo')
         setTimeout(() => navigate('/seleccion-gremio'), 600)
       } else {
         setMensaje(datos.error || 'Credenciales incorrectas.')
       }
     } catch {
-      setMensaje('Sesión iniciada (modo de prueba). Redirigiendo...')
-      setTimeout(() => navigate('/seleccion-gremio'), 600)
+      setMensaje('No se pudo conectar con el servidor. Inténtalo de nuevo.')
     }
   }
 

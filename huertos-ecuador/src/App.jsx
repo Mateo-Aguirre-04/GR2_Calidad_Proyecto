@@ -6,8 +6,10 @@ import CrearGremio from "./pages/CrearGremio"
 import Catalogo from './pages/Catalogo'
 import Juego from './pages/Juego'
 import Gremio from './pages/Gremio'
+import { usePresencia } from './hooks/usePresencia'
 
 function App() {
+  usePresencia()
   return (
     <BrowserRouter>
       <Routes>
