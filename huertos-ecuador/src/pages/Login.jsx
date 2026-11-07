@@ -27,13 +27,28 @@ function Login() {
       if (res.ok) {
         setMensaje(`¡Bienvenido, ${datos.usuario?.nombre || usuario}!`)
         localStorage.setItem('usuario_actual', JSON.stringify(datos.usuario))
-        setTimeout(() => navigate('/seleccion-gremio'), 600)
+
+        // Si el usuario ya pertenece a un gremio en la base de datos
+        if (datos.usuario?.gremioId) {
+          if (datos.gremio) {
+            localStorage.setItem('gremio_activo', JSON.stringify(datos.gremio))
+          }
+          const huertoId = datos.usuario.huertoId || datos.usuario.gremioId
+          localStorage.setItem('huerto_activo_id', String(huertoId))
+
+          // Redirección directa al huerto / juego
+          setTimeout(() => navigate('/juego'), 600)
+        } else {
+          // Si no tiene gremio, limpiar registros antiguos y enviar a selección
+          localStorage.removeItem('gremio_activo')
+          localStorage.removeItem('huerto_activo_id')
+          setTimeout(() => navigate('/seleccion-gremio'), 600)
+        }
       } else {
         setMensaje(datos.error || 'Credenciales incorrectas.')
       }
     } catch {
-      setMensaje('Sesión iniciada (modo de prueba). Redirigiendo...')
-      setTimeout(() => navigate('/seleccion-gremio'), 600)
+      setMensaje('No se pudo conectar con el servidor. Revisa tu conexión.')
     }
   }
 

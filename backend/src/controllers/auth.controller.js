@@ -14,37 +14,75 @@ export async function login(req, res) {
       try {
         const sql = `
           SELECT u.ID_usuario, u.Nombres, u.Apellidos, u.Contrasenia_hash, ug.Nombre_Usuario, ug.Descripcion, ug.Puntos,
-                 g.ID_gremio, g.Nombre_Gremio, mg.Rol AS Rol_En_Gremio
+                 g.ID_gremio, g.Nombre_Gremio, g.Area_Total, g.Puntos_Gremio, g.Latitud, g.Longitud,
+                 mg.Rol AS Rol_En_Gremio,
+                 h.ID_Huerto
           FROM Usuario u
           LEFT JOIN Usuario_General ug ON u.ID_usuario = ug.ID_usuario
           LEFT JOIN Miembro_Gremio mg ON u.ID_usuario = mg.ID_usuario
           LEFT JOIN Gremio g ON mg.ID_gremio = g.ID_gremio
+          LEFT JOIN Huerto h ON h.ID_gremio = g.ID_gremio
           WHERE LOWER(ug.Nombre_Usuario) = LOWER($1)
           LIMIT 1
         `
         const { rows } = await query(sql, [usuario])
         const user = rows[0]
 
+        if (!user) {
+          // Si no está en BD, verificar si es un usuario de prueba en mockData
+          const userFound = mockData.usuarios.find(
+            (u) => u.usuario.toLowerCase() === usuario.toLowerCase()
+          )
+          if (userFound) {
+            const gremioFound = userFound.gremioId
+              ? mockData.gremios.find((g) => g.id === userFound.gremioId)
+              : null
+            return res.json({
+              mensaje: 'Inicio de sesión exitoso (modo datos semilla)',
+              usuario: userFound,
+              gremio: gremioFound || null,
+            })
+          }
+          return res.status(401).json({ error: 'Usuario no encontrado.' })
+        }
+
         const valida = user?.contrasenia_hash
-        ? await bcrypt.compare(contrasena, user.contrasenia_hash)
-        : false
+          ? await bcrypt.compare(contrasena, user.contrasenia_hash)
+          : false
 
         if (!valida) {
           return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' })
         }
 
+        const gremioIdNum = user.id_gremio ? Number(user.id_gremio) : null
+        const gremioObj = gremioIdNum
+          ? {
+              id: gremioIdNum,
+              nombre: user.nombre_gremio,
+              areaTotal: Number(user.area_total || 0),
+              puntos: Number(user.puntos_gremio || 0),
+              ubicacion: {
+                lat: Number(user.latitud || -0.1807),
+                lng: Number(user.longitud || -78.4678),
+              },
+              direccion: `Tungurahua (Lat: ${user.latitud}, Lng: ${user.longitud})`,
+            }
+          : null
+
         return res.json({
           mensaje: 'Inicio de sesión exitoso',
           usuario: {
-            id: user.id_usuario,
+            id: Number(user.id_usuario),
             usuario: user.nombre_usuario,
-            nombre: `${user.nombres} ${user.apellidos ?? ''}`.trim(),
+            nombre: `${user.nombres || ''} ${user.apellidos ?? ''}`.trim() || user.nombre_usuario,
             descripcion: user.descripcion,
-            puntos: user.puntos || 0,
-            gremioId: user.id_gremio,
-            gremioNombre: user.nombre_gremio,
-            rolGremio: user.rol_en_gremio,
+            puntos: Number(user.puntos || 0),
+            gremioId: gremioIdNum,
+            gremioNombre: user.nombre_gremio || null,
+            rolGremio: user.rol_en_gremio || null,
+            huertoId: user.id_huerto ? Number(user.id_huerto) : gremioIdNum,
           },
+          gremio: gremioObj,
         })
       } catch (dbErr) {
         console.warn('[Auth] Error consultando PostgreSQL, usando fallback:', dbErr.message)
@@ -57,9 +95,14 @@ export async function login(req, res) {
     )
 
     if (userFound) {
+      const gremioFound = userFound.gremioId
+        ? mockData.gremios.find((g) => g.id === userFound.gremioId)
+        : null
+
       return res.json({
         mensaje: 'Inicio de sesión exitoso (modo datos semilla)',
         usuario: userFound,
+        gremio: gremioFound || null,
       })
     }
 
