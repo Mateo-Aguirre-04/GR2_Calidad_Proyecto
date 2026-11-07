@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Scanner } from '@yudiel/react-qr-scanner'
 import Button from '../Button/Button'
@@ -9,42 +9,90 @@ function ModalUnirse({ onCerrar }) {
   const [modo, setModo] = useState('codigo') // 'codigo' | 'qr'
   const [codigo, setCodigo] = useState('')
   const [mensaje, setMensaje] = useState('')
+  const [error, setError] = useState('')
+  const [cargando, setCargando] = useState(false)
+
+  // Cerrar modal al presionar Escape
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') onCerrar()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onCerrar])
 
   function cambiarCodigo(e) {
-    // solo dígitos, máximo 6
+    // Solo dígitos numéricos, máximo 6
+    setError('')
     setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))
   }
 
   async function unirse(valor) {
+    if (cargando) return
+    const codigoLimpio = String(valor).trim()
+    if (!codigoLimpio) return
+
+    setCargando(true)
+    setError('')
+    setMensaje('Verificando código de gremio...')
+
     try {
-      setMensaje('Verificando gremio...')
+      // Obtener el ID del usuario actual de la sesión local
+      let usuarioId = null
+      try {
+        const u = localStorage.getItem('usuario_actual')
+        if (u) {
+          const parseado = JSON.parse(u)
+          usuarioId = parseado.id || parseado.id_usuario
+        }
+      } catch {}
+
       const res = await fetch('/api/gremios/unirse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codigo: valor }),
+        body: JSON.stringify({ codigo: codigoLimpio, usuarioId }),
       })
+
       const datos = await res.json()
+
       if (res.ok) {
-        onCerrar()
-        navigate('/juego')
+        setMensaje(datos.mensaje || '¡Te has unido exitosamente al gremio!')
+
+        // Sincronizar gremio y huerto activo en localStorage
+        if (datos.gremio) {
+          localStorage.setItem('gremio_activo', JSON.stringify(datos.gremio))
+          localStorage.setItem('huerto_activo_id', String(datos.gremio.id))
+        }
+
+        setTimeout(() => {
+          onCerrar()
+          navigate('/juego')
+        }, 1100)
       } else {
-        setMensaje(datos.error || 'Código de gremio no válido.')
+        setMensaje('')
+        setError(datos.error || 'Código de gremio no válido o expirado.')
       }
     } catch {
-      onCerrar()
-      navigate('/juego')
+      setMensaje('')
+      setError('No se pudo conectar con el servidor. Revisa tu conexión.')
+    } finally {
+      setCargando(false)
     }
   }
 
   function enviar(e) {
     e.preventDefault()
-    if (codigo.length === 6) unirse(codigo)
+    if (codigo.length === 6) {
+      unirse(codigo)
+    }
   }
 
   return (
     <div
       className={styles.overlay}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onCerrar() }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onCerrar()
+      }}
     >
       <section
         className={styles.modal}
@@ -52,7 +100,12 @@ function ModalUnirse({ onCerrar }) {
         aria-modal="true"
         aria-labelledby="modal-unirse-titulo"
       >
-        <button className={styles.cerrar} type="button" onClick={onCerrar} aria-label="Cerrar">
+        <button
+          className={styles.cerrar}
+          type="button"
+          onClick={onCerrar}
+          aria-label="Cerrar modal"
+        >
           ×
         </button>
 
@@ -61,13 +114,19 @@ function ModalUnirse({ onCerrar }) {
         <div className={styles.tabs}>
           <Button
             className={modo === 'codigo' ? styles.tabActiva : ''}
-            onClick={() => setModo('codigo')}
+            onClick={() => {
+              setModo('codigo')
+              setError('')
+            }}
           >
             Código
           </Button>
           <Button
             className={modo === 'qr' ? styles.tabActiva : ''}
-            onClick={() => setModo('qr')}
+            onClick={() => {
+              setModo('qr')
+              setError('')
+            }}
           >
             Escanear QR
           </Button>
@@ -84,21 +143,41 @@ function ModalUnirse({ onCerrar }) {
               autoComplete="one-time-code"
               placeholder="000001"
               maxLength={6}
+              disabled={cargando}
             />
-            {mensaje && <p className={styles.ayuda}>{mensaje}</p>}
-            <Button type="submit" variante="bloque" disabled={codigo.length !== 6}>
-              Unirme
+
+            {error && <p className={styles.error} role="alert">⚠ {error}</p>}
+            {mensaje && <p className={styles.exito} role="status">{mensaje}</p>}
+
+            <Button
+              type="submit"
+              variante="bloque"
+              disabled={codigo.length !== 6 || cargando}
+            >
+              {cargando ? 'Verificando...' : 'Unirme'}
             </Button>
           </form>
         ) : (
           <>
             <div className={styles.escaner}>
               <Scanner
-                onScan={(resultados) => resultados[0] && unirse(resultados[0].rawValue)}
-                onError={(err) => console.error(err)}
+                onScan={(resultados) => {
+                  if (resultados?.[0]?.rawValue) {
+                    unirse(resultados[0].rawValue)
+                  }
+                }}
+                onError={(err) => console.error('[Scanner error]', err)}
               />
             </div>
-            <p className={styles.ayuda}>Apunta la cámara al código QR del gremio</p>
+
+            {error && <p className={styles.error} role="alert">⚠ {error}</p>}
+            {mensaje && <p className={styles.exito} role="status">{mensaje}</p>}
+
+            <p className={styles.ayuda}>
+              {cargando
+                ? 'Validando código QR...'
+                : 'Apunta la cámara al código QR generado por tu gremio'}
+            </p>
           </>
         )}
       </section>

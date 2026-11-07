@@ -13,6 +13,7 @@
     "@yudiel/react-qr-scanner": "^2.6.0",
     "astronomy-engine": "^2.1.19",
     "leaflet": "^1.9.4",
+    "qrcode.react": "^4.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-leaflet": "^5.0.0",

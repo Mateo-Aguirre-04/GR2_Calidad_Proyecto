@@ -516,4 +516,6 @@ export const mockData = {
       completado: false,
     },
   ],
+
+  invitaciones: [],
 }

@@ -2,6 +2,8 @@ import express from 'express'
 import cors from 'cors'
 import morgan from 'morgan'
 import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
 import { checkDbConnection } from './config/db.js'
 import authRoutes from './routes/auth.routes.js'
@@ -11,6 +13,8 @@ import plantasRoutes from './routes/plantas.routes.js'
 import perfilRoutes from './routes/perfil.routes.js'
 import recordatoriosRoutes from './routes/recordatorios.routes.js'
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+dotenv.config({ path: path.resolve(__dirname, '../.env') })
 dotenv.config()
 
 const app = express()
