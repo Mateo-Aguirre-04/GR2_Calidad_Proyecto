@@ -1,9 +1,14 @@
+import * as real from '../controllers/supabase.controller.js'
 import { Router } from 'express'
-import { login, registro } from '../controllers/auth.controller.js'
+import { login, registro, logout, presence } from '../controllers/auth.controller.js'
+import { presenceConfig } from '../config/presence.js'
 
 const router = Router()
+router.get('/presence-config', (req, res) => res.json(presenceConfig))
 
 router.post('/login', login)
-router.post('/registro', registro)
+router.post('/registro', real.realOrDemo(real.registro, registro))
+router.post('/logout', logout)
+router.post('/presence', presence)
 
 export default router

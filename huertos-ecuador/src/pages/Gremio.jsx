@@ -9,7 +9,6 @@ import styles from './css/Gremio.module.css'
 const PESTANAS = [
   { clave: 'comunidad', titulo: 'Comunidad' },
   { clave: 'miembros',  titulo: 'Miembros' },
-  { clave: 'historia',  titulo: 'Historia' },
 ]
 
 // Únicos niveles dentro de un gremio
@@ -20,13 +19,6 @@ const NIVELES = {
   Miembro:  '🌱',
 }
 
-const TIPOS_ACTIVIDAD = {
-  cosecha: { etiqueta: 'Cosechas', emoji: '🧺' },
-  siembra: { etiqueta: 'Siembras', emoji: '🌱' },
-  riego:   { etiqueta: 'Riegos',   emoji: '💧' },
-  abono:   { etiqueta: 'Abonos',   emoji: '🧪' },
-}
-
 const MAX_DESCRIPCION = 120
 const MAX_ANUNCIO = 160
 
@@ -35,19 +27,23 @@ function formatearFecha(fecha) {
   return fecha ? String(fecha).slice(0, 10).replaceAll('-', '/') : '—'
 }
 
-function haceCuanto(fecha) {
-  const dias = Math.floor((Date.now() - new Date(fecha).getTime()) / (24 * 60 * 60 * 1000))
-  if (dias <= 0) return 'Hoy'
-  return dias === 1 ? 'Hace 1 día' : `Hace ${dias} días`
-}
-
 function Gremio() {
   const navigate = useNavigate()
-  const { gremio, cargando, guardarPerfil } = useGremio()
+  const { gremio, cargando, error, reintentar, guardarPerfil } = useGremio()
   const [pestana, setPestana] = useState('comunidad')
   const [editando, setEditando] = useState(false)
   const [borrador, setBorrador] = useState({ descripcion: '', anuncio: '' })
-  const [filtro, setFiltro] = useState('todos')
+  const [invitacion, setInvitacion] = useState('')
+  const [errorInvitacion, setErrorInvitacion] = useState('')
+  async function crearInvitacion() {
+    try {
+      const res = await fetch(`/api/gremios/${gremio.id}/invitacion`, { method: 'POST', credentials: 'include' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'No se pudo generar la invitación.')
+      setInvitacion(data.codigo)
+      setErrorInvitacion('')
+    } catch (err) { setErrorInvitacion(err.message) }
+  }
   const [modalInvitar, setModalInvitar] = useState(false)
 
   function empezarEdicion() {
@@ -64,17 +60,18 @@ function Gremio() {
   const miembros = gremio?.miembros ?? []
   const enLinea = miembros.filter((m) => m.enLinea).length
   const ranking = [...miembros].sort((a, b) => b.puntos - a.puntos)
-  const actividades = (gremio?.actividades ?? []).filter((a) => filtro === 'todos' || a.tipo === filtro)
 
   return (
     <div className="pagina">
       <Header pregunta="" textoEnlace="Regresar" destino="/juego" />
 
       <main className={styles.contenido}>
-        {cargando || !gremio ? (
+        {error && <div role="alert"><p>{error}</p><Button onClick={reintentar}>Reintentar</Button></div>}
+        {gremio?.fuente === 'mock' && <p role="status">Modo demostración: datos locales, sin conexión a PostgreSQL.</p>}
+        {cargando ? (
           <p className={styles.estado} role="status">Cargando gremio...</p>
         ) : (
-          <div className={styles.ventana}>
+          gremio && <div className={styles.ventana}>
             <div className={styles.pestanas} role="tablist" aria-label="Secciones del gremio">
               {PESTANAS.map((p) => (
                 <button
@@ -147,9 +144,6 @@ function Gremio() {
                             ) : (
                               <>
                                 {gremio.descripcion || 'Sin descripción.'}{' '}
-                                <button type="button" className={styles.editar} onClick={empezarEdicion}>
-                                  (Edit) <span aria-hidden="true">✎</span>
-                                </button>
                               </>
                             )}
                           </dd>
@@ -174,6 +168,8 @@ function Gremio() {
 
                     <div className={styles.anuncios}>
                       <h2>Anuncios del Gremio</h2>
+                      {gremio.fuente === 'postgres' && <div>
+                      </div>}
                       {editando ? (
                         <>
                           <textarea
@@ -200,7 +196,6 @@ function Gremio() {
                       ) : (
                         <>
                           <Button onClick={empezarEdicion}>Editar Perfil del Gremio</Button>
-                          <Button onClick={() => setModalInvitar(true)}>✉️ Invitar al Gremio</Button>
                         </>
                       )}
                     </div>
@@ -208,42 +203,37 @@ function Gremio() {
                 )}
 
                 {pestana === 'miembros' && (
-                  <>
-                    <div className={styles.barraMiembros}>
-                      <Button onClick={() => setModalInvitar(true)}>✉️ Invitar a un Jugador</Button>
-                    </div>
-                    {ranking.length === 0 ? (
-                      <p className={styles.vacio}>Este gremio aún no tiene miembros.</p>
-                    ) : (
-                      <div className={styles.tablaScroll}>
-                        <table className={styles.tabla}>
-                          <thead>
-                            <tr>
-                              <th scope="col">Ranking</th>
-                              <th scope="col">Nivel</th>
-                              <th scope="col">En línea</th>
-                              <th scope="col">Jugador</th>
+                  ranking.length === 0 ? (
+                    <p className={styles.vacio}>Este gremio aún no tiene miembros.</p>
+                  ) : (
+                    <div className={styles.tablaScroll}>
+                      <table className={styles.tabla}>
+                        <thead>
+                          <tr>
+                            <th scope="col">Ranking</th>
+                            <th scope="col">Nivel</th>
+                            <th scope="col">En línea</th>
+                            <th scope="col">Jugador</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ranking.map((m, i) => (
+                            <tr key={m.id}>
+                              <td>{i + 1}</td>
+                              <td className={styles.nivel}>
+                                <span aria-hidden="true">{NIVELES[m.nivel] ?? NIVELES.Miembro}</span> {m.nivel}
+                              </td>
+                              <td>
+                                <span className={`${styles.punto} ${m.enLinea ? styles.conectado : ''}`} aria-hidden="true" />
+                                {m.enLinea ? 'en línea' : 'desconectado'}
+                              </td>
+                              <td>{m.nombre}</td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {ranking.map((m, i) => (
-                              <tr key={m.id}>
-                                <td>{i + 1}</td>
-                                <td className={styles.nivel}>
-                                  <span aria-hidden="true">{NIVELES[m.nivel] ?? NIVELES.Miembro}</span> {m.nivel}
-                                </td>
-                                <td>
-                                  <span className={`${styles.punto} ${m.enLinea ? styles.conectado : ''}`} aria-hidden="true" />
-                                  {m.enLinea ? 'en línea' : 'desconectado'}
-                                </td>
-                                <td>{m.nombre}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
                 )}
 
                 {pestana === 'historia' && (

@@ -535,3 +535,9 @@ export const mockData = {
 
   invitaciones: [],
 }
+
+// Presencia simulada solo para la demostración sin PostgreSQL; caduca a los 15 minutos.
+for (const user of mockData.usuarios) {
+  user.enLinea = user.posicionGremio === 1
+  user.lastSeen = new Date(Date.now() - (user.enLinea ? 2 : 30) * 60_000).toISOString()
+}

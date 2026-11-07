@@ -1,3 +1,5 @@
+> Integración actual con Supabase: [SUPABASE.md](SUPABASE.md). La configuración y el modo demo descritos más abajo pertenecen a la versión inicial.
+
 # Guía de Puesta en Marcha: Backend y Frontend (Huertos.ec)
 
 Este documento explica cómo configurar, ejecutar y probar la API REST del backend (`backend/`) y la aplicación web frontend (`huertos-ecuador/`).

@@ -76,7 +76,9 @@ function ModalUnirse({ onCerrar }) {
         }
 
         setTimeout(() => {
-          onCerrar()
+          localStorage.setItem('gremio_activo', JSON.stringify(datos.gremio))
+        if (datos.gremio.huerto?.id) localStorage.setItem('huerto_activo_id', String(datos.gremio.huerto.id))
+        onCerrar()
           navigate('/juego')
         }, 1100)
       } else {

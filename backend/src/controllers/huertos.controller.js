@@ -96,7 +96,9 @@ export async function cosecharCultivo(req, res) {
       return res.status(404).json({ error: 'Cultivo no encontrado.' })
     }
 
-    cultivo.cosechado = true
+    if (!cultivo.cosechado) {
+      cultivo.cosechado = true
+    }
 
     return res.json({
       mensaje: `¡${cultivo.planta.nombre} cosechada con éxito! Has ganado puntos.`,

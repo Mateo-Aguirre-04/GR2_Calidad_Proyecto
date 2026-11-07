@@ -21,6 +21,7 @@ export async function completarRecordatorio(req, res) {
       return res.status(404).json({ error: 'Recordatorio no encontrado.' })
     }
 
+    if (recordatorio.completado) return res.status(409).json({ error: 'La actividad ya está completada.' })
     recordatorio.completado = true
 
     // Premiar al usuario con puntos de gamificación (ej. 15 puntos)

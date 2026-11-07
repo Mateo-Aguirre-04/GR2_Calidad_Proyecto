@@ -12,6 +12,7 @@ const camposIniciales = {
   contrasena: '',
   confirmar: '',
   descripcion: '',
+  fechaNacimiento: '',
 }
 
 function validar(valores, genero, aceptaTerminos) {
@@ -38,6 +39,7 @@ function Registro() {
   const [errores, setErrores] = useState({})
   const [intentoEnviar, setIntentoEnviar] = useState(false)
   const [modalAbierto, setModalAbierto] = useState(false)
+  const [errorServidor, setErrorServidor] = useState('')
 
   function actualizarCampo(event) {
     const { name, value } = event.target
@@ -60,7 +62,7 @@ function Registro() {
 
 
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     setIntentoEnviar(true)
     const nuevosErrores = validar(valores, genero, aceptaTerminos)
@@ -135,7 +137,12 @@ function Registro() {
           <h1 className={styles.titulo} id="registro-titulo">Queremos conocerte</h1>
           <p className={styles.descripcion}>Completa tus datos para personalizar tu experiencia.</p>
 
+          {errorServidor && <p role="alert">{errorServidor}</p>}
           <form noValidate onSubmit={handleSubmit}>
+            <div className={styles.campo}>
+              <label htmlFor="fechaNacimiento">Fecha de nacimiento</label>
+              <input id="fechaNacimiento" name="fechaNacimiento" type="date" required value={valores.fechaNacimiento} onChange={actualizarCampo} />
+            </div>
             <div className={styles.grid}>
               {campo({ id: 'registro-nombre', label: 'Nombre', name: 'nombre', placeholder: 'Escribe tu nombre', autoComplete: 'given-name' })}
               {campo({ id: 'registro-apellido', label: 'Apellido', name: 'apellido', placeholder: 'Escribe tu apellido', autoComplete: 'family-name' })}

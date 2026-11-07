@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import Button from '../Button/Button'
 import styles from './Header.module.css'
 
-function Header({ pregunta, textoEnlace, destino }) {
+function Header({ pregunta, textoEnlace, destino, onAccion }) {
   return (
     <header className={styles.barra}>
       <Link className={styles.marca} to="/" aria-label="Huertos.ec, inicio">
@@ -12,7 +12,7 @@ function Header({ pregunta, textoEnlace, destino }) {
 
       <nav className={styles.cuenta} aria-label="Navegación de cuenta">
         <span className={styles.pregunta}>{pregunta}</span>
-        <Button as={Link} to={destino}>{textoEnlace}</Button>
+        {onAccion ? <Button onClick={onAccion}>{textoEnlace}</Button> : <Button as={Link} to={destino}>{textoEnlace}</Button>}
       </nav>
     </header>
   )

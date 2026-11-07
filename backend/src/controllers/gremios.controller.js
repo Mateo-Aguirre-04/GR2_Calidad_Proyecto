@@ -1,6 +1,22 @@
 import crypto from 'crypto'
 import { isDbConnected, query } from '../config/db.js'
 import { mockData } from '../data/mockStore.js'
+import { getPresence, isOnline } from '../config/sessions.js'
+
+function memberResponse(user, presence) {
+  const lastSeen = presence.get(Number(user.id)) ?? user.lastSeen ?? null
+  return {
+    id: user.id,
+    usuario: user.usuario,
+    nombre: user.nombre,
+    rolGremio: user.rolGremio,
+    nivelGremio: user.nivelGremio ?? user.rango,
+    puntos: user.puntos ?? 0,
+    avatar: user.avatar ?? '',
+    lastSeen,
+    enLinea: (presence.has(Number(user.id)) || user.enLinea === true) && isOnline(lastSeen),
+  }
+}
 
 export async function getGremios(req, res) {
   try {
@@ -38,23 +54,52 @@ export async function getGremios(req, res) {
 
 export async function getGremioById(req, res) {
   try {
-    const id = parseInt(req.params.id, 10)
+    const id = Number(req.params.id)
+    if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: 'ID de gremio inválido.' })
+    res.set('Cache-Control', 'no-store')
+    if (isDbConnected()) {
+      const { rows } = await query(`
+        SELECT g.ID_gremio AS id, g.Nombre_Gremio AS nombre,
+               g.Area_total AS "areaTotal", g.Puntos_Gremio AS puntos,
+               g.Creado_En AS "creadoEn"
+        FROM Gremio g WHERE g.ID_gremio = $1`, [id])
+      if (!rows.length) return res.status(404).json({ error: 'Gremio no encontrado.' })
+      const membersResult = await query(`
+        SELECT u.ID_usuario AS id,
+               COALESCE(to_jsonb(ug)->>'nombre_usuario', to_jsonb(u)->>'nombre_usuario') AS usuario,
+               COALESCE(NULLIF(TRIM(CONCAT(
+                 COALESCE(to_jsonb(u)->>'nombres', to_jsonb(u)->>'nombre'), ' ',
+                 COALESCE(to_jsonb(u)->>'apellidos', to_jsonb(u)->>'apellido'))), ''),
+                 to_jsonb(u)->>'nombre_usuario', to_jsonb(ug)->>'nombre_usuario') AS nombre,
+               ug.Puntos AS puntos, mg.Rol AS "rolGremio"
+        FROM Miembro_Gremio mg
+        JOIN Usuario u ON u.ID_usuario = mg.ID_usuario
+        JOIN Usuario_General ug ON ug.ID_usuario = u.ID_usuario
+        WHERE mg.ID_gremio = $1 ORDER BY ug.Puntos DESC, u.ID_usuario`, [id])
+      const presence = await getPresence(req.sessionStore, 'postgres')
+      return res.json({
+        ...rows[0], fuente: 'postgres',
+        miembros: membersResult.rows.map((u) => memberResponse(u, presence)),
+      })
+    }
     const gremio = mockData.gremios.find((g) => g.id === id)
     if (!gremio) {
       return res.status(404).json({ error: 'Gremio no encontrado.' })
     }
 
-    const miembros = mockData.usuarios.filter((u) => u.gremioId === id)
+    const presence = await getPresence(req.sessionStore, 'mock')
+    const miembros = mockData.usuarios.filter((u) => u.gremioId === id).map((u) => memberResponse(u, presence))
     const huerto = mockData.huertos.find((h) => h.gremioId === id)
 
     return res.json({
       ...gremio,
+      fuente: 'mock',
       miembros,
       huerto,
     })
   } catch (error) {
     console.error('[Gremios.getGremioById]', error)
-    return res.status(500).json({ error: 'Error al obtener gremio.' })
+    return res.status(503).json({ error: 'No se pudo cargar el gremio. Inténtalo de nuevo.' })
   }
 }
 

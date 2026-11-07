@@ -4,6 +4,7 @@ import Header from '../components/Header/Header'
 import Button from '../components/Button/Button'
 import Tarjeta from '../components/Tarjeta/Tarjeta'
 import styles from './css/Login.module.css'
+import { authenticatedFetch } from '../authSession'
 
 function Login() {
   const navigate = useNavigate()
@@ -20,6 +21,7 @@ function Login() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario, contrasena }),
       })
@@ -42,13 +44,31 @@ function Login() {
           // Si no tiene gremio, limpiar registros antiguos y enviar a selección
           localStorage.removeItem('gremio_activo')
           localStorage.removeItem('huerto_activo_id')
-          setTimeout(() => navigate('/seleccion-gremio'), 600)
+          localStorage.removeItem('gremio_activo')
+        localStorage.removeItem('huerto_activo_id')
+        if (datos.usuario?.gremioId) {
+          const respuestaGremio = await authenticatedFetch(`/api/gremios/${datos.usuario.gremioId}`)
+          if (respuestaGremio.status === 401) {
+            setMensaje('No se pudo mantener la sesión. Inicia sesión nuevamente.')
+            return
+          }
+          const gremio = await respuestaGremio.json()
+          if (!respuestaGremio.ok || !gremio.huerto?.id) {
+            setMensaje(gremio.error || 'El gremio no tiene un huerto configurado.')
+            return
+          }
+          localStorage.setItem('gremio_activo', JSON.stringify(gremio))
+          localStorage.setItem('huerto_activo_id', String(gremio.huerto.id))
+          setTimeout(() => navigate('/juego', { replace: true }), 600)
+        } else {
+          setTimeout(() => navigate('/seleccion-gremio', { replace: true }), 600)
+        }
         }
       } else {
         setMensaje(datos.error || 'Credenciales incorrectas.')
       }
     } catch {
-      setMensaje('No se pudo conectar con el servidor. Revisa tu conexión.')
+      setMensaje('No se pudo conectar con el servidor. Inténtalo de nuevo.')
     }
   }
 

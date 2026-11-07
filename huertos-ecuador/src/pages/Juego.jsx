@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { authenticatedFetch } from '../authSession'
 import { useHuerto } from '../hooks/useHuerto'
 import { usePerfil } from '../hooks/usePerfil'
 import { useClima } from '../hooks/useClima'
@@ -10,7 +11,6 @@ import Cultivo from '../components/Cultivo/Cultivo'
 import BotonLateral from '../components/BotonLateral/BotonLateral'
 import IconoEstado from '../components/IconoEstado/IconoEstado'
 import ModalPerfil from '../components/ModalPerfil/ModalPerfil'
-import ModalMapa from '../components/ModalMapa/ModalMapa'
 import ModalSeleccionPlanta from '../components/ModalSeleccionPlanta/ModalSeleccionPlanta'
 import styles from './css/Juego.module.css'
 
@@ -34,16 +34,20 @@ const MEDALLAS = { Novato: '🌱', Aprendiz: '🥉', Oficial: '🥈', Maestro: '
 
 function Juego() {
   const navigate = useNavigate()
-  const { huerto, cargando, recargar } = useHuerto()
-  const { perfil, guardarDescripcion } = usePerfil()
+  const [usuarioActual] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('usuario_actual')) } catch { return null }
+  })
+  const { huerto, cargando, error: errorHuerto, recargar } = useHuerto()
+  const { perfil, guardarDescripcion } = usePerfil(usuarioActual?.id)
   const clima = useClima(huerto?.ubicacion)
   const luna = useFaseLunar()
   const ahora = useAhora()
-  const { pendientes } = useRecordatorios(ahora)
+  const { pendientes } = useRecordatorios(ahora, usuarioActual?.id)
 
   // UI state
-  const [modal, setModal] = useState(null) // 'perfil' | 'seleccionarPlanta' | 'mapa' | null
+  const [modal, setModal] = useState(null) // 'perfil' | 'seleccionarPlanta' | null
   const [loadingAccion, setLoadingAccion] = useState(false)
+  const [errorAccion, setErrorAccion] = useState('')
   const [herramientaActiva, setHerramientaActiva] = useState(null) // 'siembra' | 'cosecha'
   const [plantaSeleccionada, setPlantaSeleccionada] = useState(null) // plant chosen for planting
 
@@ -68,21 +72,30 @@ function Juego() {
     setModal(null)
   }
 
-  // Callback when map location is confirmed
-  async function onUbicacionConfirmada({ lat, lng }) {
+  function sembrarEnHuerto(event) {
+    if (herramientaActiva !== 'siembra' || !plantaSeleccionada || loadingAccion) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = Math.max(0, Math.min(100, (event.clientX - rect.left) / rect.width * 100))
+    const y = Math.max(0, Math.min(100, (event.clientY - rect.top) / rect.height * 100))
+    onPosicionConfirmada({ x, y })
+  }
+
+  // Las posiciones de cultivo son porcentajes dentro del huerto.
+  async function onPosicionConfirmada({ x, y }) {
     if (!plantaSeleccionada) return
     setLoadingAccion(true)
+    setErrorAccion('')
     try {
-      const resp = await fetch(`/api/huertos/${huerto.id}/sembrar`, {
+      const resp = await authenticatedFetch(`/api/huertos/${huerto.id}/sembrar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plantaId: plantaSeleccionada.id, x: lat, y: lng }),
+        body: JSON.stringify({ plantaId: plantaSeleccionada.id, x, y }),
       })
-      if (!resp.ok) throw new Error('Error al sembrar')
+      if (!resp.ok) throw new Error((await resp.json()).error || 'No se pudo guardar la siembra.')
       await resp.json()
       recargar()
     } catch (e) {
-      console.warn(e)
+      setErrorAccion(e.message)
     } finally {
       setLoadingAccion(false)
       setModal(null)
@@ -94,22 +107,26 @@ function Juego() {
   // Callback when a mature crop is selected for harvest
   async function onCultivoSeleccionado(cultivo) {
     setLoadingAccion(true)
+    setErrorAccion('')
     try {
-      const resp = await fetch(`/api/huertos/${huerto.id}/cosechar`, {
+      const resp = await authenticatedFetch(`/api/huertos/${huerto.id}/cosechar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cultivoId: cultivo.id }),
       })
-      if (!resp.ok) throw new Error('Error al cosechar')
+      if (!resp.ok) throw new Error((await resp.json()).error || 'No se pudo guardar la cosecha.')
       await resp.json()
       recargar()
     } catch (e) {
-      console.warn(e)
+      setErrorAccion(e.message)
     } finally {
       setLoadingAccion(false)
       setHerramientaActiva(null)
     }
   }
+
+  if (!usuarioActual) return <Navigate to="/" replace />
+  if (errorHuerto) return <p role="alert">No pudimos cargar tu huerto. Inténtalo nuevamente. <button onClick={recargar}>Reintentar</button></p>
 
   if (cargando || !huerto) {
     return <p className={styles.cargando} role="status">Cargando huerto...</p>
@@ -127,6 +144,7 @@ function Juego() {
 
   return (
     <div className={styles.pantalla} style={{ backgroundImage: `url(/huertos/${huerto.tipo ?? 'surcos'}.png)` }}>
+      {errorAccion && <p className={styles.avisoSiembra} role="alert">{errorAccion}</p>}
       {/* Jugador (arriba a la izquierda): abre el perfil */}
       <button type="button" className={styles.jugador} onClick={() => setModal('perfil')} aria-label="Abrir mi perfil">
         <span className={styles.avatar}>
@@ -159,7 +177,22 @@ function Juego() {
       </div>
 
       {/* Huerto: render each cultivo */}
-      <div className={styles.huerto}>
+      {herramientaActiva === 'siembra' && plantaSeleccionada && (
+        <p className={styles.avisoSiembra} role="status">Elige una posición en el huerto para sembrar {plantaSeleccionada.nombre}.</p>
+      )}
+      <div
+        className={styles.huerto}
+        onClick={sembrarEnHuerto}
+        role={herramientaActiva === 'siembra' && plantaSeleccionada ? 'button' : undefined}
+        tabIndex={herramientaActiva === 'siembra' && plantaSeleccionada ? 0 : undefined}
+        aria-label={herramientaActiva === 'siembra' && plantaSeleccionada ? `Sembrar ${plantaSeleccionada.nombre} en el huerto` : undefined}
+        onKeyDown={(event) => {
+          if ((event.key === 'Enter' || event.key === ' ') && herramientaActiva === 'siembra' && plantaSeleccionada && !loadingAccion) {
+            event.preventDefault()
+            onPosicionConfirmada({ x: 50, y: 50 })
+          }
+        }}
+      >
         {huerto.cultivos.map((cultivo) => (
           <Cultivo
             key={cultivo.id}
@@ -195,13 +228,6 @@ function Juego() {
       )}
       {modal === 'seleccionarPlanta' && (
         <ModalSeleccionPlanta onSeleccionar={onPlantaElegida} onCerrar={() => setModal(null)} />
-      )}
-      {modal === 'mapa' && (
-        <ModalMapa
-          inicial={null}
-          onConfirmar={onUbicacionConfirmada}
-          onCerrar={() => setModal(null)}
-        />
       )}
     </div>
   )
