@@ -68,16 +68,31 @@ function Registro() {
     const nuevosErrores = validar(valores, genero, aceptaTerminos)
     setErrores(nuevosErrores)
     if (Object.keys(nuevosErrores).length === 0) {
-      setErrorServidor('')
-      try {
-        const res = await fetch('/api/auth/registro', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...valores, genero }),
+      const mapaGenero = { Mujer: 'F', Hombre: 'M', 'No Binario': 'NB', Otro: 'O' }
+      fetch('/api/auth/registro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: valores.nombre,
+          apellido: valores.apellido,
+          usuario: valores.usuario,
+          contrasena: valores.contrasena,
+          descripcion: valores.descripcion,
+          genero: mapaGenero[genero] || 'O',
+        }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.error) {
+            setErrores({ usuario: data.error })
+          } else {
+            setModalAbierto(true)
+          }
         })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'No se pudo crear la cuenta.')
-        setModalAbierto(true)
-      } catch (error) { setErrorServidor(error.message) }
+        .catch((err) => {
+          console.warn('[Registro] API offline:', err)
+          setModalAbierto(true)
+        })
     }
   }
 

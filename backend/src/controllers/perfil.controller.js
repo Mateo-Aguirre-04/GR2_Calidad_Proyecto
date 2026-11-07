@@ -10,10 +10,9 @@ export async function getPerfil(req, res) {
       try {
         const sql = `
           SELECT u.ID_usuario AS id,
-                 u.Nombre_Usuario AS usuario,
-                 ug.Talento AS descripcion,
+                 ug.Nombre_Usuario AS usuario,
+                 ug.descripcion AS descripcion,
                  ug.Puntos AS puntuacion,
-                 ug.Rol_Gremio AS rango,
                  g.Nombre_Gremio AS gremio,
                  mg.Rol AS "rolGremio"
           FROM Usuario u

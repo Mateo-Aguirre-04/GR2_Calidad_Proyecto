@@ -228,6 +228,22 @@ export const mockData = {
       posicionGremio: 4,
       avatar: '',
     },
+    {
+      id: 13,
+      usuario: 'novato_sin_gremio',
+      nombre: 'Novato Sin Gremio',
+      contrasena: 'password123',
+      fechaNacimiento: '2004-05-15',
+      genero: 'NB',
+      talento: 'Agricultor en búsqueda de comunidad',
+      puntos: 0,
+      rango: 'Novato',
+      gremioId: null,
+      gremioNombre: null,
+      rolGremio: null,
+      posicionGremio: null,
+      avatar: '',
+    },
   ],
 
   plantas: [
@@ -516,6 +532,8 @@ export const mockData = {
       completado: false,
     },
   ],
+
+  invitaciones: [],
 }
 
 // Presencia simulada solo para la demostración sin PostgreSQL; caduca a los 15 minutos.

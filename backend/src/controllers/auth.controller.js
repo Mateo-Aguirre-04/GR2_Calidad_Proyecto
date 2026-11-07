@@ -31,6 +31,7 @@ export async function login(req, res) {
           LEFT JOIN Usuario_General ug ON u.ID_usuario = ug.ID_usuario
           LEFT JOIN Miembro_Gremio mg ON u.ID_usuario = mg.ID_usuario
           LEFT JOIN Gremio g ON mg.ID_gremio = g.ID_gremio
+          LEFT JOIN Huerto h ON h.ID_gremio = g.ID_gremio
           WHERE LOWER(COALESCE(to_jsonb(ug)->>'nombre_usuario', to_jsonb(u)->>'nombre_usuario')) = LOWER($1)
           ORDER BY g.ID_gremio
           LIMIT 1
@@ -38,9 +39,28 @@ export async function login(req, res) {
         const { rows } = await query(sql, [usuario])
         const user = rows[0]
 
-        const valida = user?.contrasenia_hash
-        ? await bcrypt.compare(contrasena, user.contrasenia_hash)
-        : false
+        if (!user) {
+          // No está en BD, caer al fallback mock más abajo
+          const userFound = mockData.usuarios.find(
+            (u) => u.usuario.toLowerCase() === usuario.toLowerCase()
+          )
+          if (userFound) {
+            const gremioFound = userFound.gremioId
+              ? mockData.gremios.find((g) => g.id === userFound.gremioId)
+              : null
+            return res.json({
+              mensaje: 'Inicio de sesión exitoso (modo datos semilla)',
+              usuario: userFound,
+              gremio: gremioFound || null,
+            })
+          }
+          return res.status(401).json({ error: 'Usuario no encontrado.' })
+        }
+
+        // Verificar contraseña con bcrypt
+        const valida = user.contrasenia_hash
+          ? await bcrypt.compare(contrasena, user.contrasenia_hash)
+          : false
 
         if (!valida) {
           return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' })
@@ -48,18 +68,36 @@ export async function login(req, res) {
 
         await startSession(req, user.id_usuario, 'postgres')
         await touchSharedPresence(req, user.last_seen)
+        // Construir objeto gremio si pertenece a uno
+        const gremioIdNum = user.id_gremio ? Number(user.id_gremio) : null
+        const gremioObj = gremioIdNum
+          ? {
+              id: gremioIdNum,
+              nombre: user.nombre_gremio,
+              areaTotal: Number(user.area_total || 0),
+              puntos: Number(user.puntos_gremio || 0),
+              ubicacion: {
+                lat: Number(user.latitud || -0.1807),
+                lng: Number(user.longitud || -78.4678),
+              },
+              direccion: `Tungurahua (Lat: ${user.latitud}, Lng: ${user.longitud})`,
+            }
+          : null
+
         return res.json({
           mensaje: 'Inicio de sesión exitoso',
           usuario: {
             id: Number(user.id_usuario),
             usuario: user.nombre_usuario,
-            nombre: `${user.nombres} ${user.apellidos ?? ''}`.trim(),
+            nombre: `${user.nombres || ''} ${user.apellidos || ''}`.trim() || user.nombre_usuario,
             descripcion: user.descripcion,
-            puntos: user.puntos || 0,
-            gremioId: user.id_gremio ? Number(user.id_gremio) : null,
-            gremioNombre: user.nombre_gremio,
-            rolGremio: user.rol_en_gremio,
+            puntos: Number(user.puntos || 0),
+            gremioId: gremioIdNum ? Number(user.id_gremio) : null,
+            gremioNombre: user.nombre_gremio || null,
+            rolGremio: user.rol_en_gremio || null,
+            huertoId: user.id_huerto ? Number(user.id_huerto) : gremioIdNum,
           },
+          gremio: gremioObj,
         })
       } catch (dbErr) {
         console.warn('[Auth] Error consultando PostgreSQL:', dbErr.message)
@@ -73,16 +111,20 @@ export async function login(req, res) {
     )
 
     if (userFound && contrasena === userFound.contrasena) {
+      const gremioFound = userFound.gremioId
+        ? mockData.gremios.find((g) => g.id === userFound.gremioId)
+        : null
+
       await startSession(req, userFound.id, 'mock')
       userFound.enLinea = true
       userFound.lastSeen = req.session.lastSeen
       return res.json({
         mensaje: 'Inicio de sesión exitoso (modo datos semilla)',
         usuario: publicUser(userFound),
+        gremio: gremioFound || null,
       })
     }
 
-    // Si no existe, para desarrollo permitimos crear sesión temporal o sugerir usuarios existentes
     const nombresDisponibles = mockData.usuarios.map((u) => u.usuario).slice(0, 4).join(', ')
     return res.status(401).json({
       error: `Usuario no encontrado. Usuarios de prueba disponibles: ${nombresDisponibles}`,
@@ -129,10 +171,10 @@ export async function presence(req, res) {
 
 export async function registro(req, res) {
   try {
-    const { nombre, apellido, usuario, contrasena, genero } = req.body
+    const { nombre, apellido, usuario, contrasena, genero, fechaNacimiento, descripcion } = req.body
 
-    if (!nombre || !usuario) {
-      return res.status(400).json({ error: 'Nombre y nombre de usuario son obligatorios.' })
+    if (!nombre || !usuario || !contrasena) {
+      return res.status(400).json({ error: 'Nombre, nombre de usuario y contraseña son obligatorios.' })
     }
 
     const gen = genero && ['M', 'F', 'NB', 'O'].includes(genero) ? genero : 'O'
@@ -140,28 +182,41 @@ export async function registro(req, res) {
 
     if (isDbConnected()) {
       try {
+        // 1. Verificar que el nombre de usuario no exista ya
+        const checkSql = `SELECT 1 FROM Usuario_General WHERE LOWER(Nombre_Usuario) = LOWER($1)`
+        const checkRes = await query(checkSql, [usuario])
+        if (checkRes.rows.length > 0) {
+          return res.status(409).json({ error: 'El nombre de usuario ya está en uso.' })
+        }
+
+        // 2. Hashear la contraseña
+        const salt = await bcrypt.genSalt(10)
+        const hash = await bcrypt.hash(contrasena, salt)
+
+        // 3. Insertar en tabla Usuario (columnas reales: Nombres, Apellidos, Contrasenia_hash, Fecha_Nacimiento, Genero)
         const insertUser = `
-          INSERT INTO Usuario (Nombre_Usuario, Fecha_Nacimiento, Genero)
-          VALUES ($1, CURRENT_DATE - INTERVAL '20 years', $2)
-          RETURNING ID_usuario, Nombre_Usuario
+          INSERT INTO Usuario (Nombres, Apellidos, Contrasenia_hash, Fecha_Nacimiento, Genero)
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING ID_usuario
         `
-        const userRes = await query(insertUser, [usuario, gen])
+        const fechaNac = fechaNacimiento || '2000-01-01'
+        const userRes = await query(insertUser, [nombre, apellido || '', hash, fechaNac, gen])
         const newId = userRes.rows[0].id_usuario
 
+        // 4. Insertar en tabla Usuario_General (columnas reales: ID_usuario, Nombre_Usuario, Descripcion, Puntos)
         const insertGen = `
-          INSERT INTO Usuario_General (ID_usuario, Talento, Puntos, Rol_Gremio)
-          VALUES ($1, 'Nuevo agricultor urbano', 0, 'Novato')
+          INSERT INTO Usuario_General (ID_usuario, Nombre_Usuario, Descripcion, Puntos)
+          VALUES ($1, $2, $3, 0)
         `
-        await query(insertGen, [newId])
+        await query(insertGen, [newId, usuario, descripcion || 'Nuevo agricultor urbano'])
 
         return res.status(201).json({
-          mensaje: 'Cuenta registrada exitosamente en la base de datos',
+          mensaje: 'Cuenta registrada exitosamente',
           usuario: {
-            id: newId,
+            id: Number(newId),
             usuario,
             nombre: nombreCompleto,
             puntos: 0,
-            rango: 'Novato',
           },
         })
       } catch (dbErr) {
@@ -181,9 +236,9 @@ export async function registro(req, res) {
       talento: 'Nuevo agricultor comunitario',
       puntos: 0,
       rango: 'Novato',
-      gremioId: 1, // Por defecto asignado a Ficoa
-      gremioNombre: 'Sembradores de Ficoa - Ambato',
-      rolGremio: 'Miembro',
+      gremioId: null,
+      gremioNombre: null,
+      rolGremio: null,
       posicionGremio: mockData.usuarios.length + 1,
       avatar: '',
     }

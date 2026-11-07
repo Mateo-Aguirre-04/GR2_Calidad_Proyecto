@@ -5,6 +5,7 @@ import {
   getGremioById,
   crearGremio,
   unirseGremio,
+  crearInvitacion,
 } from '../controllers/gremios.controller.js'
 
 const router = Router()
@@ -16,5 +17,6 @@ router.post('/', real.realOrDemo(real.crearGremio, crearGremio))
 router.post('/unirse', real.realOrDemo(real.unirse, unirseGremio))
 
 router.post('/:id/invitacion', real.crearInvitacion)
+router.post('/:id/invitaciones', crearInvitacion)
 
 export default router

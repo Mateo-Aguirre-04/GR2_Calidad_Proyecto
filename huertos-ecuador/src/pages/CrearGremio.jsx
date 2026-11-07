@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header/Header'
 import Tarjeta from '../components/Tarjeta/Tarjeta'
@@ -24,6 +24,19 @@ function CrearGremio() {
   const [aceptaTerminos, setAceptaTerminos] = useState(false)
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
+
+  // Si ya pertenece a un gremio, redirigir al juego
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('usuario_actual')
+      if (raw) {
+        const u = JSON.parse(raw)
+        if (u.gremioId) {
+          navigate('/juego', { replace: true })
+        }
+      }
+    } catch {}
+  }, [navigate])
   useEffect(() => {
     const controller = new AbortController()
     fetch('/api/gremios/configuracion', { signal: controller.signal, credentials: 'include' })
@@ -47,6 +60,15 @@ function CrearGremio() {
     setEnviando(true)
 
     try {
+      let usuarioId = null
+      try {
+        const raw = localStorage.getItem('usuario_actual')
+        if (raw) {
+          const u = JSON.parse(raw)
+          usuarioId = u.id || u.id_usuario
+        }
+      } catch {}
+
       const cuerpo = {
         nombre: valores.nombre,
         area: parseFloat(valores.area),
@@ -55,6 +77,7 @@ function CrearGremio() {
         lat: ubicacion.lat,
         lng: ubicacion.lng,
         direccion: ubicacion.direccion || 'Ecuador',
+        usuarioId,
       }
 
       const res = await fetch('/api/gremios', {

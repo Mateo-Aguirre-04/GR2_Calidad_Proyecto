@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useGremio } from '../hooks/useGremio'
 import Header from '../components/Header/Header'
 import Button from '../components/Button/Button'
+import ModalInvitar from '../components/ModalInvitar/ModalInvitar'
 import styles from './css/Gremio.module.css'
 
 const PESTANAS = [
@@ -43,6 +44,7 @@ function Gremio() {
       setErrorInvitacion('')
     } catch (err) { setErrorInvitacion(err.message) }
   }
+  const [modalInvitar, setModalInvitar] = useState(false)
 
   function empezarEdicion() {
     setBorrador({ descripcion: gremio.descripcion ?? '', anuncio: gremio.anuncio ?? '' })
@@ -95,6 +97,9 @@ function Gremio() {
                 <h1 id="gremio-titulo">
                   {titulo} - Gremio: {gremio.nombre} - (En línea: {enLinea} / {miembros.length})
                 </h1>
+                <Button type="button" onClick={() => setModalInvitar(true)}>
+                  ✉️ Invitar
+                </Button>
                 <button
                   className={styles.cerrar}
                   type="button"
@@ -195,7 +200,10 @@ function Gremio() {
                           <Button onClick={() => setEditando(false)}>Cancelar</Button>
                         </>
                       ) : (
-                        <Button onClick={empezarEdicion}>Editar Perfil del Gremio</Button>
+                        <>
+                          <Button onClick={empezarEdicion}>Editar Perfil del Gremio</Button>
+                          <Button onClick={() => setModalInvitar(true)}>✉️ Invitar al Gremio</Button>
+                        </>
                       )}
                     </div>
                   </>
@@ -235,9 +243,75 @@ function Gremio() {
                   )
                 )}
 
+                {pestana === 'historia' && (
+                  <>
+                    <div className={styles.tablaScroll}>
+                      <table className={styles.tabla}>
+                        <thead>
+                          <tr>
+                            <th scope="col">Jugador</th>
+                            <th scope="col">Actividad</th>
+                            <th scope="col">Fecha</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {actividades.length === 0 ? (
+                            <tr>
+                              <td colSpan={3} className={styles.vacio}>No hay actividades de este tipo.</td>
+                            </tr>
+                          ) : (
+                            actividades.map((a) => (
+                              <tr key={a.id}>
+                                <td>{a.jugador}</td>
+                                <td>
+                                  <span className={`${styles.actividad} ${styles[a.tipo] ?? ''}`}>
+                                    <span aria-hidden="true">{TIPOS_ACTIVIDAD[a.tipo]?.emoji}</span> {a.texto}
+                                  </span>
+                                </td>
+                                <td>{haceCuanto(a.fecha)}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className={styles.filtros} role="group" aria-label="Filtrar actividades">
+                      <span>Filtrar:</span>
+                      <button
+                        type="button"
+                        className={`${styles.filtro} ${filtro === 'todos' ? styles.filtroActivo : ''}`}
+                        aria-pressed={filtro === 'todos'}
+                        onClick={() => setFiltro('todos')}
+                      >
+                        Todos
+                      </button>
+                      {Object.entries(TIPOS_ACTIVIDAD).map(([clave, { etiqueta, emoji }]) => (
+                        <button
+                          key={clave}
+                          type="button"
+                          className={`${styles.filtro} ${filtro === clave ? styles.filtroActivo : ''}`}
+                          aria-pressed={filtro === clave}
+                          onClick={() => setFiltro(clave)}
+                        >
+                          <span aria-hidden="true">{emoji}</span> {etiqueta}
+                        </button>
+                      ))}
+                    </div>
+                    <p className={styles.total} role="status">Mostrando {actividades.length} registros</p>
+                  </>
+                )}
               </div>
             </section>
           </div>
+        )}
+
+        {modalInvitar && (
+          <ModalInvitar
+            gremioId={gremio?.id}
+            gremioNombre={gremio?.nombre}
+            onCerrar={() => setModalInvitar(false)}
+          />
         )}
       </main>
     </div>

@@ -142,6 +142,32 @@
   line-height: 1.8;
 }
 
+.error {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: #fde8e8;
+  border: 1px solid #f8b4b4;
+  color: #9b1c1c;
+  text-align: center;
+  font-family: var(--fuente-pixel);
+  font-size: 7px;
+  line-height: 1.6;
+}
+
+.exito {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: #def7ec;
+  border: 1px solid #bcf0da;
+  color: #03543f;
+  text-align: center;
+  font-family: var(--fuente-pixel);
+  font-size: 7px;
+  line-height: 1.6;
+}
+
 @media (max-width: 480px) {
   .modal { padding: 36px 20px 26px; }
   .modal form input { font-size: 14px; letter-spacing: 6px; }
