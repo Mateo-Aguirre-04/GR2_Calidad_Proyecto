@@ -146,7 +146,7 @@ Se ha integrado un mecanismo seguro y dinámico para invitar a nuevos miembros a
 ### 7.2. Esquema de Base de Datos (PostgreSQL / Supabase)
 
 ```sql
-CREATE TABLE IF NOT EXISTS invitacion_gremio (
+CREATE TABLE IF NOT EXISTS huertos.invitacion_gremio (
     codigo      VARCHAR(6) PRIMARY KEY,
     id_gremio   BIGINT NOT NULL REFERENCES gremio (id_gremio) ON DELETE CASCADE,
     creado_por  BIGINT,

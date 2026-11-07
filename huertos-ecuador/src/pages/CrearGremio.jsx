@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header/Header'
 import Tarjeta from '../components/Tarjeta/Tarjeta'
@@ -27,6 +27,19 @@ function CrearGremio() {
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
 
+  // Si ya pertenece a un gremio, redirigir al juego
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('usuario_actual')
+      if (raw) {
+        const u = JSON.parse(raw)
+        if (u.gremioId) {
+          navigate('/juego', { replace: true })
+        }
+      }
+    } catch {}
+  }, [navigate])
+
   function actualizar(e) {
     const { name, value } = e.target
     setValores((prev) => ({ ...prev, [name]: value }))
@@ -40,6 +53,15 @@ function CrearGremio() {
     setEnviando(true)
 
     try {
+      let usuarioId = null
+      try {
+        const raw = localStorage.getItem('usuario_actual')
+        if (raw) {
+          const u = JSON.parse(raw)
+          usuarioId = u.id || u.id_usuario
+        }
+      } catch {}
+
       const cuerpo = {
         nombre: valores.nombre,
         area: parseFloat(valores.area),
@@ -48,6 +70,7 @@ function CrearGremio() {
         lat: ubicacion.lat,
         lng: ubicacion.lng,
         direccion: ubicacion.direccion || 'Ecuador',
+        usuarioId,
       }
 
       const res = await fetch('/api/gremios', {
@@ -66,7 +89,20 @@ function CrearGremio() {
           direccion: ubicacion.direccion || 'Ecuador',
         }
         localStorage.setItem('gremio_activo', JSON.stringify(gremioGuardado))
-        localStorage.setItem('huerto_activo_id', String(gremioGuardado.id))
+        localStorage.setItem('huerto_activo_id', String(data.gremio?.huertoId || gremioGuardado.id))
+
+        // Actualizar el usuario actual con su nuevo gremio
+        try {
+          const raw = localStorage.getItem('usuario_actual')
+          if (raw) {
+            const u = JSON.parse(raw)
+            u.gremioId = gremioGuardado.id
+            u.gremioNombre = gremioGuardado.nombre
+            u.rolGremio = 'Fundador'
+            localStorage.setItem('usuario_actual', JSON.stringify(u))
+          }
+        } catch {}
+
         navigate('/juego')
       } else {
         setError(data.error || 'Error al registrar el gremio')

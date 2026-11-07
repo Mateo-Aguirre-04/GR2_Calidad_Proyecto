@@ -60,7 +60,7 @@ export async function getGremioById(req, res) {
 
 export async function crearGremio(req, res) {
   try {
-    const { nombre, area, suelo, riego, lat, lng } = req.body
+    const { nombre, area, suelo, riego, lat, lng, usuarioId } = req.body
 
     if (!nombre) {
       return res.status(400).json({ error: 'El nombre del gremio es requerido.' })
@@ -86,7 +86,19 @@ export async function crearGremio(req, res) {
           VALUES ($1, 1, 1, 4, 3, 1, 1, 1)
           RETURNING ID_Huerto
         `
-        await query(insertHuerto, [nuevoGremioId])
+        const huertoRes = await query(insertHuerto, [nuevoGremioId])
+        const nuevoHuertoId = huertoRes.rows[0]?.id_huerto
+
+        // Si viene usuarioId, vincularlo como Fundador en Miembro_Gremio
+        if (usuarioId) {
+          const uid = parseInt(usuarioId, 10)
+          const insertMiembro = `
+            INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Rol)
+            VALUES ($1, $2, 'Fundador')
+            ON CONFLICT (ID_usuario, ID_gremio) DO NOTHING
+          `
+          await query(insertMiembro, [uid, nuevoGremioId])
+        }
 
         return res.status(201).json({
           mensaje: 'Gremio y huerto creados exitosamente en PostgreSQL',
@@ -96,6 +108,7 @@ export async function crearGremio(req, res) {
             nombre,
             areaTotal,
             ubicacion: { lat: latitud, lng: longitud },
+            huertoId: nuevoHuertoId,
           },
         })
       } catch (err) {
@@ -116,6 +129,16 @@ export async function crearGremio(req, res) {
       miembrosCount: 1,
     }
     mockData.gremios.push(nuevoGremio)
+
+    if (usuarioId) {
+      const uid = parseInt(usuarioId, 10)
+      const u = mockData.usuarios.find((usr) => usr.id === uid)
+      if (u) {
+        u.gremioId = nuevoId
+        u.gremioNombre = nombre
+        u.rolGremio = 'Fundador'
+      }
+    }
 
     // Crear huerto en mockStore
     mockData.huertos.push({

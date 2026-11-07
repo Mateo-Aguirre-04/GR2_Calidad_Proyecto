@@ -26,7 +26,7 @@ function validar(valores, genero, aceptaTerminos) {
   if (!valores.confirmar || valores.confirmar !== valores.contrasena) {
     errores.confirmar = 'contraseñas no coinciden'
   }
-  if (!descripcion.trim()) errores.descripcion = 'requerido'
+  if (!valores.descripcion.trim()) errores.descripcion = 'requerido'
   if (!aceptaTerminos) errores.terminos = 'Debes aceptar los términos para continuar'
   return errores
 }
@@ -66,6 +66,7 @@ function Registro() {
     const nuevosErrores = validar(valores, genero, aceptaTerminos)
     setErrores(nuevosErrores)
     if (Object.keys(nuevosErrores).length === 0) {
+      const mapaGenero = { Mujer: 'F', Hombre: 'M', 'No Binario': 'NB', Otro: 'O' }
       fetch('/api/auth/registro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,10 +75,22 @@ function Registro() {
           apellido: valores.apellido,
           usuario: valores.usuario,
           contrasena: valores.contrasena,
-          genero,
+          descripcion: valores.descripcion,
+          genero: mapaGenero[genero] || 'O',
         }),
-      }).catch((err) => console.warn('[Registro] API offline:', err))
-      setModalAbierto(true)
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.error) {
+            setErrores({ usuario: data.error })
+          } else {
+            setModalAbierto(true)
+          }
+        })
+        .catch((err) => {
+          console.warn('[Registro] API offline:', err)
+          setModalAbierto(true)
+        })
     }
   }
 

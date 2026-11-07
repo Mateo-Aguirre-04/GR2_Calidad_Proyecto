@@ -62,6 +62,17 @@ function ModalUnirse({ onCerrar }) {
         if (datos.gremio) {
           localStorage.setItem('gremio_activo', JSON.stringify(datos.gremio))
           localStorage.setItem('huerto_activo_id', String(datos.gremio.id))
+
+          try {
+            const raw = localStorage.getItem('usuario_actual')
+            if (raw) {
+              const u = JSON.parse(raw)
+              u.gremioId = datos.gremio.id
+              u.gremioNombre = datos.gremio.nombre
+              u.rolGremio = 'Miembro'
+              localStorage.setItem('usuario_actual', JSON.stringify(u))
+            }
+          } catch {}
         }
 
         setTimeout(() => {
