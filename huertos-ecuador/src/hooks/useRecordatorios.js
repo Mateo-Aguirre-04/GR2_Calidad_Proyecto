@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useApiData } from './useApiData'
+import { authenticatedFetch } from '../authSession'
 export function useRecordatorios(ahora, usuarioId) {
   const { data, recargar, error } = useApiData(usuarioId ? `/api/recordatorios/${usuarioId}` : null)
   const pendientes = useMemo(() => {
@@ -10,7 +11,7 @@ export function useRecordatorios(ahora, usuarioId) {
     return grupos
   }, [data, ahora])
   async function completar(id) {
-    const res = await fetch(`/api/recordatorios/${id}/completar`, { method: 'POST', credentials: 'include' })
+    const res = await authenticatedFetch(`/api/recordatorios/${id}/completar`, { method: 'POST' })
     if (!res.ok) throw new Error((await res.json()).error || 'No se pudo completar la tarea.')
     recargar()
   }

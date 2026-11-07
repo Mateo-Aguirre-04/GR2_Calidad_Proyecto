@@ -56,7 +56,10 @@ export function createApp(store) {
 
   // Manejo de errores global
   app.use((err, req, res, next) => {
-    console.error('[Error No Controlado]:', err)
+    console.error('[Error No Controlado]:', err.code || err.message)
+    if (['42P01', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', '08006', '57P01'].includes(err.code)) {
+      return res.status(503).json({ error: 'El servicio no está disponible en este momento. Inténtalo de nuevo en unos minutos.' })
+    }
     res.status(500).json({ error: 'Ocurrió un error inesperado en el servidor.' })
   })
 

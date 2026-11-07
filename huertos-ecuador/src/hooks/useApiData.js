@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { authenticatedFetch } from '../authSession'
 
 export function useApiData(url) {
   const [data, setData] = useState(null)
@@ -11,7 +12,8 @@ export function useApiData(url) {
     async function load() {
       try {
         if (!url) throw new Error('Selecciona un gremio e inicia sesión para continuar.')
-        const res = await fetch(url, { credentials: 'include', signal: controller.signal })
+        const res = await authenticatedFetch(url, { signal: controller.signal })
+        if (res.status === 401) return
         const result = await res.json()
         if (!res.ok) throw new Error(result.error || 'No se pudo consultar el servidor.')
         if (!controller.signal.aborted) { setData(result); setError('') }

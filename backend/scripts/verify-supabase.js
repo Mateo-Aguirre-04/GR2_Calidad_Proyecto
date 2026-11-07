@@ -85,12 +85,12 @@ try {
   restarted=createApp(store2).listen(0,'127.0.0.1')
   await once(restarted,'listening')
   const origin=`http://127.0.0.1:${restarted.address().port}`
-  assert.equal((await call(`/api/gremios/${g.id}`,{cookie:a.cookie,origin})).status,200)
-  assert.equal((await call('/api/auth/logout',{cookie:a.cookie,method:'POST',origin})).status,200)
+  assert.equal((await call(`/api/gremios/${g.id}`,{cookie:a.cookie,origin})).status,401)
+  assert.equal((await call('/api/auth/logout',{cookie:a.cookie,method:'POST'})).status,200)
   const offline=await call(`/api/gremios/${g.id}`,{cookie:b.cookie})
   assert.equal(offline.data.miembros.find((m)=>m.id===a.data.usuario.id).enLinea,false)
   assert.equal((await call('/api/auth/presence',{cookie:a.cookie,method:'POST'})).status,401)
-  console.log('APROBADO: registro, login, invitaciones, membresía, presencia, dos siembras, cosecha, duplicados, persistencia de sesión y logout en PostgreSQL real.')
+  console.log('APROBADO: registro, login, invitaciones, membresía, presencia, dos siembras, cosecha, duplicados, sesiones en memoria y logout.')
 } catch(error) {
   console.error('FALLO DE VERIFICACIÓN:',error.code || error.message)
   process.exitCode=1

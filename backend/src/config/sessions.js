@@ -1,7 +1,5 @@
 import session from 'express-session'
-import connectPgSimple from 'connect-pg-simple'
 import { randomBytes } from 'node:crypto'
-import { pool, isDbConnected, query, schema } from './db.js'
 
 export const ONLINE_MS = 15 * 60 * 1000
 export const COOKIE_NAME = 'huertos.sid'
@@ -13,16 +11,7 @@ export const cookieOptions = {
 }
 
 export async function createSessionStore() {
-  if (!isDbConnected()) return new session.MemoryStore()
-  // La tabla se crea antes de aceptar peticiones, incluso antes del primer login.
-  await query(`CREATE TABLE IF NOT EXISTS huertos_sessions (
-    sid varchar PRIMARY KEY,
-    sess json NOT NULL,
-    expire timestamp(6) NOT NULL
-  )`)
-  await query('CREATE INDEX IF NOT EXISTS huertos_sessions_expire_idx ON huertos_sessions (expire)')
-  const PgStore = connectPgSimple(session)
-  return new PgStore({ pool, schemaName: schema, tableName: 'huertos_sessions' })
+  return new session.MemoryStore()
 }
 
 export function sessionMiddleware(store) {
@@ -47,15 +36,9 @@ export function isOnline(lastSeen, now = Date.now()) {
 }
 
 export async function getPresence(store, source) {
-  let sessions
-  if (source === 'postgres') {
-    const { rows } = await query('SELECT sess FROM huertos_sessions WHERE expire > CURRENT_TIMESTAMP')
-    sessions = rows.map((row) => row.sess)
-  } else {
-    sessions = await new Promise((resolve, reject) => {
-      store.all((err, values) => err ? reject(err) : resolve(Object.values(values || {})))
-    })
-  }
+  const sessions = await new Promise((resolve, reject) => {
+    store.all((err, values) => err ? reject(err) : resolve(Object.values(values || {})))
+  })
   const presence = new Map()
   for (const item of sessions) {
     if (item.source !== source || !item.usuarioId || !item.lastSeen) continue

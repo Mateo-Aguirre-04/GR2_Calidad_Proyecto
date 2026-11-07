@@ -109,7 +109,7 @@ export async function logout(req, res) {
 }
 
 export function presence(req, res) {
-  if (!req.session.usuarioId) return res.status(401).json({ error: 'Inicia sesión.' })
+  if (!req.session.usuarioId) return res.status(401).json({ error: 'Tu sesión terminó. Inicia sesión nuevamente.' })
   const user = req.session.source === 'mock' && mockData.usuarios.find((u) => u.id === req.session.usuarioId)
   if (user) {
     user.enLinea = true

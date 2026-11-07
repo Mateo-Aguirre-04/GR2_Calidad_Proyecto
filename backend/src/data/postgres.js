@@ -3,7 +3,7 @@ export function httpError(status, message) {
 }
 
 export function requireUser(req) {
-  if (!req.session?.usuarioId || req.session.source !== 'postgres') throw httpError(401, 'Inicia sesión en la base real.')
+  if (!req.session?.usuarioId || req.session.source !== 'postgres') throw httpError(401, 'Tu sesión terminó. Inicia sesión nuevamente.')
   return req.session.usuarioId
 }
 

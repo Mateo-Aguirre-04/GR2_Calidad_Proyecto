@@ -4,6 +4,7 @@ import Header from '../components/Header/Header'
 import Button from '../components/Button/Button'
 import Tarjeta from '../components/Tarjeta/Tarjeta'
 import styles from './css/Login.module.css'
+import { authenticatedFetch } from '../authSession'
 
 function Login() {
   const navigate = useNavigate()
@@ -31,7 +32,11 @@ function Login() {
         localStorage.removeItem('gremio_activo')
         localStorage.removeItem('huerto_activo_id')
         if (datos.usuario?.gremioId) {
-          const respuestaGremio = await fetch(`/api/gremios/${datos.usuario.gremioId}`, { credentials: 'include' })
+          const respuestaGremio = await authenticatedFetch(`/api/gremios/${datos.usuario.gremioId}`)
+          if (respuestaGremio.status === 401) {
+            setMensaje('No se pudo mantener la sesión. Inicia sesión nuevamente.')
+            return
+          }
           const gremio = await respuestaGremio.json()
           if (!respuestaGremio.ok || !gremio.huerto?.id) {
             setMensaje(gremio.error || 'El gremio no tiene un huerto configurado.')

@@ -1,8 +1,9 @@
 import { useApiData } from './useApiData'
+import { authenticatedFetch } from '../authSession'
 export function usePerfil(usuarioId) {
   const { data, recargar, ...state } = useApiData(usuarioId ? `/api/perfil/${usuarioId}` : null)
   async function guardarDescripcion(descripcion) {
-    const res = await fetch(`/api/perfil/${usuarioId}/descripcion`, {
+    const res = await authenticatedFetch(`/api/perfil/${usuarioId}/descripcion`, {
       method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ descripcion }),
     })

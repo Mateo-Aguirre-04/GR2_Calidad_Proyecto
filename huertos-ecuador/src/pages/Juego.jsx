@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { authenticatedFetch } from '../authSession'
 import { useHuerto } from '../hooks/useHuerto'
 import { usePerfil } from '../hooks/usePerfil'
 import { useClima } from '../hooks/useClima'
@@ -85,7 +86,7 @@ function Juego() {
     setLoadingAccion(true)
     setErrorAccion('')
     try {
-      const resp = await fetch(`/api/huertos/${huerto.id}/sembrar`, {
+      const resp = await authenticatedFetch(`/api/huertos/${huerto.id}/sembrar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plantaId: plantaSeleccionada.id, x, y }),
@@ -108,7 +109,7 @@ function Juego() {
     setLoadingAccion(true)
     setErrorAccion('')
     try {
-      const resp = await fetch(`/api/huertos/${huerto.id}/cosechar`, {
+      const resp = await authenticatedFetch(`/api/huertos/${huerto.id}/cosechar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cultivoId: cultivo.id }),
@@ -124,7 +125,8 @@ function Juego() {
     }
   }
 
-  if (errorHuerto) return <p role="alert">{errorHuerto} <button onClick={() => navigate('/seleccion-gremio')}>Seleccionar gremio</button></p>
+  if (!usuarioActual) return <Navigate to="/" replace />
+  if (errorHuerto) return <p role="alert">No pudimos cargar tu huerto. Inténtalo nuevamente. <button onClick={recargar}>Reintentar</button></p>
 
   if (cargando || !huerto) {
     return <p className={styles.cargando} role="status">Cargando huerto...</p>

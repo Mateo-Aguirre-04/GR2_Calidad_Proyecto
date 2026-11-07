@@ -2,7 +2,18 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import session from 'express-session'
 import { createApp } from '../src/app.js'
-import { isOnline, ONLINE_MS } from '../src/config/sessions.js'
+import { isOnline, ONLINE_MS, createSessionStore, getPresence } from '../src/config/sessions.js'
+
+test('cuentas PostgreSQL usan presencia en memoria y no sobreviven a otro backend', async () => {
+  const store = await createSessionStore()
+  const lastSeen = new Date().toISOString()
+  await new Promise((resolve, reject) => store.set('sesion-prueba', {
+    usuarioId: 123, source: 'postgres', lastSeen,
+    cookie: { expires: new Date(Date.now() + 60_000).toISOString() },
+  }, (err) => err ? reject(err) : resolve()))
+  assert.equal((await getPresence(store, 'postgres')).get(123), lastSeen)
+  assert.equal((await getPresence(await createSessionStore(), 'postgres')).size, 0)
+})
 
 test('presencia: frontera estricta de 15 minutos y fechas inválidas', () => {
   const now = Date.now()

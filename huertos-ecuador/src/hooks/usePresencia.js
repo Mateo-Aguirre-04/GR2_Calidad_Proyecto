@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
+import { authenticatedFetch } from '../authSession'
 
 export function usePresencia() {
   useEffect(() => {
     async function actualizar() {
       if (document.visibilityState !== 'visible' || !localStorage.getItem('usuario_actual')) return
       try {
-        await fetch('/api/auth/presence', { method: 'POST', credentials: 'include' })
+        await authenticatedFetch('/api/auth/presence', { method: 'POST' })
       } catch {
         // El siguiente latido vuelve a intentar; la presencia caduca en el servidor.
       }

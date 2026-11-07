@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { authenticatedFetch } from '../authSession'
 
 function leerGuardado(clave) {
   try { return JSON.parse(localStorage.getItem(clave)) } catch { return null }
@@ -32,7 +33,8 @@ export function useGremio() {
     async function cargar() {
       try {
         if (!id) throw new Error('Selecciona un gremio para ver sus miembros.')
-        const res = await fetch(`/api/gremios/${id}`, { signal: controlador.signal, credentials: 'include' })
+        const res = await authenticatedFetch(`/api/gremios/${id}`, { signal: controlador.signal })
+        if (res.status === 401) return
         const datos = await res.json()
         if (!res.ok) throw new Error(datos.error || 'No se pudo consultar el gremio.')
         if (controlador.signal.aborted) return
