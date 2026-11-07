@@ -193,6 +193,18 @@ function CrearGremio() {
               </select>
             </div>
 
+            <div className={`${styles.campo} ${styles.anchoCompleto}`}>
+              <label htmlFor="descripcion">Descripción</label>
+              <input
+                id="descripcion"
+                name="descripcion"
+                value={valores.descripcion}
+                onChange={actualizar}
+                placeholder="Descripción de mi gremio"
+                required
+              />
+            </div>
+
             {/* Foto */}
             <div className={`${styles.campo} ${styles.anchoCompleto}`}>
               <span className={styles.etiqueta}>Foto del espacio</span>
