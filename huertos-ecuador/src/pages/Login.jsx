@@ -30,7 +30,19 @@ function Login() {
         localStorage.setItem('usuario_actual', JSON.stringify(datos.usuario))
         localStorage.removeItem('gremio_activo')
         localStorage.removeItem('huerto_activo_id')
-        setTimeout(() => navigate('/seleccion-gremio'), 600)
+        if (datos.usuario?.gremioId) {
+          const respuestaGremio = await fetch(`/api/gremios/${datos.usuario.gremioId}`, { credentials: 'include' })
+          const gremio = await respuestaGremio.json()
+          if (!respuestaGremio.ok || !gremio.huerto?.id) {
+            setMensaje(gremio.error || 'El gremio no tiene un huerto configurado.')
+            return
+          }
+          localStorage.setItem('gremio_activo', JSON.stringify(gremio))
+          localStorage.setItem('huerto_activo_id', String(gremio.huerto.id))
+          setTimeout(() => navigate('/juego', { replace: true }), 600)
+        } else {
+          setTimeout(() => navigate('/seleccion-gremio', { replace: true }), 600)
+        }
       } else {
         setMensaje(datos.error || 'Credenciales incorrectas.')
       }
