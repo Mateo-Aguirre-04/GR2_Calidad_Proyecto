@@ -32,28 +32,32 @@ function Gremio() {
   const { gremio, cargando, error, reintentar, guardarPerfil } = useGremio()
   const [pestana, setPestana] = useState('comunidad')
   const [editando, setEditando] = useState(false)
-  const [borrador, setBorrador] = useState({ descripcion: '', anuncio: '' })
-  const [invitacion, setInvitacion] = useState('')
-  const [errorInvitacion, setErrorInvitacion] = useState('')
-  async function crearInvitacion() {
-    try {
-      const res = await fetch(`/api/gremios/${gremio.id}/invitacion`, { method: 'POST', credentials: 'include' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'No se pudo generar la invitación.')
-      setInvitacion(data.codigo)
-      setErrorInvitacion('')
-    } catch (err) { setErrorInvitacion(err.message) }
-  }
+  const [borrador, setBorrador] = useState({ descripcion: '', anuncios: '' })
+  const [guardando, setGuardando] = useState(false)
+  const [errorGuardado, setErrorGuardado] = useState('')
+  const [mensajeGuardado, setMensajeGuardado] = useState('')
+  const puedeEditar = gremio?.puedeEditar === true
+  const mostrarEdicion = editando && puedeEditar
   const [modalInvitar, setModalInvitar] = useState(false)
 
   function empezarEdicion() {
-    setBorrador({ descripcion: gremio.descripcion ?? '', anuncio: gremio.anuncio ?? '' })
+    if (!puedeEditar) return
+    setErrorGuardado('')
+    setMensajeGuardado('')
+    setBorrador({ descripcion: gremio.descripcion ?? '', anuncios: gremio.anuncios ?? '' })
     setEditando(true)
   }
 
-  function guardar() {
-    guardarPerfil({ descripcion: borrador.descripcion.trim(), anuncio: borrador.anuncio.trim() })
-    setEditando(false)
+  async function guardar() {
+    if (!puedeEditar || guardando) return
+    setGuardando(true)
+    setErrorGuardado('')
+    try {
+      await guardarPerfil({ descripcion: borrador.descripcion.trim(), anuncios: borrador.anuncios.trim() })
+      setEditando(false)
+      setMensajeGuardado('Descripción y anuncios guardados.')
+    } catch (err) { setErrorGuardado(err.message) }
+    finally { setGuardando(false) }
   }
 
   const titulo = PESTANAS.find((p) => p.clave === pestana).titulo
@@ -129,7 +133,7 @@ function Gremio() {
                         <div className={styles.dato}>
                           <dt>Descripción:</dt>
                           <dd>
-                            {editando ? (
+                            {mostrarEdicion ? (
                               <>
                                 <textarea
                                   className={styles.textarea}
@@ -168,34 +172,34 @@ function Gremio() {
 
                     <div className={styles.anuncios}>
                       <h2>Anuncios del Gremio</h2>
-                      {gremio.fuente === 'postgres' && <div>
-                      </div>}
-                      {editando ? (
+                      {mostrarEdicion ? (
                         <>
                           <textarea
                             className={styles.textarea}
-                            value={borrador.anuncio}
+                            value={borrador.anuncios}
                             maxLength={MAX_ANUNCIO}
-                            onChange={(e) => setBorrador((b) => ({ ...b, anuncio: e.target.value }))}
+                            onChange={(e) => setBorrador((b) => ({ ...b, anuncios: e.target.value }))}
                             aria-label="Anuncio del gremio"
                             rows={3}
                           />
-                          <span className={styles.contador}>{borrador.anuncio.length}/{MAX_ANUNCIO}</span>
+                          <span className={styles.contador}>{borrador.anuncios.length}/{MAX_ANUNCIO}</span>
                         </>
                       ) : (
-                        <p>{gremio.anuncio || 'No hay anuncios por ahora.'}</p>
+                        <p>{gremio.anuncios || 'No hay anuncios por ahora.'}</p>
                       )}
                     </div>
 
                     <div className={styles.pie}>
-                      {editando ? (
+                      {errorGuardado && <p role="alert">{errorGuardado}</p>}
+                      {mensajeGuardado && <p role="status">{mensajeGuardado}</p>}
+                      {mostrarEdicion ? (
                         <>
-                          <Button onClick={guardar}>Guardar</Button>
-                          <Button onClick={() => setEditando(false)}>Cancelar</Button>
+                          <Button onClick={guardar} disabled={guardando}>{guardando ? 'Guardando...' : 'Guardar'}</Button>
+                          <Button onClick={() => setEditando(false)} disabled={guardando}>Cancelar</Button>
                         </>
                       ) : (
                         <>
-                          <Button onClick={empezarEdicion}>Editar Perfil del Gremio</Button>
+                          {puedeEditar && <Button onClick={empezarEdicion}>Editar Perfil del Gremio</Button>}
                         </>
                       )}
                     </div>
@@ -236,64 +240,6 @@ function Gremio() {
                   )
                 )}
 
-                {pestana === 'historia' && (
-                  <>
-                    <div className={styles.tablaScroll}>
-                      <table className={styles.tabla}>
-                        <thead>
-                          <tr>
-                            <th scope="col">Jugador</th>
-                            <th scope="col">Actividad</th>
-                            <th scope="col">Fecha</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {actividades.length === 0 ? (
-                            <tr>
-                              <td colSpan={3} className={styles.vacio}>No hay actividades de este tipo.</td>
-                            </tr>
-                          ) : (
-                            actividades.map((a) => (
-                              <tr key={a.id}>
-                                <td>{a.jugador}</td>
-                                <td>
-                                  <span className={`${styles.actividad} ${styles[a.tipo] ?? ''}`}>
-                                    <span aria-hidden="true">{TIPOS_ACTIVIDAD[a.tipo]?.emoji}</span> {a.texto}
-                                  </span>
-                                </td>
-                                <td>{haceCuanto(a.fecha)}</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className={styles.filtros} role="group" aria-label="Filtrar actividades">
-                      <span>Filtrar:</span>
-                      <button
-                        type="button"
-                        className={`${styles.filtro} ${filtro === 'todos' ? styles.filtroActivo : ''}`}
-                        aria-pressed={filtro === 'todos'}
-                        onClick={() => setFiltro('todos')}
-                      >
-                        Todos
-                      </button>
-                      {Object.entries(TIPOS_ACTIVIDAD).map(([clave, { etiqueta, emoji }]) => (
-                        <button
-                          key={clave}
-                          type="button"
-                          className={`${styles.filtro} ${filtro === clave ? styles.filtroActivo : ''}`}
-                          aria-pressed={filtro === clave}
-                          onClick={() => setFiltro(clave)}
-                        >
-                          <span aria-hidden="true">{emoji}</span> {etiqueta}
-                        </button>
-                      ))}
-                    </div>
-                    <p className={styles.total} role="status">Mostrando {actividades.length} registros</p>
-                  </>
-                )}
               </div>
             </section>
           </div>

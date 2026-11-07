@@ -46,9 +46,12 @@ try {
   const a=await register('test_uno'), b=await register('test_dos')
   assert.equal((await call('/api/auth/login',{body:{usuario:'test_uno',contrasena:'incorrecta'}})).status,401)
   const config=(await call('/api/gremios/configuracion',{cookie:a.cookie})).data
-  const guild=await call('/api/gremios',{cookie:a.cookie,body:{nombre:'Gremio de prueba aislado',area:100,lat:-0.18,lng:-78.46,suelo:config.suelos[0],riego:config.riegos[0]}})
+  const guild=await call('/api/gremios',{cookie:a.cookie,body:{nombre:'Gremio de prueba aislado',descripcion:'Descripción inicial',area:100,lat:-0.18,lng:-78.46,suelo:config.suelos[0],riego:config.riegos[0]}})
   assert.equal(guild.status,201,JSON.stringify(guild.data))
   const g=guild.data.gremio,h=g.huerto.id
+  assert.equal(g.descripcion,'Descripción inicial')
+  assert.equal(g.anuncios,'')
+  assert.equal((await call(`/api/gremios/${g.id}/perfil`,{cookie:a.cookie,method:'PATCH',body:{descripcion:'No autorizado',anuncios:'No autorizado'}})).status,403)
   const profile=await call(`/api/perfil/${a.data.usuario.id}`,{cookie:a.cookie})
   assert.equal(profile.status,200,JSON.stringify(profile.data))
   assert.equal(Number(profile.data.posicionGremio),1)

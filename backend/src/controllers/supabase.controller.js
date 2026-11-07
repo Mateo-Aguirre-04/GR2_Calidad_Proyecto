@@ -3,6 +3,7 @@ import { randomInt } from 'node:crypto'
 import { query, transaction, isDbConnected } from '../config/db.js'
 import { presenceConfig } from '../config/presence.js'
 import { requireUser, requireMember, cropResponse, growthDays, httpError, sendError } from '../data/postgres.js'
+import { canEditGuildProfile, guildDescription, updateGuildProfile } from '../data/guildProfile.js'
 
 // Con Supabase conectado, nunca se usan los controladores de demostración.
 export const realOrDemo = (real, demo) => (req, res, next) => isDbConnected() ? real(req, res, next) : demo(req, res, next)
@@ -34,7 +35,7 @@ export const getGremio = handle(async (req, res) => {
   const userId = requireUser(req)
   const id = Number(req.params.id)
   if (!Number.isSafeInteger(id) || id <= 0) throw httpError(400, 'ID de gremio inválido.')
-  const guild = await query(`SELECT ${guildFields} FROM gremio g JOIN miembro_gremio m USING(id_gremio)
+  const guild = await query(`SELECT ${guildFields}, g.descripcion, g.anuncios, m.rol AS "miRol" FROM gremio g JOIN miembro_gremio m USING(id_gremio)
     WHERE g.id_gremio=$1 AND m.id_usuario=$2`, [id, userId])
   if (!guild.rows.length) throw httpError(403, 'No perteneces a este gremio.')
   const members = await query(`SELECT u.id_usuario AS id, concat_ws(' ',u.nombres,u.apellidos) AS nombre,
@@ -45,9 +46,15 @@ export const getGremio = handle(async (req, res) => {
   const gardens = await query('SELECT id_huerto AS id FROM huerto WHERE id_gremio=$1 ORDER BY id_huerto LIMIT 1', [id])
   const token = await query('SELECT codigo FROM invitacion_gremio WHERE id_gremio=$1 AND expira_en>now() ORDER BY expira_en DESC LIMIT 1', [id])
   res.set('Cache-Control', 'no-store').json({
-    ...guildResponse(guild.rows[0]), fuente: 'postgres', huerto: gardens.rows[0] || null, codigo: token.rows[0]?.codigo || null,
+    ...guildResponse(guild.rows[0]), puedeEditar: canEditGuildProfile(guild.rows[0].miRol), fuente: 'postgres', huerto: gardens.rows[0] || null, codigo: token.rows[0]?.codigo || null,
     miembros: members.rows.map((u) => ({ ...u, id: Number(u.id), puntos: Number(u.puntos) })),
   })
+})
+
+export const guardarPerfilGremio = handle(async (req, res) => {
+  const userId = requireUser(req)
+  const profile = await transaction((db) => updateGuildProfile(db, userId, req.params.id, req.body))
+  res.json(profile)
 })
 
 async function invitation(db, guildId, userId) {
@@ -95,6 +102,7 @@ export const unirse = handle(async (req, res) => {
 export const crearGremio = handle(async (req, res) => {
   const userId = requireUser(req)
   const { nombre, area, lat, lng } = req.body
+  const descripcion = guildDescription(req.body.descripcion, true)
   if (typeof nombre !== 'string' || !nombre.trim() || !Number.isFinite(Number(area)) || Number(area)<=0) throw httpError(400, 'Nombre y área positiva son obligatorios.')
   if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng)) || Math.abs(Number(lat))>90 || Math.abs(Number(lng))>180) throw httpError(400, 'Coordenadas inválidas.')
   const result = await transaction(async (db) => {
@@ -109,13 +117,13 @@ export const crearGremio = handle(async (req, res) => {
       if (!selected.rows.length) throw httpError(400, `El tipo de ${field} no existe en la base.`)
       c[key]=selected.rows[0][key]
     }
-    const g = (await db.query(`INSERT INTO gremio(nombre_gremio,area_total,latitud,longitud)
-      VALUES($1,$2,$3,$4) RETURNING id_gremio`, [nombre.trim(), Number(area), Number(lat), Number(lng)])).rows[0]
+    const g = (await db.query(`INSERT INTO gremio(nombre_gremio,area_total,latitud,longitud,descripcion,anuncios)
+      VALUES($1,$2,$3,$4,$5,'') RETURNING id_gremio`, [nombre.trim(), Number(area), Number(lat), Number(lng), descripcion])).rows[0]
     await db.query(`INSERT INTO miembro_gremio(id_usuario,id_gremio,rol) VALUES($1,$2,'Fundador')`, [userId,g.id_gremio])
     const garden = (await db.query(`INSERT INTO huerto(id_gremio,id_cerca,id_subcerca,id_abono,id_suelo,id_riego,id_diseño,id_subdiseño)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id_huerto AS id`, [g.id_gremio,c.id_cerca,c.id_subcerca,c.id_abono,c.id_suelo,c.id_riego,c.id_diseño,c.id_subdiseño])).rows[0]
     const codigo = await invitation(db,g.id_gremio,userId)
-    return { id:Number(g.id_gremio),nombre:nombre.trim(),codigo,huerto:garden,ubicacion:{lat:Number(lat),lng:Number(lng)} }
+    return { id:Number(g.id_gremio),nombre:nombre.trim(),descripcion,anuncios:'',codigo,huerto:garden,ubicacion:{lat:Number(lat),lng:Number(lng)} }
   })
   res.status(201).json({ mensaje:'Gremio creado.', gremio:result })
 })
