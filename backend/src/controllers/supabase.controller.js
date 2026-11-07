@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { randomInt } from 'node:crypto'
 import { query, transaction, isDbConnected } from '../config/db.js'
-import { getPresence, isOnline } from '../config/sessions.js'
+import { presenceConfig } from '../config/presence.js'
 import { requireUser, requireMember, cropResponse, growthDays, httpError, sendError } from '../data/postgres.js'
 
 // Con Supabase conectado, nunca se usan los controladores de demostración.
@@ -38,16 +38,15 @@ export const getGremio = handle(async (req, res) => {
     WHERE g.id_gremio=$1 AND m.id_usuario=$2`, [id, userId])
   if (!guild.rows.length) throw httpError(403, 'No perteneces a este gremio.')
   const members = await query(`SELECT u.id_usuario AS id, concat_ws(' ',u.nombres,u.apellidos) AS nombre,
-    ug.nombre_usuario AS usuario, ug.puntos, m.rol AS "rolGremio"
+    ug.nombre_usuario AS usuario, ug.puntos, m.rol AS "rolGremio", ug.last_seen AS "lastSeen",
+    COALESCE(ug.last_seen > CURRENT_TIMESTAMP - ($2 * interval '1 millisecond'), FALSE) AS "enLinea"
     FROM miembro_gremio m JOIN usuario u USING(id_usuario) JOIN usuario_general ug USING(id_usuario)
-    WHERE m.id_gremio=$1 ORDER BY ug.puntos DESC,u.id_usuario`, [id])
+    WHERE m.id_gremio=$1 ORDER BY ug.puntos DESC,u.id_usuario`, [id, presenceConfig.onlineWindowMs])
   const gardens = await query('SELECT id_huerto AS id FROM huerto WHERE id_gremio=$1 ORDER BY id_huerto LIMIT 1', [id])
   const token = await query('SELECT codigo FROM invitacion_gremio WHERE id_gremio=$1 AND expira_en>now() ORDER BY expira_en DESC LIMIT 1', [id])
-  const presence = await getPresence(req.sessionStore, 'postgres')
   res.set('Cache-Control', 'no-store').json({
     ...guildResponse(guild.rows[0]), fuente: 'postgres', huerto: gardens.rows[0] || null, codigo: token.rows[0]?.codigo || null,
-    miembros: members.rows.map((u) => ({ ...u, id: Number(u.id), lastSeen: presence.get(Number(u.id)) || null,
-      enLinea: isOnline(presence.get(Number(u.id))), puntos: Number(u.puntos) })),
+    miembros: members.rows.map((u) => ({ ...u, id: Number(u.id), puntos: Number(u.puntos) })),
   })
 })
 

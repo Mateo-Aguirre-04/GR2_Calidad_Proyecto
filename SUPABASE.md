@@ -1,60 +1,43 @@
-# Supabase: sesiones y presencia
+# Supabase: presencia compartida con consultas limitadas
 
-La aplicación usa PostgreSQL real en el esquema `huertos`. El alcance actual es mantener sesiones y mostrar miembros en línea. No se mantiene historial de actividades y se retiró la pestaña Historia.
+Las sesiones de login siguen en memoria de cada backend. La presencia entre laptops se comparte mediante una única columna nueva: `huertos.usuario_general.last_seen` de tipo `timestamptz`. No hay tabla nueva ni historial.
 
-## Configuración y ejecución
+## Parámetros: un único archivo
 
-`backend/.env` contiene `DATABASE_URL`, `DB_SCHEMA=huertos` y `SESSION_SECRET`. Es privado y está ignorado por Git. La cuenta para administrar Supabase es distinta del usuario de Huertos.ec.
+Editar `backend/src/config/presence.js`:
 
-En una terminal desde `backend/`:
-
-```powershell
-pnpm dev
+```javascript
+export const PRESENCE_UPDATE_MINUTES = 60
+export const PRESENCE_ONLINE_MINUTES = 75
 ```
 
-En otra terminal desde `huertos-ecuador/`:
+- UPDATE controla el intervalo mínimo entre escrituras de presencia por usuario y la actualización automática de la lista de miembros.
+- ONLINE controla cuánto tiempo se considera en línea a un usuario desde su última escritura. Debe ser mayor que UPDATE.
+- Para una versión final con actualizaciones cada minuto y tolerancia de 15 minutos, usar UPDATE=1 y ONLINE=15.
+- Después de cambiar los valores, reiniciar cada backend y recargar cada navegador. El frontend consulta esta configuración al backend, sin consultar Supabase; no hace falta cambiar otro archivo para estos intervalos.
 
-```powershell
-pnpm dev
-```
+## Funcionamiento de la prueba
 
-`GET /api/health` debe devolver `fuente: "postgres"` y `schema: "huertos"`. Si la conexión falla, el servidor no cambia silenciosamente a datos de demostración. `DATA_MODE=mock` permite una demo explícita.
+1. Al iniciar sesión con una cuenta real, se escribe la primera fecha si no existe o si venció su intervalo. Un login repetido dentro de la hora reutiliza la fecha existente.
+2. El frontend solicita una actualización al vencer el plazo y solo mientras está visible. El backend conserva el vencimiento en su sesión para no consultar por cada acción.
+3. La escritura SQL incluye una condición temporal, que impide escribir de nuevo antes del plazo aunque dos backends intenten actualizar el mismo usuario.
+4. La lista de miembros lee last_seen junto con los miembros, sin otra consulta de presencia. Su actualización automática también es cada 60 minutos durante estas pruebas.
+5. Logout destruye la sesión local, pero no vuelve a escribir en Supabase: el usuario puede seguir apareciendo en línea hasta 75 minutos después de su última actualización. Esta presencia es aproximada, no una conexión instantánea.
 
-## Sesiones
+El límite se aplica a la presencia. Login, plantas, perfiles, cultivos y navegación siguen haciendo sus consultas normales. Recargar manualmente el navegador o volver a abrir Miembros también realiza una lectura; no es una escritura de presencia adicional dentro del intervalo.
 
-- Las sesiones se guardan únicamente en memoria del backend. No se crea ni consulta una tabla de sesiones.
-- El login verifica el hash bcrypt, regenera la sesión y guarda `usuarioId`, origen y `lastSeen`.
-- La cookie es HttpOnly y SameSite=Lax; usa Secure en producción.
-- Las sesiones se pierden al reiniciar el backend. Una cookie anterior lleva al inicio de sesión.
-- Cada petición autenticada actualiza `lastSeen`; el frontend envía un latido cada minuto cuando está visible.
-- Un miembro está en línea cuando tiene alguna sesión vigente con actividad en los últimos 15 minutos.
-- Logout destruye solo la sesión actual. Si quedan otras sesiones activas del mismo usuario, conserva su presencia.
+## Probar con dos laptops
 
-## Sin historial
+Cada laptop puede ejecutar su propio backend y frontend, apuntando ambos al mismo proyecto Supabase y al esquema huertos. Iniciar sesión otra vez con dos cuentas del mismo gremio para registrar sus primeras fechas. Recargar Miembros manualmente para comprobar el resultado sin esperar la hora completa.
 
-El backend ya no inserta ni consulta eventos de actividad. Siembras y cosechas siguen actualizando los cultivos existentes de la aplicación, pero no generan historial.
+La conexión PostgreSQL se configura en `backend/.env`; no se comparte ese archivo por Git. Iniciar `pnpm dev` en backend y en huertos-ecuador. Las sesiones se pierden al reiniciar el backend, pero la fecha compartida permanece hasta que se actualice o caduque su consideración de en línea.
 
-Se retiró la migración que creaba `actividad_gremio`. `pnpm db:migrate` solo informa que no se necesitan migraciones; no crea tablas.
+`pnpm db:migrate` agrega únicamente last_seen si falta. La columna ya fue aplicada en esta instancia.
 
-`node scripts/remove-history.js` retira exclusivamente la tabla `actividad_gremio` añadida por esta implementación. No utiliza CASCADE, por lo que cualquier dependencia externa impediría el borrado. No elimina ni modifica las tablas previas.
+## Retirar la función
 
-## Prueba manual
+Primero retirar del código el uso de last_seen y desplegar ese cambio en ambas laptops. Después se puede eliminar únicamente esa columna. No hace falta borrar usuarios ni otras columnas. El borrado no se ejecuta automáticamente.
 
-1. Iniciar sesión con una cuenta real y entrar a su gremio.
-2. Abrir Miembros y comprobar que el usuario aparece en línea.
-3. Entrar desde otro navegador o ventana privada con una segunda cuenta del mismo gremio.
-4. Cerrar sesión en una ventana y comprobar el cambio a desconectado desde la otra tras la actualización.
-5. Reiniciar el backend y comprobar que la sesión anterior vuelve al login.
-6. Confirmar que no aparece la pestaña Historia.
+## Validación
 
-No ejecutar el SQL antiguo completo del repositorio sobre la base real: tiene una estructura diferente y sentencias DROP.
-
-## Verificación automatizada
-
-`pnpm test` verifica cookies, presencia, expiración, sesiones simultáneas y logout en modo de prueba.
-
-`node scripts/verify-supabase.js` verifica la integración PostgreSQL en un esquema temporal aislado, que elimina al terminar. No copia usuarios ni modifica los datos de trabajo del equipo. Ya no crea ni prueba un historial de actividades.
-
-## Pruebas entre computadoras
-
-Para verse en línea con sesiones en memoria, todos deben conectarse a la misma instancia del backend. Dos APIs ejecutadas por separado no comparten sesiones aunque usen la misma base Supabase.
+Las pruebas locales verifican que se produce una sola escritura por intervalo, que repetir peticiones no consulta la base y que una fecha reciente leída por otro backend evita una escritura duplicada. También se mantienen las pruebas de sesiones y expiración. Compilación y ESLint del frontend aprobados.

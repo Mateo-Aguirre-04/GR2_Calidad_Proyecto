@@ -88,7 +88,8 @@ try {
   assert.equal((await call(`/api/gremios/${g.id}`,{cookie:a.cookie,origin})).status,401)
   assert.equal((await call('/api/auth/logout',{cookie:a.cookie,method:'POST'})).status,200)
   const offline=await call(`/api/gremios/${g.id}`,{cookie:b.cookie})
-  assert.equal(offline.data.miembros.find((m)=>m.id===a.data.usuario.id).enLinea,false)
+  // Logout destruye la sesión local sin otra escritura: la presencia compartida caduca por tiempo.
+  assert.equal(offline.data.miembros.find((m)=>m.id===a.data.usuario.id).enLinea,true)
   assert.equal((await call('/api/auth/presence',{cookie:a.cookie,method:'POST'})).status,401)
   console.log('APROBADO: registro, login, invitaciones, membresía, presencia, dos siembras, cosecha, duplicados, sesiones en memoria y logout.')
 } catch(error) {

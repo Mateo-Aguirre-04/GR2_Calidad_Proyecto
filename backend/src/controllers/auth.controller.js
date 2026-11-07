@@ -2,6 +2,7 @@ import { isDbConnected, query } from '../config/db.js'
 import { mockData } from '../data/mockStore.js'
 import bcrypt from 'bcryptjs'
 import { startSession, COOKIE_NAME, cookieOptions } from '../config/sessions.js'
+import { touchSharedPresence } from '../data/sharedPresence.js'
 
 function publicUser(user) {
   const { contrasena, contrasenia_hash, ...safe } = user
@@ -25,7 +26,7 @@ export async function login(req, res) {
                  COALESCE(to_jsonb(u)->>'contrasenia_hash', to_jsonb(u)->>'contraseña') AS contrasenia_hash,
                  COALESCE(to_jsonb(ug)->>'nombre_usuario', to_jsonb(u)->>'nombre_usuario') AS nombre_usuario,
                  COALESCE(to_jsonb(ug)->>'descripcion', to_jsonb(ug)->>'descripción') AS descripcion, ug.Puntos,
-                 g.ID_gremio, g.Nombre_Gremio, mg.Rol AS Rol_En_Gremio
+                 g.ID_gremio, g.Nombre_Gremio, mg.Rol AS Rol_En_Gremio, ug.last_seen
           FROM Usuario u
           LEFT JOIN Usuario_General ug ON u.ID_usuario = ug.ID_usuario
           LEFT JOIN Miembro_Gremio mg ON u.ID_usuario = mg.ID_usuario
@@ -46,6 +47,7 @@ export async function login(req, res) {
         }
 
         await startSession(req, user.id_usuario, 'postgres')
+        await touchSharedPresence(req, user.last_seen)
         return res.json({
           mensaje: 'Inicio de sesión exitoso',
           usuario: {
@@ -108,14 +110,20 @@ export async function logout(req, res) {
   })
 }
 
-export function presence(req, res) {
+export async function presence(req, res) {
   if (!req.session.usuarioId) return res.status(401).json({ error: 'Tu sesión terminó. Inicia sesión nuevamente.' })
+  try {
+    await touchSharedPresence(req)
+  } catch (error) {
+    console.error('[Presencia]', error.code || 'ERROR')
+    return res.status(503).json({ error: 'No se pudo actualizar la presencia. Inténtalo más tarde.' })
+  }
   const user = req.session.source === 'mock' && mockData.usuarios.find((u) => u.id === req.session.usuarioId)
   if (user) {
     user.enLinea = true
     user.lastSeen = req.session.lastSeen
   }
-  res.json({ lastSeen: req.session.lastSeen })
+  res.json({ lastSeen: req.session.sharedLastSeen || req.session.lastSeen, nextUpdateAt: req.session.presenceDueAt || null })
 }
 
 

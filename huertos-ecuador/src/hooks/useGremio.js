@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { authenticatedFetch } from '../authSession'
+import { loadPresenceConfig } from '../presenceConfig'
 
 function leerGuardado(clave) {
   try { return JSON.parse(localStorage.getItem(clave)) } catch { return null }
@@ -24,11 +25,12 @@ export function useGremio() {
     const controlador = new AbortController()
     const id = leerGuardado('gremio_activo')?.id ?? leerGuardado('usuario_actual')?.gremioId
     let timer
+    let refreshIntervalMs = 60 * 60 * 1000
     function programar() {
       timer = setTimeout(() => {
         if (document.visibilityState === 'visible') cargar()
         else programar()
-      }, 30_000)
+      }, refreshIntervalMs)
     }
     async function cargar() {
       try {
@@ -53,7 +55,10 @@ export function useGremio() {
         }
       }
     }
-    cargar()
+    loadPresenceConfig().then((config) => {
+      refreshIntervalMs = config.refreshIntervalMs
+      if (!controlador.signal.aborted) cargar()
+    }).catch(() => { if (!controlador.signal.aborted) cargar() })
     return () => { controlador.abort(); clearTimeout(timer) }
   }, [intento])
 
