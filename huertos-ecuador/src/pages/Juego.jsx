@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { authenticatedFetch } from '../authSession'
 import { useHuerto } from '../hooks/useHuerto'
 import { usePerfil } from '../hooks/usePerfil'
 import { useClima } from '../hooks/useClima'
 import { useFaseLunar } from '../hooks/useFaseLunar'
 import { useAhora } from '../hooks/useAhora'
-import { useRecordatorios } from '../hooks/useRecordatorios'
+import { useChecklist } from '../hooks/useChecklist'
 import Cultivo from '../components/Cultivo/Cultivo'
 import BotonLateral from '../components/BotonLateral/BotonLateral'
 import IconoEstado from '../components/IconoEstado/IconoEstado'
@@ -32,6 +31,49 @@ const HERRAMIENTAS = [
 
 const MEDALLAS = { Novato: '🌱', Aprendiz: '🥉', Oficial: '🥈', Maestro: '🥇' }
 
+const PRESENTACION_RECORDATORIOS = {
+  siembra: ['🌙', 'Siembra', 'Mañana se abre la ventana lunar para sembrar.'],
+  riego: ['💧', 'Riego', 'Revisa qué cultivos necesitan agua hoy.'],
+  riego_previo_cosecha: ['💧', 'Riego para cosecha', 'Riega dos días antes de la fecha posible de cosecha.'],
+  cosecha: ['🌾', 'Cosecha', 'Revisa la madurez, el riego y las condiciones antes de cosechar.'],
+  cosecha_clima: ['☀️', 'Clima para cosechar', 'Hoy hay sol y no se registra lluvia.'],
+  cosecha_rocio: ['💧', 'Rocío', 'Comprueba que el rocío se haya secado antes de recolectar.'],
+  cosecha_lunar: ['🌙', 'Fase lunar', 'Mañana comienza la fase lunar adecuada para esta cosecha.'],
+  retiro_maleza: ['🌱', 'Retirar maleza', 'Revisa la fase lunar y el pronóstico del tiempo.'],
+  preparacion_tierra: ['🪴', 'Preparar la tierra', 'La zona está lista para preparar después de retirar la maleza.'],
+  secado_almacenamiento: ['🧺', 'Secado', 'El secado llegó al día 10; revisa si ya puedes almacenar.'],
+  limpieza_huerto: ['🧹', 'Limpiar el huerto', 'Una jornada de limpieza está programada.'],
+  abono_organico: ['🌿', 'Aplicar abono', 'Hay abono orgánico programado para un cultivo.'],
+  senaletica: ['🪧', 'Señalética', 'Organiza las zonas con su señalética.'],
+  ritual_agradecimiento: ['🙏', 'Agradecimiento', 'Recuerda el ritual de la jornada de cosecha.'],
+  ritual_mensual: ['🙏', 'Ritual mensual', 'Mañana es 15: realiza el ritual de agradecimiento a la Pachamama.'],
+}
+
+function resumirRecordatorios(recordatorios) {
+  const unicos = new Map()
+  for (const recordatorio of recordatorios) {
+    const presentacion = PRESENTACION_RECORDATORIOS[recordatorio.tipo]
+    if (!presentacion) continue
+    const clave = `${recordatorio.tipo}:${recordatorio.texto || ''}`
+    if (!unicos.has(clave)) {
+      const anticipados = {
+        riego_previo_cosecha: recordatorio.texto,
+        retiro_maleza: 'Mañana se aproxima la luna nueva; revisa el pronóstico.',
+        secado_almacenamiento: 'Mañana se cumplen 10 días de secado.',
+        limpieza_huerto: 'Mañana: jornada de limpieza programada.',
+        abono_organico: 'Mañana: aplicación de abono programada.',
+        senaletica: 'Mañana: organiza las zonas con señalética.',
+        ritual_agradecimiento: 'Mañana: ritual de agradecimiento programado.',
+      }
+      const descripcion = recordatorio.anticipado
+        ? (anticipados[recordatorio.tipo] || presentacion[2])
+        : presentacion[2]
+      unicos.set(clave, { recordatorio, presentacion, descripcion })
+    }
+  }
+  return [...unicos.values()]
+}
+
 function Juego() {
   const navigate = useNavigate()
   const [usuarioActual] = useState(() => {
@@ -42,7 +84,7 @@ function Juego() {
   const clima = useClima(huerto?.ubicacion)
   const luna = useFaseLunar()
   const ahora = useAhora()
-  const { pendientes, lista: listaRecordatorios, completar: completarRecordatorio, error: errorRecordatorios, cargando: cargandoRecordatorios, fuentes, recargar: recargarRecordatorios } = useRecordatorios(usuarioActual?.id)
+  const checklist = useChecklist(huerto?.id)
 
   // UI state
   const [modal, setModal] = useState(null) // 'perfil' | 'seleccionarPlanta' | null
@@ -62,6 +104,8 @@ function Juego() {
     } else if (boton.clave === 'siembra') {
       setHerramientaActiva('siembra')
       setModal('seleccionarPlanta')
+    } else if (boton.clave === 'riego') {
+      setHerramientaActiva('riego')
     } else if (boton.clave === 'cosecha') {
       setHerramientaActiva('cosecha')
     }
@@ -88,13 +132,13 @@ function Juego() {
     setLoadingAccion(true)
     setErrorAccion('')
     try {
-      const resp = await authenticatedFetch(`/api/huertos/${huerto.id}/sembrar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plantaId: plantaSeleccionada.id, x, y }),
-      })
-      if (!resp.ok) throw new Error((await resp.json()).error || 'No se pudo guardar la siembra.')
-      await resp.json()
+      const ciclos = checklist.panel?.zonas?.filter(z => z.cicloId && !z.requiereNuevoCiclo) || []
+      if (!ciclos.length) throw new Error('Prepara una zona desde el panel de checklist antes de sembrar.')
+      const destino = ciclos[0]
+      const parteCosecha = window.prompt('¿Qué parte cosecharás? Escribe hojas, flores, frutos, semillas o raices.')
+      if (!parteCosecha) return
+      if (!window.confirm('¿Confirmas que realizarás el ritual al amanecer?')) return
+      await checklist.sembrar({ cicloId: destino.cicloId, plantaId: String(plantaSeleccionada.id), parteCosecha: parteCosecha.toLowerCase(), x, y, confirmaciones: { ritualAmanecer: true }, claveSolicitud: crypto.randomUUID() })
       recargar()
     } catch (e) {
       setErrorAccion(e.message)
@@ -108,16 +152,27 @@ function Juego() {
 
   // Callback when a mature crop is selected for harvest
   async function onCultivoSeleccionado(cultivo) {
+    const separadorFecha = String(cultivo.id).indexOf(':')
+    const fechaSiembra = separadorFecha >= 0 ? String(cultivo.id).slice(separadorFecha + 1) : null
+    if (herramientaActiva === 'riego') {
+      setLoadingAccion(true)
+      setErrorAccion('')
+      try {
+        if (!fechaSiembra) throw new Error('No se encontró la fecha exacta del cultivo.')
+        await checklist.registrarRiegos([{ plantaId: String(cultivo.plantaId), fechaSiembra }], crypto.randomUUID())
+        recargar()
+      } catch (e) { setErrorAccion(e.message) }
+      finally { setLoadingAccion(false); setHerramientaActiva(null) }
+      return
+    }
     setLoadingAccion(true)
     setErrorAccion('')
     try {
-      const resp = await authenticatedFetch(`/api/huertos/${huerto.id}/cosechar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cultivoId: cultivo.id }),
-      })
-      if (!resp.ok) throw new Error((await resp.json()).error || 'No se pudo guardar la cosecha.')
-      await resp.json()
+      const tarea = checklist.tareas.find(t => t.actividad?.codigo === 'cosecha' && t.cultivo?.plantaId === String(cultivo.plantaId) && t.cultivo?.fechaSiembra === fechaSiembra)
+      if (!tarea) throw new Error('No hay una tarea de cosecha disponible para este cultivo.')
+      if (!window.confirm('¿Confirmas que el cultivo está listo y el rocío está seco?')) return
+      const conservarCultivo = window.confirm('¿Deseas conservar la planta para que siga creciendo?')
+      await checklist.completar(tarea.id, { cultivoListo: true, rocioSeco: true, conservarCultivo })
       recargar()
     } catch (e) {
       setErrorAccion(e.message)
@@ -134,15 +189,10 @@ function Juego() {
     return <p className={styles.cargando} role="status">Cargando huerto...</p>
   }
 
-  const herramientas = HERRAMIENTAS.map((h) => {
-    const lista = pendientes[h.clave] ?? [];
-    const extra = lista.length > 1 ? ` (+${lista.length - 1} más)` : '';
-    return {
-      ...h,
-      cantidad: lista.length,
-      descripcion: lista.length ? `${lista[0].texto}${extra}` : '',
-    };
-  });
+  const listaRecordatorios = checklist.recordatorios || []
+  const recordatoriosVisibles = resumirRecordatorios(listaRecordatorios)
+  const listaTareas = checklist.tareas || []
+  const herramientas = HERRAMIENTAS.map(h => ({ ...h, cantidad: h.clave === 'riego' ? listaTareas.filter(t => t.actividad?.codigo === 'riego' && t.disponibilidad?.puedeCompletar).length : 0 }))
 
   return (
     <div className={styles.pantalla} style={{ backgroundImage: `url(/huertos/${huerto.tipo ?? 'surcos'}.png)` }}>
@@ -200,7 +250,7 @@ function Juego() {
             key={cultivo.id}
             cultivo={cultivo}
             ahora={ahora}
-            selectable={herramientaActiva === 'cosecha'}
+            selectable={herramientaActiva === 'cosecha' || herramientaActiva === 'riego'}
             onSelect={onCultivoSeleccionado}
           />
         ))}
@@ -235,26 +285,27 @@ function Juego() {
         <div className={styles.recordatoriosOverlay} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setModal(null) }}>
           <section className={styles.recordatoriosPanel} role="dialog" aria-modal="true" aria-labelledby="recordatorios-titulo">
             <button className={styles.recordatoriosCerrar} type="button" onClick={() => setModal(null)} aria-label="Cerrar recordatorios">×</button>
-            <h2 id="recordatorios-titulo">Recordatorios del huerto</h2>
-            <p>Se calculan con los registros del huerto, el calendario lunar y el pronóstico disponible.</p>
-            {errorRecordatorios && <p role="alert">{errorRecordatorios} <button type="button" onClick={recargarRecordatorios}>Reintentar</button></p>}
-            {errorAccion && <p role="alert">{errorAccion}</p>}
-            {cargandoRecordatorios && <p role="status">Consultando condiciones actuales…</p>}
-            {!cargandoRecordatorios && !errorRecordatorios && listaRecordatorios.length === 0 && <p>No hay recordatorios activos por ahora.</p>}
+            <header className={styles.recordatoriosEncabezado}>
+              <span className={styles.recordatoriosIcono} aria-hidden="true">🌿</span>
+              <div>
+                <h2 id="recordatorios-titulo">Cuidados del huerto</h2>
+                <p>Un resumen de lo que puedes atender.</p>
+              </div>
+            </header>
+            {checklist.error && <p className={styles.recordatoriosEstado} role="alert">No se pudieron cargar los cuidados.</p>}
+            {checklist.cargando && <p className={styles.recordatoriosEstado} role="status">Cargando cuidados…</p>}
+            {!checklist.cargando && !checklist.error && recordatoriosVisibles.length === 0 && <p className={styles.recordatoriosEstado}>No hay cuidados pendientes por ahora.</p>}
             <ul className={styles.recordatoriosLista}>
-              {listaRecordatorios.map((recordatorio) => (
-                <li key={recordatorio.id}>
-                  <strong>{recordatorio.tipo.replaceAll('_', ' ')}</strong>
-                  <span>{recordatorio.texto}</span>
-                  <small>Fuente: {recordatorio.fuente}</small>
-                  {recordatorio.accion && <button type="button" onClick={async () => {
-                    setErrorAccion('')
-                    try { await completarRecordatorio(recordatorio) } catch (error) { setErrorAccion(error.message) }
-                  }}>Registrar actividad</button>}
+              {recordatoriosVisibles.map(({ recordatorio, presentacion, descripcion }, index) => (
+                <li key={`${recordatorio.tipo}-${recordatorio.zonaId || recordatorio.tareaId || index}`}>
+                  <span className={styles.recordatoriosTarjetaIcono} aria-hidden="true">{presentacion[0]}</span>
+                  <div className={styles.recordatoriosTexto}>
+                    <strong>{presentacion[1]}</strong>
+                    <span>{descripcion}</span>
+                  </div>
                 </li>
               ))}
             </ul>
-            <footer>{Object.entries(fuentes).map(([key, value]) => <small key={key}>{key}: {value} · </small>)}</footer>
           </section>
         </div>
       )}

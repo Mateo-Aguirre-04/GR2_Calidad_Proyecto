@@ -21,6 +21,30 @@ export function lunarWindow(now, zone, quarters) {
   }
   return false
 }
+export function nextLunarWindow(now, zone, quarters, notBefore = now) {
+  const today=localDate(now,zone), earliest=localDate(notBefore,zone)
+  let event=SearchMoonQuarter(new Date(new Date(now).getTime()-4*DAY))
+  for(let i=0;i<16;i++,event=NextMoonQuarter(event)) {
+    if(!quarters.includes(event.quarter))continue
+    const phase=localDate(event.time.date,zone)
+    for(const offset of [-1,0,1]) {
+      const date=shiftDate(phase,offset)
+      if(date>=today&&date>=earliest)return date
+    }
+  }
+  return null
+}
+export function nextLunarEventDate(now, zone, quarters, notBefore = now) {
+  const earliest=localDate(notBefore,zone)
+  let event=SearchMoonQuarter(new Date(new Date(now).getTime()-4*DAY))
+  for(let i=0;i<16;i++,event=NextMoonQuarter(event)) {
+    if(quarters.includes(event.quarter)) {
+      const date=localDate(event.time.date,zone)
+      if(date>=earliest)return date
+    }
+  }
+  return null
+}
 export function catalogDays(cycle) {
   const match = String(cycle || '').match(/(?:^|\D)(\d+)(?:\s*[-–]\s*(\d+))?\s*d[ií]as\b/i)
   return match ? Number(match[2] || match[1]) : null
@@ -30,6 +54,7 @@ export function harvestReminder(task,env,waterDates=[]) {
   const days=catalogDays(task.ciclo_cultivo),zone=env.zonaHoraria
   if(!days||!zone||!task.parte_cosecha) return null
   const today=localDate(env.ahora,zone)
+  const tomorrow=shiftDate(today,1)
   const mature=localDate(new Date(new Date(task.fecha_exacta).getTime()+days*DAY),zone)
   const start=today>mature?today:mature
   const quarters=['semillas','raices'].includes(task.parte_cosecha)?[3]:[1,2]
@@ -46,10 +71,11 @@ export function harvestReminder(task,env,waterDates=[]) {
   candidates.sort()
   // Un riego ya registrado puede servir para una cosecha de hoy o de los próximos días.
   const covered=candidates.find(date=>waterDates.includes(shiftDate(date,-2)))
-  if(covered)return {fechaCosechaPrevista:covered,fechaRiego:shiftDate(covered,-2),requiereRiego:false}
-  const next=candidates.find(date=>shiftDate(date,-2)>=today)
-  return next?{fechaCosechaPrevista:next,fechaRiego:shiftDate(next,-2),requiereRiego:true,
-    recordatorioActivo:shiftDate(next,-2)===today}:null
+  if(covered&&[today,tomorrow].includes(covered)) return {fechaCosechaPrevista:covered,fechaRiego:shiftDate(covered,-2),requiereRiego:false,anticipado:covered===tomorrow}
+  const next=candidates.find(date=>[today,tomorrow].includes(shiftDate(date,-2))&&!waterDates.includes(shiftDate(date,-2)))
+  if(!next)return null
+  return {fechaCosechaPrevista:next,fechaRiego:shiftDate(next,-2),requiereRiego:true,
+    recordatorioActivo:shiftDate(next,-2)===today,anticipado:shiftDate(next,-2)===tomorrow}
 }
 
 const weatherCache = new Map()
