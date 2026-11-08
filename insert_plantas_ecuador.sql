@@ -573,7 +573,7 @@ BEGIN
   SELECT id_tipo_planta INTO v_tipo FROM huertos.tipo_planta WHERE nombre = 'Planta medicinal' LIMIT 1;
   IF NOT EXISTS (SELECT 1 FROM huertos.planta WHERE LOWER(nombre_comun) = 'sangre de drago' OR LOWER(nombre_comun) = 'sangre_de_drago') THEN
     INSERT INTO huertos.planta (id_familia, id_tipo_planta, nombre_comun, nombre_cientifico, nombre_alternativo, altitud_minima, altitud_maxima, ciclo_cultivo, region, descripcion, imagen, imagen_muerta, cuidados, fases)
-    VALUES (v_fam, v_tipo, 'Sangre de Drago', 'Croton lechleri', 'Drago, Esi', 100, 1800, 'Perenne (180-360 días)', 'Amazonía / Estribaciones',
+    VALUES (v_fam, v_tipo, 'Sangre de Drago', 'Croton lechleri', 'Drago, Esi', 100, 1800, 'Perenne (180-360 días)', 'Amazonía / Sierra baja',
       'Árbol nativo ecuatoriano cuya resina de color rojo oscuro es uno de los cicatrizantes y antivirales naturales más potentes del planeta.',
       base_url || 'Sangre_de_drago/sangre_de_drago5.png',
       base_url || 'Sangre_de_drago/sangre_de_drago6.png',
@@ -653,7 +653,7 @@ BEGIN
   SELECT id_tipo_planta INTO v_tipo FROM huertos.tipo_planta WHERE nombre = 'Planta medicinal' LIMIT 1;
   IF NOT EXISTS (SELECT 1 FROM huertos.planta WHERE LOWER(nombre_comun) = 'uña de gato' OR LOWER(nombre_comun) = 'una_de_gato') THEN
     INSERT INTO huertos.planta (id_familia, id_tipo_planta, nombre_comun, nombre_cientifico, nombre_alternativo, altitud_minima, altitud_maxima, ciclo_cultivo, region, descripcion, imagen, imagen_muerta, cuidados, fases)
-    VALUES (v_fam, v_tipo, 'Uña de Gato', 'Uncaria tomentosa', 'Garabato, Samento', 100, 1500, 'Perenne (180-360 días)', 'Amazonía / Estribaciones',
+    VALUES (v_fam, v_tipo, 'Uña de Gato', 'Uncaria tomentosa', 'Garabato, Samento', 100, 1500, 'Perenne (180-360 días)', 'Amazonía / Sierra baja',
       'Liana medicinal andino-amazónica provista de espinas curvadas. Reconocida mundialmente por su capacidad inmunoestimulante y antiinflamatoria.',
       base_url || 'Una_de_gato/una_de_gato5.png',
       base_url || 'Una_de_gato/una_de_gato6.png',

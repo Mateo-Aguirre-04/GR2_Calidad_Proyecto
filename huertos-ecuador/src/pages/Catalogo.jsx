@@ -21,7 +21,7 @@ function coincideRegion(regionPlanta, regionFiltro) {
     return r.includes('sierra') || r.includes('páramo') || r.includes('paramo') || r.includes('valles')
   }
   if (f.startsWith('amaz')) {
-    return r.includes('amaz') || r.includes('estribaciones')
+    return r.includes('amaz')
   }
   return r.includes(f)
 }
