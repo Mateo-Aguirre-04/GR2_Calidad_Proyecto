@@ -164,7 +164,7 @@ function Juego() {
     return <p className={styles.cargando} role="status">Cargando huerto...</p>
   }
 
-  const riegosPendientes = new Set(checklist.recordatorios.filter(r=>['riego','riego_diario'].includes(r.tipo)&&r.recordatorioActivo).map(r=>r.zonaId)).size
+  const riegosPendientes = new Set(checklist.recordatorios.filter(r=>['riego','riego_diario','riego_semanal'].includes(r.tipo)&&r.recordatorioActivo).map(r=>r.zonaId)).size
   const herramientas = HERRAMIENTAS.map(h => ({ ...h, cantidad: h.clave === 'riego' ? riegosPendientes : 0 }))
 
   const tipo = huerto.tipo ?? 'surcos'

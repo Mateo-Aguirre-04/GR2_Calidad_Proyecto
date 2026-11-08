@@ -28,5 +28,9 @@ test('perfil recargable y vistas separadas de riego y recordatorios',async()=>{
     const reminders=renderToStaticMarkup(React.createElement(Panel,{checklist}))
     assert.match(reminders,/Riega tus plantas/)
     assert.doesNotMatch(reminders,/Regar esta sección|Programar una actividad/)
+    const activities=renderToStaticMarkup(React.createElement(Panel,{checklist,vistaInicial:'tareas'}))
+    assert.match(activities,/Sección plantada · con plantas/)
+    assert.match(activities,/Sección vacía · vacía/)
+    assert.match(activities,/elige arriba una sección marcada/)
   } finally {await vite.close()}
 })

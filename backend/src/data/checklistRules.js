@@ -39,7 +39,7 @@ export function sowingReasons(prepared,env) {
   else if (new Date(env.ahora)-new Date(prepared)<15*86400000) reasons.push('Todavía no han pasado 15 días desde la preparación.')
   if (!env.zonaHoraria) return [...reasons,'No se conoce la zona horaria del huerto.']
   const minutes=localMinutes(env.ahora,env.zonaHoraria)
-  if (minutes<480 || minutes>=720) reasons.push('La siembra está disponible de 08:00 a 12:00, hora local del huerto.')
+  if (minutes<480) reasons.push('La siembra comienza a las 08:00, hora local del huerto.')
   if (!lunarWindow(env.ahora,env.zonaHoraria,[1,2])) reasons.push('No está dentro del día de cuarto creciente o luna llena, más un día a cada lado.')
   return reasons
 }
@@ -81,8 +81,10 @@ export async function availability(db,task,env) {
     case 'siembra': reasons.push(...sowingReasons(task.preparada_en,env));break
     case 'preparacion_tierra':
       if (!task.maleza_retirada_en) reasons.push('Primero debe completarse Retirar maleza en este ciclo de la zona.')
+      if (zone && !lunarWindow(env.ahora,zone,[0])) reasons.push('La preparación de la tierra requiere luna oscura (el día de luna nueva o uno de los días contiguos).')
       break
     case 'cosecha': {
+      if (zone && localMinutes(env.ahora,zone)<480) reasons.push('Espera al menos hasta las 08:00 para que se seque el rocío antes de cosechar.')
       const days=catalogDays(task.ciclo_cultivo)
       if (!days) {reasons.push('El catálogo no indica un ciclo en días para esta especie.');pending=true}
       else if (new Date(env.ahora)-new Date(task.fecha_exacta)<days*86400000) reasons.push(`El cultivo debe cumplir ${days} días desde su siembra.`)

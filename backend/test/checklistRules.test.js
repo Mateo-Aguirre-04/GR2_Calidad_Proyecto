@@ -24,11 +24,27 @@ test('la ventana lunar acepta el día de la fase y los dos días adyacentes, no 
     }
   }
 })
-test('siembra: 15 días transcurridos, ventana 08:00 incluida y 12:00 excluida',()=>{
+test('siembra: 15 días transcurridos y desde las 08:00 sin cierre fijo',()=>{
   const now=at(phase(1)),prepared=new Date(+now-16*86400000)
   assert.deepEqual(sowingReasons(prepared,{ahora:at(phase(1),8),zonaHoraria:zone}),[])
-  assert.equal(sowingReasons(prepared,{ahora:at(phase(1),12),zonaHoraria:zone}).length,1)
+  assert.deepEqual(sowingReasons(prepared,{ahora:at(phase(1),12),zonaHoraria:zone}),[])
+  assert.deepEqual(sowingReasons(prepared,{ahora:new Date(+at(phase(1),10)+13*3600000),zonaHoraria:zone}),[])
+  assert.ok(sowingReasons(prepared,{ahora:at(phase(1),7),zonaHoraria:zone}).some(reason=>reason.includes('08:00')))
   assert.ok(sowingReasons(new Date(+now-14*86400000),{ahora:now,zonaHoraria:zone}).length)
+})
+test('preparación requiere luna oscura y cosecha espera al menos hasta las 08:00',async()=>{
+  const newMoon=phase(0)
+  const prep={codigo_actividad:'preparacion_tierra',id_zona:'1',maleza_retirada_en:new Date(+at(newMoon)-86400000),ciclo_vigente:true,seccion_ocupada:false}
+  for(const delta of [-2,-1,0,1,2]) {
+    const state=await availability({},prep,{ahora:new Date(+at(newMoon)+delta*86400000),zonaHoraria:zone})
+    assert.equal(state.puedeCompletar,Math.abs(delta)<=1)
+  }
+  const harvest={codigo_actividad:'cosecha',id_planta:'9',id_estado:5,id_zona:'1',fecha_exacta:new Date(+at(phase(1))-40*86400000),ciclo_cultivo:'30 días',parte_cosecha:'hojas',regada_dos_dias:true}
+  const env={zonaHoraria:zone,clima:{codigo:0,precipitacion:0,esDia:1}}
+  const before=await availability({},harvest,{...env,ahora:at(phase(1),7)})
+  assert.ok(before.motivos.some(reason=>reason.includes('08:00')))
+  const after=await availability({},harvest,{...env,ahora:at(phase(1),8)})
+  assert.ok(!after.motivos.some(reason=>reason.includes('08:00')))
 })
 test('los rangos del catálogo usan el máximo, sin un plazo inventado para Anual o Perenne',()=>{
   assert.equal(catalogDays('Perenne (90-120 días)'),120)

@@ -6,7 +6,8 @@ export async function gardenLayout(db, garden) {
     JOIN gremio g USING(id_gremio) JOIN subdiseño_huerto sd
     ON sd.id_diseño=h.id_diseño AND sd.id_subdiseño=h.id_subdiseño WHERE h.id_huerto=$1`,[garden])).rows[0]
   if(!row) throw httpError(404,'Huerto no encontrado.')
-  return distribucionHuerto(row.area_total,tipoDesdeImagen(row.imagen),row.num_parcelas)
+  const tipo=tipoDesdeImagen(row.imagen)
+  return {...distribucionHuerto(row.area_total,tipo,row.num_parcelas),tipo}
 }
 
 export async function mappedSection(db,garden,id) {

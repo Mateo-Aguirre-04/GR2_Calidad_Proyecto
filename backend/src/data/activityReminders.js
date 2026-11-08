@@ -1,15 +1,16 @@
-import { catalogDays, daysBetween, localDate, localMinutes, nextLunarEventDate, sunny } from './checklistEnvironment.js'
+import { catalogDays, daysBetween, localDate, localMinutes, lunarWindow, nextLunarEventDate, sunny } from './checklistEnvironment.js'
 
 const DAY=86400000
 const shift=(date,days)=>new Date(Date.parse(date)+days*DAY).toISOString().slice(0,10)
 const active=t=>!t.completada_en && Number(t.id_estado)!==Number(process.env.HARVEST_STATE_ID||6)
+const RECIPIENTS=new Set(['balcon','botellas','colgantes','escaleras','llantas','maceteros','pared','terraza','ventana'])
 export function matureCrop(task,env) {
   const days=catalogDays(task.ciclo_cultivo)
   return active(task)&&!!days&&new Date(env.ahora)-new Date(task.fecha_exacta)>=days*DAY
 }
 
 // Los avisos son derivados: leerlos no crea actividades ni entrega recompensas.
-export function activityReminders({details,zones,crops,env}) {
+export function activityReminders({details,zones,crops,env,tipoHuerto='surcos'}) {
   if(!env.zonaHoraria)return []
   const zone=env.zonaHoraria,today=localDate(env.ahora,zone),tomorrow=shift(today,1)
   const phaseOn=(date,quarters)=>nextLunarEventDate(env.ahora,zone,quarters,`${date}T12:00:00Z`)===date
@@ -22,9 +23,18 @@ export function activityReminders({details,zones,crops,env}) {
     .map(t=>t.completada_en).sort((a,b)=>new Date(b)-new Date(a))[0]
   let cleaningShown=false
   for(const section of zones) {
-    const planted=crops.some(c=>c.activo&&c.zonaId===section.id)
-    if(planted&&!waters.some(t=>t.id_zona===section.id&&localDate(t.completada_en,zone)===today)) {
-      add('riego_diario','No olvides regar tus plantas hoy para mantenerlas con vida y saludables.',null,{zonaId:section.id,nombre:section.nombre})
+    const plantedCrops=crops.filter(c=>c.activo&&c.zonaId===section.id)
+    const planted=plantedCrops.length>0
+    const sectionWaters=waters.filter(t=>t.id_zona===section.id)
+    const lastWater=sectionWaters.map(t=>t.completada_en).sort((a,b)=>new Date(b)-new Date(a))[0]
+    const weekly=RECIPIENTS.has(tipoHuerto)
+    const dueWater=weekly
+      ? planted&&daysBetween(lastWater||plantedCrops.map(c=>c.fechaSiembra).sort((a,b)=>new Date(a)-new Date(b))[0],env.ahora,zone)>=7
+      : planted&&!sectionWaters.some(t=>localDate(t.completada_en,zone)===today)
+    if(dueWater) {
+      add(weekly?'riego_semanal':'riego_diario',weekly
+        ?'Revisa tus plantas en recipientes: ya pasaron siete días desde la siembra o el último riego.'
+        :'No olvides regar tus plantas hoy para mantenerlas con vida y saludables.',null,{zonaId:section.id,nombre:section.nombre})
     }
     const sown=details.some(t=>t.codigo_actividad==='siembra'&&t.completada_en&&String(t.ciclo_contexto)===section.cicloId)
     if(!planted&&!sown&&!section.requiereNuevoCiclo&&section.preparadaEn
@@ -41,8 +51,8 @@ export function activityReminders({details,zones,crops,env}) {
           add('retiro_maleza','El día está completamente soleado y nos encontramos en luna oscura. Es el momento perfecto para retirar la maleza.',task)
         break
       case 'preparacion_tierra':
-        if(due&&task.id_zona&&task.ciclo_vigente&&!task.seccion_ocupada&&task.maleza_retirada_en)
-          add('preparacion_tierra','Has terminado de quitar la maleza. La tierra está lista para ser preparada.',task)
+        if(due&&task.id_zona&&task.ciclo_vigente&&!task.seccion_ocupada&&task.maleza_retirada_en&&lunarWindow(env.ahora,zone,[0]))
+          add('preparacion_tierra','Has terminado de quitar la maleza y estamos en la ventana de luna oscura. La tierra está lista para ser preparada.',task)
         break
       case 'senaletica':
         if(due&&active(task))add('senaletica','Organiza tu espacio colocando la señalética correspondiente en las zonas del huerto.',task)
@@ -72,7 +82,7 @@ export function activityReminders({details,zones,crops,env}) {
       case 'cosecha': {
         if(!matureCrop(task,env))break
         if(task.regada_dos_dias)add('riego_previo_cosecha','Han pasado dos días desde que regaste esta planta. ¡El suelo está listo para la cosecha! Revisa también los demás requisitos.',task)
-        if(sunny(env)&&env.clima.codigo===0&&Number.isFinite(env.clima.temperatura)&&env.clima.temperatura>=22
+        if(localMinutes(env.ahora,zone)>=480&&sunny(env)&&env.clima.codigo===0&&Number.isFinite(env.clima.temperatura)&&env.clima.temperatura>=22
           &&(phaseOn(today,[1,2])||phaseOn(shift(today,-1),[1,2])))
           add('cosecha_clima','El clima está cálido, con al menos 22 °C y sol radiante, y la noche tuvo luna creciente o llena. ¡Condiciones ideales para cosechar!',task)
         if(localMinutes(env.ahora,zone)>=480&&env.clima?.esDia===1&&env.clima.precipitacion===0
@@ -86,6 +96,6 @@ export function activityReminders({details,zones,crops,env}) {
       }
     }
   }
-  // Una tarea programada y un aviso diario no deben pedir dos veces el mismo riego.
-  return reminders.filter(r=>r.tipo!=='riego_diario'||!reminders.some(other=>other.tipo==='riego'&&other.zonaId===r.zonaId))
+  // Una tarea programada y un aviso periódico no deben pedir dos veces el mismo riego.
+  return reminders.filter(r=>!['riego_diario','riego_semanal'].includes(r.tipo)||!reminders.some(other=>other.tipo==='riego'&&other.zonaId===r.zonaId))
 }

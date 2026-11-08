@@ -42,6 +42,7 @@ export default function PanelActividades({checklist,ejecutar,conClave,ocupado,se
   const sections=checklist.panel?.zonas||[]
   const section=sections.find(s=>s.id===seccionId)
   const crops=checklist.cultivos.filter(c=>c.activo)
+  const ocupadas=new Set(crops.map(c=>c.zonaId).filter(Boolean))
   const nombres=Object.fromEntries(cultivosVista.map(c=>[c.id,c.planta?.nombre||'Cultivo']))
   const selectedCrop=crops.find(c=>`${c.plantaId}:${c.fechaSiembra}`===cultivoId)
   const tasks=checklist.tareas.filter(t=>(historial||!t.completado)&&(!seccionId||!t.zona||t.zona.id===seccionId))
@@ -63,18 +64,20 @@ export default function PanelActividades({checklist,ejecutar,conClave,ocupado,se
       <button aria-pressed={vista==='tareas'} onClick={()=>setVista('tareas')}>Actividades</button>
     </nav>
     <label>Sección del huerto<select value={seccionId} onChange={e=>setSeccionId(e.target.value)} disabled={ocupado}>
-      <option value="">Todas las secciones</option>{sections.map(s=><option key={s.id} value={s.id}>{s.nombre}</option>)}</select></label>
+      <option value="">Todas las secciones</option>{sections.map(s=><option key={s.id} value={s.id}>{s.nombre} · {ocupadas.has(s.id)?'con plantas':'vacía'}</option>)}</select></label>
     {vista==='recordatorios'?<>
       <h3>Recordatorios</h3>
       {!recordatorios.length&&!checklist.cargando&&!checklist.error&&<p>No tienes recordatorios pendientes con las condiciones actuales.</p>}
       <ul>{recordatorios.map((r,i)=><li className={styles.recordatorio} key={`${r.tipo}:${r.tareaId||r.zonaId||i}`}>
         <strong>{r.nombre}</strong><p>{r.texto}</p>
         {r.cultivo&&<p>{nombres[`${r.cultivo.plantaId}:${r.cultivo.fechaSiembra}`]||'Cultivo'} · Siembra: {new Date(r.cultivo.fechaSiembra).toLocaleDateString('es-EC')}</p>}
-        <button disabled={ocupado} onClick={()=>{if(r.tipo==='riego_diario'||r.tipo==='riego')onRegar();else {setSeccionId(r.zonaId||'');setVista('tareas')}}}>
-          {r.tipo==='riego_diario'||r.tipo==='riego'?'Ir a regar':'Ver actividad y requisitos'}
+        <button disabled={ocupado} onClick={()=>{if(['riego_diario','riego_semanal','riego'].includes(r.tipo))onRegar();else {setSeccionId(r.zonaId||'');setVista('tareas')}}}>
+          {['riego_diario','riego_semanal','riego'].includes(r.tipo)?'Ir a regar':'Ver actividad y requisitos'}
         </button>
       </li>)}</ul>
     </>:<>
+    {!section&&<p>Para preparar la tierra, elige arriba una sección marcada como «vacía».</p>}
+    {section&&ocupadas.has(section.id)&&<p>Esta sección tiene plantas. Para iniciar una nueva preparación, primero debe quedar libre.</p>}
     {section&&<div className={styles.acciones}>
       {(!section.cicloId||section.requiereNuevoCiclo)&&<button disabled={ocupado} onClick={()=>conClave('ciclo',{zonaId:section.id},b=>checklist.iniciarCiclo(b.zonaId,b.claveSolicitud))}>{section.cicloId?'Iniciar otro ciclo de preparación':'Iniciar preparación de la sección'}</button>}
     </div>}

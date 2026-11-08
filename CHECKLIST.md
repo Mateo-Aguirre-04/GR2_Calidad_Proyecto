@@ -91,7 +91,9 @@ recordatorioActivo en una tarea indica que su fecha local llegó; no implica que
 mostrarse como notificación. El arreglo recordatorios se calcula en activityReminders.js
 con las condiciones específicas del documento de revisión:
 
-- Riego diario por sección con plantas; desaparece al registrar riego en esa fecha local.
+- Riego diario por sección con plantas en diseños de suelo. En diseños urbanos con
+  recipientes, el aviso aparece cada 7 fechas locales desde la siembra o el último riego.
+  Desaparece al registrar un riego y no limita los riegos manuales.
 - Siembra en la víspera de cuarto creciente o luna llena, sin plantas ni siembra realizada
   en ese ciclo, con preparación que pueda cumplir los 15 días.
 - Cosecha solo para cultivos pendientes que cumplieron los días explícitos del catálogo.
@@ -99,7 +101,8 @@ con las condiciones específicas del documento de revisión:
   sin lluvia y con datos recientes, manteniendo confirmación manual de rocío seco.
 - Hojas/flores/frutos: víspera de creciente/llena. Semillas/raíces: día de cuarto menguante.
 - Maleza: día de luna nueva y cielo despejado verificado, sección libre y ciclo vigente.
-- Preparación: maleza completada, sección libre y preparación pendiente.
+- Preparación: maleza completada, sección libre, preparación pendiente y luna nueva
+  local ±1 día (ventana de luna oscura).
 - Secado: desde el día local 10; sigue pendiente hasta confirmar seco/empacado/etiquetado/almacenado.
 - Limpieza: se genera una jornada pendiente a los 7 días locales de la última limpieza
   (o creación del huerto, si no hay ninguna); el aviso desaparece al completar.
@@ -118,15 +121,15 @@ un aviso favorable sobre una condición de cosecha no omite las demás restricci
 
 | Actividad | Regla |
 |---|---|
-| Riego | Individual, 5 en total por sección/tarea con plantas activas, sin multiplicar por plantas. Aviso diario; no se impone un límite diario de acciones. |
+| Riego | Individual, 5 en total por sección/tarea con plantas activas, sin multiplicar por plantas. Aviso diario en diseños de suelo y semanal en recipientes urbanos; no se impone un límite diario de acciones. |
 | Maleza | Individual por ciclo de zona; luna nueva local ±1 día, sol y sin lluvia; 15. |
-| Preparación | Grupal después de maleza en esa zona/ciclo; 30 por inscrito. Abono opcional durante preparación no entrega puntos adicionales. |
-| Siembra | Esperar 15 días transcurridos; 08:00 incluida a 12:00 excluida, hora local; cuarto creciente o luna llena ±1 día; confirmar ritual al amanecer; 30 por cultivo. |
+| Preparación | Grupal después de maleza en esa zona/ciclo, durante luna nueva local ±1 día; 30 por inscrito. Abono opcional durante preparación no entrega puntos adicionales. |
+| Siembra | Esperar 15 días transcurridos; desde las 08:00, hora local, sin cierre fijo; cuarto creciente o luna llena ±1 día; confirmar ritual al amanecer; 30 por cultivo. |
 | Señalética | Individual, se genera por cultivo después de sembrar; 25 una vez. |
 | Abono | Por cultivo activo, cada 20 días locales desde la siembra o última aplicación; 20 por aplicación. Programaciones repetidas reutilizan la tarea pendiente. |
 | Limpieza | Jornada grupal programable y aviso automático cada 7 días sin limpieza; 30 por inscrito. |
 | Ritual de agradecimiento | Opcional; jornada mensual grupal, solo se marca el día 15 local, 20 por inscrito. No requiere amanecer ni bloquea la cosecha. Es distinto del ritual obligatorio de siembra. |
-| Cosecha | Ciclo cumplido, parte registrada, riego de la misma sección en la fecha local de hace dos días, fase ±1 día, sol/sin lluvia. Confirmar madurez y rocío seco; 35 una vez por cultivo. Otro riego más reciente no invalida el anterior. |
+| Cosecha | Ciclo cumplido, parte registrada, riego de la misma sección en la fecha local de hace dos días, fase ±1 día, desde las 08:00 locales y con sol/sin lluvia. Confirmar madurez y rocío seco; 35 una vez por cultivo. Otro riego más reciente no invalida el anterior. |
 | Secado | Lote único por cosecha, individual o grupal. Registrar inicio a la sombra. Desde día local 10 confirmar seco, empacado, etiquetado y almacenado; 20 por registrado. No se completa automáticamente al día 15. |
 
 Hojas/flores/frutos: cuarto creciente o luna llena. Semillas/raíces: cuarto menguante.

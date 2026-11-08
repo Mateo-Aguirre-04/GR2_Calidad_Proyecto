@@ -138,7 +138,8 @@ export async function panel(db,user,garden,env) {
     (hp.id_estado<>$2 OR COALESCE(cc.conservado_tras_cosecha,false)) AS activo
     FROM huerto_planta hp LEFT JOIN cultivos_checklist cc USING(id_huerto,id_planta,fecha_siembra)
     LEFT JOIN ciclos_zona c ON c.id_ciclo=cc.id_ciclo WHERE hp.id_huerto=$1 ORDER BY hp.fecha_siembra,hp.id_planta`,[garden,HARVEST()])).rows
-  const reminders=activityReminders({details,zones,crops,env})
+  const layout=await gardenLayout(db,garden)
+  const reminders=activityReminders({details,zones,crops,env,tipoHuerto:layout.tipo})
   return {tareas:enriched,zonas:zones,lotes:lots,cultivos:crops,recordatorios:reminders,
     contexto:{ahora:env.ahora,zonaHoraria:env.zonaHoraria,clima:env.clima,climaVerificado:!!env.clima,amanecer:env.amanecer,
       ventanasLunares:env.zonaHoraria?{nueva:lunarWindow(env.ahora,env.zonaHoraria,[0]),

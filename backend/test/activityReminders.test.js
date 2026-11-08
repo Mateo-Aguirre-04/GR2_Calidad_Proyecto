@@ -12,7 +12,7 @@ const harvest={id:'1',codigo_actividad:'cosecha',id_zona:'1',zona_nombre:section
   id_estado:1,fecha_exacta:crop.fechaSiembra,ciclo_cultivo:'30 días',parte_cosecha:'hojas',regada_dos_dias:true}
 const environment=(now=date)=>({ahora:new Date(now),zonaHoraria:zone,
   clima:{codigo:0,esDia:1,precipitacion:0,temperatura:24,observadaEn:new Date(now)}})
-const reminders=(details=[],env=environment(),crops=[crop],zones=[section])=>activityReminders({details,env,crops,zones})
+const reminders=(details=[],env=environment(),crops=[crop],zones=[section],tipoHuerto='surcos')=>activityReminders({details,env,crops,zones,tipoHuerto})
 const has=(list,type)=>list.some(r=>r.tipo===type)
 function phase(quarter) {
   let event=SearchMoonQuarter(new Date('2026-11-01T00:00Z'))
@@ -27,6 +27,17 @@ test('riego diario por sección: exige plantas, desaparece hoy y vuelve al cambi
   assert.equal(has(reminders([water],environment('2026-11-09T02:00:00Z')),'riego_diario'),false)
   assert.equal(has(reminders([water],environment('2026-11-09T05:00:00Z')),'riego_diario'),true)
   assert.equal(has(reminders([{...water,id_zona:'2'}]),'riego_diario'),true)
+})
+test('riego semanal solo en diseños con recipientes; se cuenta desde siembra o último riego',()=>{
+  const planted={...crop,fechaSiembra:'2026-11-01T15:00:00Z'}
+  const on=(when,details=[],tipo='maceteros')=>reminders(details,environment(when),[planted],[section],tipo)
+  assert.equal(has(on('2026-11-07T15:00:00Z'),'riego_semanal'),false)
+  assert.equal(has(on('2026-11-08T15:00:00Z'),'riego_semanal'),true)
+  const watered={codigo_actividad:'riego',id_zona:'1',completada_en:'2026-11-08T15:00:00Z'}
+  assert.equal(has(on('2026-11-08T16:00:00Z',[watered]),'riego_semanal'),false)
+  assert.equal(has(on('2026-11-14T15:00:00Z',[watered]),'riego_semanal'),false)
+  assert.equal(has(on('2026-11-15T15:00:00Z',[watered]),'riego_semanal'),true)
+  assert.equal(has(on('2026-11-07T15:00:00Z',[],'surcos'),'riego_diario'),true)
 })
 
 test('cosecha: los avisos son por cultivo maduro, desaparecen al cosechar y no se inventan días del catálogo',()=>{
@@ -67,9 +78,10 @@ test('maleza y preparación: sección libre, ciclo vigente y condiciones especí
   assert.equal(has(reminders([task],env),'retiro_maleza'),true)
   assert.equal(has(reminders([task],{...env,clima:{...env.clima,codigo:1}}),'retiro_maleza'),false)
   const prep={...task,codigo_actividad:'preparacion_tierra',maleza_retirada_en:date}
-  assert.equal(has(reminders([prep]),'preparacion_tierra'),true)
+  assert.equal(has(reminders([prep],env),'preparacion_tierra'),true)
+  assert.equal(has(reminders([prep],environment(+phase(0)+2*DAY)),'preparacion_tierra'),false)
   for(const patch of [{ciclo_vigente:false},{seccion_ocupada:true},{maleza_retirada_en:null},{completada_en:date}])
-    assert.equal(has(reminders([{...prep,...patch}]),'preparacion_tierra'),false)
+    assert.equal(has(reminders([{...prep,...patch}],env),'preparacion_tierra'),false)
 })
 
 test('secado: día 10 local, sigue pendiente el día 15 y desaparece al almacenar',()=>{
