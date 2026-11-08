@@ -12,6 +12,7 @@
 .ocupada:not(:disabled):hover,
 .ocupada:focus-visible { border-color: rgb(255 246 220 / 70%); }
 .parcela.cosechable:not(:disabled) { cursor: pointer; border-color: #d7a94b; }
+.parcela.regable:not(:disabled) { cursor: pointer; border-color: #5aa9e6; }
 .parcela img {
   width: 100%;
   height: 100%;

@@ -20,7 +20,7 @@ function mejorCuadricula(n, aspecto) {
 // rect   = [x, y, ancho, alto] de la parcela (clicable), en % de la imagen del fondo.
 // tierra = [x, y, ancho, alto] de la tierra de esa parcela, en % de la imagen del fondo.
 // relacion = ancho / alto de la imagen (para pasar % de alto a % de ancho).
-function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, deshabilitada, cosechando = false, onSembrar, onCosechar, onVerInfo }) {
+function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, deshabilitada, cosechando = false, onSembrar, onCosechar, onRegar, onVerInfo }) {
   const [x, y, ancho, alto] = rect
   // Si `tierra` falta o no es [x, y, ancho, alto], se usa toda la parcela.
   const tierraValida = Array.isArray(tierra) && tierra.length === 4 && tierra.every((n) => Number.isFinite(n))
@@ -33,16 +33,19 @@ function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, des
   const lista = ocupada && listaParaCosechar(cultivo, ahora)
 
   const cosechar = lista && modo === 'cosecha'
-  // Ocupada: cosecha si está lista y la herramienta está activa; si no, muestra su información.
-  // Libre o muerta: se puede sembrar encima.
+  const regar = ocupada && modo === 'riego' && Boolean(onRegar)
+  // Ocupada: cosecha si está lista y la herramienta está activa, riega con la herramienta Regar;
+  // si no, muestra su información. Libre o muerta: se puede sembrar encima.
   const accion = cosechar
     ? () => onCosechar(cultivo)
-    : ocupada
-      ? () => onVerInfo(cultivo)
-      : () => onSembrar(numero)
+    : regar
+      ? () => onRegar(cultivo)
+      : ocupada
+        ? () => onVerInfo(cultivo)
+        : () => onSembrar(numero)
 
   const etiqueta = ocupada
-    ? `Parcela ${numero}: ${cultivo.planta?.nombre} (${cultivo.cantidad} plantas)${cosechar ? '. Cosechar' : '. Ver información'}`
+    ? `Parcela ${numero}: ${cultivo.planta?.nombre} (${cultivo.cantidad} plantas)${cosechar ? '. Cosechar' : regar ? '. Regar' : '. Ver información'}`
     : `Parcela ${numero}: libre. Sembrar`
 
   // Una imagen por planta, repartidas en cuadrícula SOBRE la tierra. Medidas en "% del ancho
@@ -71,7 +74,7 @@ function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, des
   return (
     <button
       type="button"
-      className={`${styles.parcela} ${ocupada ? styles.ocupada : styles.libre} ${cosechar ? styles.cosechable : ''}`}
+      className={`${styles.parcela} ${ocupada ? styles.ocupada : styles.libre} ${cosechar ? styles.cosechable : ''} ${regar ? styles.regable : ''}`}
       style={{ left: `${x}%`, top: `${y}%`, width: `${ancho}%`, height: `${alto}%`, overflow: 'visible' }}
       onClick={accion}
       disabled={deshabilitada}

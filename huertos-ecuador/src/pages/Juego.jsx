@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
+import { authenticatedFetch } from '../authSession'
 import { useHuerto } from '../hooks/useHuerto'
 import { usePerfil } from '../hooks/usePerfil'
 import { useClima } from '../hooks/useClima'
@@ -92,10 +93,10 @@ function Juego() {
   const [parcelaElegida, setParcelaElegida] = useState(null)
 
   // UI state
-  const [modal, setModal] = useState(null) // 'perfil' | 'seleccionarPlanta' | null
+  const [modal, setModal] = useState(null) // 'perfil' | 'seleccionarPlanta' | 'cantidad' | 'recordatorios' | null
   const [loadingAccion, setLoadingAccion] = useState(false)
   const [errorAccion, setErrorAccion] = useState('')
-  const [herramientaActiva, setHerramientaActiva] = useState(null) // 'siembra' | 'cosecha'
+  const [herramientaActiva, setHerramientaActiva] = useState(null) // 'riego' | 'cosecha'
   const [plantaSeleccionada, setPlantaSeleccionada] = useState(null) // plant chosen for planting
   const [cultivoInfo, setCultivoInfo] = useState(null) // cultivo cuya información se muestra
   const [cosechaAnimada, setCosechaAnimada] = useState(null) // id del cultivo que se está cosechando
@@ -132,16 +133,18 @@ function Juego() {
     setPlantaSeleccionada(null)
   }
 
-  // Las posiciones de cultivo son porcentajes dentro del huerto.
-  async function onPosicionConfirmada({ x, y }) {
-    if (!plantaSeleccionada) return
+  // Siembra en la zona y parcela elegidas; la cantidad se limita a lo que cabe en la parcela.
+  async function confirmarSiembra(cantidadPedida) {
     setLoadingAccion(true)
     setErrorAccion('')
     try {
+      const max = capacidadParcela(areaParcela(parcelaElegida), distribucion.maxPlantas, plantaSeleccionada)
+      const cantidad = Math.min(Math.max(1, Math.trunc(Number(cantidadPedida)) || 1), max)
+
       const resp = await authenticatedFetch(`/api/huertos/${huerto.id}/sembrar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plantaId: plantaSeleccionada.id, x, y }),
+        body: JSON.stringify({ plantaId: plantaSeleccionada.id, zona: zonaActual, parcela: parcelaElegida, cantidad }),
       })
       if (!resp.ok) throw new Error((await resp.json()).error || 'No se pudo guardar la siembra.')
       await resp.json()
@@ -150,27 +153,30 @@ function Juego() {
       setErrorAccion(e.message)
     } finally {
       setLoadingAccion(false)
-      setModal(null)
-      setHerramientaActiva(null)
-      setPlantaSeleccionada(null)
+      cerrarSiembra()
     }
   }
 
-  // Callback when a mature crop is selected for harvest
-  async function onCultivoSeleccionado(cultivo) {
+  // Herramienta Regar: registra el riego del cultivo en el checklist.
+  async function regarCultivo(cultivo) {
     const separadorFecha = String(cultivo.id).indexOf(':')
     const fechaSiembra = separadorFecha >= 0 ? String(cultivo.id).slice(separadorFecha + 1) : null
-    if (herramientaActiva === 'riego') {
-      setLoadingAccion(true)
-      setErrorAccion('')
-      try {
-        if (!fechaSiembra) throw new Error('No se encontró la fecha exacta del cultivo.')
-        await checklist.registrarRiegos([{ plantaId: String(cultivo.plantaId), fechaSiembra }], crypto.randomUUID())
-        recargar()
-      } catch (e) { setErrorAccion(e.message) }
-      finally { setLoadingAccion(false); setHerramientaActiva(null) }
-      return
+    setLoadingAccion(true)
+    setErrorAccion('')
+    try {
+      if (!fechaSiembra) throw new Error('No se encontró la fecha exacta del cultivo.')
+      await checklist.registrarRiegos([{ plantaId: String(cultivo.plantaId), fechaSiembra }], crypto.randomUUID())
+      recargar()
+    } catch (e) {
+      setErrorAccion(e.message)
+    } finally {
+      setLoadingAccion(false)
+      setHerramientaActiva(null)
     }
+  }
+
+  // Solo se cosecha en la fase 4; el backend vuelve a validarlo.
+  async function onCultivoSeleccionado(cultivo) {
     if (!listaParaCosechar(cultivo, Date.now())) {
       setErrorAccion(`${cultivo.planta?.nombre ?? 'La planta'} aún no está en la fase de cosecha.`)
       return
@@ -186,6 +192,10 @@ function Juego() {
       })
       if (!resp.ok) throw new Error((await resp.json()).error || 'No se pudo guardar la cosecha.')
       await resp.json()
+      // Animación: la parcela muestra la fase 5 y la planta sale volando. Se recarga al terminar;
+      // el id se queda puesto hasta entonces para que la planta no reaparezca en fase 4.
+      setCosechaAnimada(cultivo.id)
+      await new Promise((resolver) => setTimeout(resolver, DURACION_COSECHA_MS))
       recargar()
     } catch (e) {
       setErrorAccion(e.message)
@@ -206,20 +216,6 @@ function Juego() {
   const recordatoriosVisibles = resumirRecordatorios(listaRecordatorios)
   const listaTareas = checklist.tareas || []
   const herramientas = HERRAMIENTAS.map(h => ({ ...h, cantidad: h.clave === 'riego' ? listaTareas.filter(t => t.actividad?.codigo === 'riego' && t.disponibilidad?.puedeCompletar).length : 0 }))
-
-  const tipo = huerto.tipo ?? 'surcos'
-  const fondo = fondoHuerto(tipo)
-  // El backend envía zonas = [[m² de cada parcela], ...]; si no llega (o es el formato viejo), se calcula aquí.
-  const distribucion = Array.isArray(huerto.parcelas?.zonas?.[0])
-    ? huerto.parcelas
-    : distribucionHuerto(huerto.areaTotal, tipo)
-  const zonas = distribucion.zonas
-  const zonaActual = Math.min(zona, zonas.length)
-  const habilitadas = fondo.parcelas.slice(0, zonas[zonaActual - 1].length)
-  const areaParcela = (numero) => zonas[zonaActual - 1]?.[numero - 1] ?? distribucion.m2PorParcela
-  // Último cultivo no cosechado de cada parcela (los cultivos llegan ordenados por fecha)
-  const cultivoEn = (numero) =>
-    huerto.cultivos.filter((c) => c.zona === zonaActual && c.parcela === numero && !c.cosechado).at(-1)
 
   const tipo = huerto.tipo ?? 'surcos'
   const fondo = fondoHuerto(tipo)
@@ -285,6 +281,7 @@ function Juego() {
             cosechando={cosechaAnimada != null && cultivoEn(i + 1)?.id === cosechaAnimada}
             onSembrar={elegirParcela}
             onCosechar={onCultivoSeleccionado}
+            onRegar={regarCultivo}
             onVerInfo={setCultivoInfo}
           />
         ))}
