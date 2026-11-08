@@ -11,7 +11,7 @@ import {
 const router = Router()
 
 router.get('/', real.realOrDemo(real.getGremios, getGremios))
-router.get('/configuracion', real.getConfiguracion)
+router.get('/configuracion', real.realOrDemo(real.getConfiguracion, real.getConfiguracionDemo))
 router.get('/:id', real.realOrDemo(real.getGremio, getGremioById))
 router.patch('/:id/perfil', real.guardarPerfilGremio)
 router.post('/', real.realOrDemo(real.crearGremio, crearGremio))

@@ -159,6 +159,23 @@ CREATE TABLE IF NOT EXISTS huertos.invitacion_gremio (
 
 ### 7.3. Especificación de Endpoints
 
+#### `POST /api/gremios`
+* **Autenticación:** requiere una sesión iniciada; el usuario creador se obtiene de la sesión y no del cuerpo.
+* **Body:**
+  ```json
+  {
+    "nombre": "Huerto Comunitario",
+    "descripcion": "Cultivamos en comunidad",
+    "area": 120,
+    "suelo": "Franco",
+    "riego": "Goteo",
+    "lat": -1.2,
+    "lng": -78.6
+  }
+  ```
+* **Comportamiento PostgreSQL:** en una sola transacción crea el gremio, asocia al usuario autenticado con rol `Fundador`, crea su huerto y genera una invitación. Si una operación falla, se revierte la transacción completa. Un usuario que ya pertenece a un gremio no puede crear otro.
+* **Respuesta exitosa (`201 Created`):** devuelve el gremio creado, su código de invitación y el ID del huerto.
+
 #### `POST /api/gremios/:id/invitaciones`
 * **Parámetros de ruta:** `id` (ID del gremio).
 * **Body:**

@@ -61,15 +61,6 @@ function CrearGremio() {
     setEnviando(true)
 
     try {
-      let usuarioId = null
-      try {
-        const raw = localStorage.getItem('usuario_actual')
-        if (raw) {
-          const u = JSON.parse(raw)
-          usuarioId = u.id || u.id_usuario
-        }
-      } catch { /* El servidor obtiene la identidad desde la sesión. */ }
-
       const cuerpo = {
         nombre: valores.nombre,
         descripcion: valores.descripcion,
@@ -79,29 +70,40 @@ function CrearGremio() {
         lat: ubicacion.lat,
         lng: ubicacion.lng,
         direccion: ubicacion.direccion || 'Ecuador',
-        usuarioId,
       }
 
       const res = await fetch('/api/gremios', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cuerpo),
       })
 
       const data = await res.json()
       if (res.ok) {
+        let usuarioActual = {}
+        try {
+          usuarioActual = JSON.parse(localStorage.getItem('usuario_actual') || '{}')
+        } catch { /* La sesión del servidor sigue siendo la fuente de identidad. */ }
+        localStorage.setItem('usuario_actual', JSON.stringify({
+          ...usuarioActual,
+          gremioId: data.gremio.id,
+          gremioNombre: data.gremio.nombre,
+          huertoId: data.gremio.huerto.id,
+          rolGremio: 'Fundador',
+        }))
         const gremioGuardado = {
           id: data.gremio.id,
           codigo: data.gremio.codigo,
-          nombre: valores.nombre,
+          nombre: data.gremio.nombre,
           descripcion: data.gremio.descripcion,
           anuncios: data.gremio.anuncios,
-          areaTotal: parseFloat(valores.area),
-          ubicacion: { lat: ubicacion.lat, lng: ubicacion.lng },
+          areaTotal: data.gremio.areaTotal,
+          ubicacion: data.gremio.ubicacion,
           direccion: ubicacion.direccion || 'Ecuador',
         }
         localStorage.setItem('gremio_activo', JSON.stringify(gremioGuardado))
-        localStorage.setItem('huerto_activo_id', String(data.gremio.huerto?.id ?? gremioGuardado.id))
+        localStorage.setItem('huerto_activo_id', String(data.gremio.huerto.id))
         navigate('/juego')
       } else {
         setError(data.error || 'Error al registrar el gremio')

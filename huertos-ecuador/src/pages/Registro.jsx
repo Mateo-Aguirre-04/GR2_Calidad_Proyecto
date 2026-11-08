@@ -17,6 +17,14 @@ const camposIniciales = {
 
 function validar(valores, genero, aceptaTerminos) {
   const errores = {}
+  const fechaNacimiento = new Date(`${valores.fechaNacimiento}T00:00:00.000Z`)
+  const hoy = new Date()
+  const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+  const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(valores.fechaNacimiento)
+    && Number.isFinite(fechaNacimiento.getTime())
+    && fechaNacimiento.toISOString().slice(0, 10) === valores.fechaNacimiento
+    && valores.fechaNacimiento <= fechaHoy
+  if (!fechaValida) errores.fechaNacimiento = 'Ingresa una fecha válida que no sea futura'
   if (!valores.nombre.trim()) errores.nombre = 'requerido'
   if (!valores.apellido.trim()) errores.apellido = 'requerido'
   if (!genero) errores.genero = 'Selecciona una opción'
@@ -45,6 +53,7 @@ function Registro() {
     const { name, value } = event.target
     const nuevosValores = { ...valores, [name]: value }
     setValores(nuevosValores)
+    setErrorServidor('')
     if (intentoEnviar) setErrores(validar(nuevosValores, genero, aceptaTerminos))
   }
 
@@ -65,34 +74,35 @@ function Registro() {
   async function handleSubmit(event) {
     event.preventDefault()
     setIntentoEnviar(true)
+    setErrorServidor('')
     const nuevosErrores = validar(valores, genero, aceptaTerminos)
     setErrores(nuevosErrores)
     if (Object.keys(nuevosErrores).length === 0) {
       const mapaGenero = { Mujer: 'F', Hombre: 'M', 'No Binario': 'NB', Otro: 'O' }
-      fetch('/api/auth/registro', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nombre: valores.nombre,
-          apellido: valores.apellido,
-          usuario: valores.usuario,
-          contrasena: valores.contrasena,
-          descripcion: valores.descripcion,
-          genero: mapaGenero[genero] || 'O',
-        }),
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.error) {
-            setErrores({ usuario: data.error })
-          } else {
-            setModalAbierto(true)
-          }
+      try {
+        const response = await fetch('/api/auth/registro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombre: valores.nombre,
+            apellido: valores.apellido,
+            usuario: valores.usuario,
+            contrasena: valores.contrasena,
+            descripcion: valores.descripcion,
+            fechaNacimiento: valores.fechaNacimiento,
+            genero: mapaGenero[genero] || 'O',
+          }),
         })
-        .catch((err) => {
-          console.warn('[Registro] API offline:', err)
-          setModalAbierto(true)
-        })
+        const data = await response.json()
+        if (!response.ok) {
+          if (response.status === 409) setErrores({ usuario: data.error || 'El nombre de usuario ya está en uso.' })
+          else setErrorServidor(data.error || 'No se pudo completar el registro.')
+          return
+        }
+        setModalAbierto(true)
+      } catch {
+        setErrorServidor('No se pudo conectar con el servidor. Inténtalo de nuevo.')
+      }
     }
   }
 
@@ -137,11 +147,25 @@ function Registro() {
           <h1 className={styles.titulo} id="registro-titulo">Queremos conocerte</h1>
           <p className={styles.descripcion}>Completa tus datos para personalizar tu experiencia.</p>
 
-          {errorServidor && <p role="alert">{errorServidor}</p>}
+          {errorServidor && <p className={styles.errorTexto} role="alert">{errorServidor}</p>}
           <form noValidate onSubmit={handleSubmit}>
-            <div className={styles.campo}>
+            <div className={`${styles.campo} ${errores.fechaNacimiento ? styles.conError : ''}`}>
               <label htmlFor="fechaNacimiento">Fecha de nacimiento</label>
-              <input id="fechaNacimiento" name="fechaNacimiento" type="date" required value={valores.fechaNacimiento} onChange={actualizarCampo} />
+              <input
+                id="fechaNacimiento"
+                name="fechaNacimiento"
+                type="date"
+                required
+                value={valores.fechaNacimiento}
+                onChange={actualizarCampo}
+                aria-invalid={Boolean(errores.fechaNacimiento)}
+                aria-describedby={errores.fechaNacimiento ? 'fechaNacimiento-error' : undefined}
+              />
+              {errores.fechaNacimiento && (
+                <span className={styles.errorTexto} id="fechaNacimiento-error" role="alert">
+                  <span aria-hidden="true">⚠</span> {errores.fechaNacimiento}
+                </span>
+              )}
             </div>
             <div className={styles.grid}>
               {campo({ id: 'registro-nombre', label: 'Nombre', name: 'nombre', placeholder: 'Escribe tu nombre', autoComplete: 'given-name' })}

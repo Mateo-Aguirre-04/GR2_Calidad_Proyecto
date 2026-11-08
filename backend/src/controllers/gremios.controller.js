@@ -105,98 +105,77 @@ export async function getGremioById(req, res) {
 
 export async function crearGremio(req, res) {
   try {
-    const { nombre, area, suelo, riego, lat, lng, usuarioId } = req.body
-
-    if (!nombre) {
-      return res.status(400).json({ error: 'El nombre del gremio es requerido.' })
+    if (req.session?.source !== 'mock' || !req.session.usuarioId) {
+      return res.status(401).json({ error: 'Tu sesión terminó. Inicia sesión nuevamente.' })
     }
 
-    const latitud = parseFloat(lat) || -1.2417
-    const longitud = parseFloat(lng) || -78.6295
-    const areaTotal = parseFloat(area) || 300.0
+    const user = mockData.usuarios.find((item) => item.id === Number(req.session.usuarioId))
+    if (!user) return res.status(404).json({ error: 'No se encontró el usuario de la sesión.' })
+    if (user.gremioId) return res.status(409).json({ error: 'Ya perteneces a un gremio.' })
 
-    if (isDbConnected()) {
-      try {
-        const insertGremio = `
-          INSERT INTO Gremio (Nombre_Gremio, Area_total, Puntos_Gremio, Latitud, Longitud)
-          VALUES ($1, $2, 0, $3, $4)
-          RETURNING ID_gremio
-        `
-        const { rows } = await query(insertGremio, [nombre, areaTotal, latitud, longitud])
-        const nuevoGremioId = rows[0].id_gremio
-
-        // Crear Huerto inicial
-        const insertHuerto = `
-          INSERT INTO Huerto (ID_gremio, ID_Cerca, ID_SubCerca, ID_Abono, ID_Suelo, ID_Riego, ID_Diseño, ID_SubDiseño)
-          VALUES ($1, 1, 1, 4, 3, 1, 1, 1)
-          RETURNING ID_Huerto
-        `
-        const huertoRes = await query(insertHuerto, [nuevoGremioId])
-        const nuevoHuertoId = huertoRes.rows[0]?.id_huerto
-
-        // Si viene usuarioId, vincularlo como Fundador en Miembro_Gremio
-        if (usuarioId) {
-          const uid = parseInt(usuarioId, 10)
-          const insertMiembro = `
-            INSERT INTO Miembro_Gremio (ID_usuario, ID_gremio, Rol)
-            VALUES ($1, $2, 'Fundador')
-            ON CONFLICT (ID_usuario, ID_gremio) DO NOTHING
-          `
-          await query(insertMiembro, [uid, nuevoGremioId])
-        }
-
-        return res.status(201).json({
-          mensaje: 'Gremio y huerto creados exitosamente en PostgreSQL',
-          gremio: {
-            id: nuevoGremioId,
-            codigo: String(nuevoGremioId).padStart(6, '0'),
-            nombre,
-            areaTotal,
-            ubicacion: { lat: latitud, lng: longitud },
-            huertoId: nuevoHuertoId,
-          },
-        })
-      } catch (err) {
-        console.warn('[Gremios.crearGremio] Error en BD, guardando en memoria:', err.message)
-      }
+    const { nombre, area, suelo, riego, lat, lng, descripcion } = req.body
+    const areaTotal = Number(area)
+    const latitud = Number(lat)
+    const longitud = Number(lng)
+    const descripcionLimpia = typeof descripcion === 'string' ? descripcion.trim() : ''
+    if (typeof nombre !== 'string' || !nombre.trim() || nombre.trim().length > 150 || !Number.isFinite(areaTotal) || areaTotal <= 0) {
+      return res.status(400).json({ error: 'Nombre y área positiva son obligatorios.' })
+    }
+    const validCoordinate = (value) => (typeof value === 'number' || (typeof value === 'string' && value.trim() !== ''))
+      && Number.isFinite(Number(value))
+    if (!validCoordinate(lat) || !validCoordinate(lng) || Math.abs(latitud) > 90 || Math.abs(longitud) > 180) {
+      return res.status(400).json({ error: 'Coordenadas inválidas.' })
+    }
+    if (!descripcionLimpia || descripcionLimpia.length > 120) {
+      return res.status(400).json({ error: 'La descripción debe contener texto y tener hasta 120 caracteres.' })
+    }
+    if (!['Arcilloso', 'Arenoso', 'Franco', 'Calcáreo'].includes(suelo)
+      || !['Goteo', 'Aspersión', 'Manual', 'Surcos'].includes(riego)) {
+      return res.status(400).json({ error: 'Selecciona un tipo de suelo y riego válido.' })
     }
 
-    // Fallback local
-    const nuevoId = mockData.gremios.length + 1
+    const id = Math.max(0, ...mockData.gremios.map((item) => Number(item.id))) + 1
+    const huertoId = Math.max(0, ...mockData.huertos.map((item) => Number(item.id))) + 1
+    const codigo = String(crypto.randomInt(100000, 1000000))
     const nuevoGremio = {
-      id: nuevoId,
-      codigo: String(nuevoId).padStart(6, '0'),
-      nombre,
+      id,
+      codigo,
+      nombre: nombre.trim(),
+      descripcion: descripcionLimpia,
+      anuncios: '',
       areaTotal,
       puntos: 0,
       ubicacion: { lat: latitud, lng: longitud },
-      direccion: `Tungurahua (Lat: ${latitud.toFixed(4)}, Lng: ${longitud.toFixed(4)})`,
+      direccion: req.body.direccion || 'Ecuador',
+      suelo,
+      riego,
       miembrosCount: 1,
     }
-    mockData.gremios.push(nuevoGremio)
-
-    if (usuarioId) {
-      const uid = parseInt(usuarioId, 10)
-      const u = mockData.usuarios.find((usr) => usr.id === uid)
-      if (u) {
-        u.gremioId = nuevoId
-        u.gremioNombre = nombre
-        u.rolGremio = 'Fundador'
-      }
-    }
-
-    // Crear huerto en mockStore
-    mockData.huertos.push({
-      id: nuevoId,
-      gremioId: nuevoId,
+    const nuevoHuerto = {
+      id: huertoId,
+      gremioId: id,
       tipo: 'campo',
       ubicacion: { lat: latitud, lng: longitud },
       cultivos: [],
+    }
+
+    mockData.gremios.push(nuevoGremio)
+    mockData.huertos.push(nuevoHuerto)
+    mockData.invitaciones.push({
+      codigo,
+      idGremio: id,
+      creadoPor: user.id,
+      expiraEn: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      usos: 0,
     })
+    user.gremioId = id
+    user.gremioNombre = nuevoGremio.nombre
+    user.rolGremio = 'Fundador'
+    user.huertoId = huertoId
 
     return res.status(201).json({
       mensaje: 'Gremio creado exitosamente',
-      gremio: nuevoGremio,
+      gremio: { ...nuevoGremio, huerto: { id: huertoId } },
     })
   } catch (error) {
     console.error('[Gremios.crearGremio]', error)
