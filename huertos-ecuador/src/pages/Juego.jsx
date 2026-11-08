@@ -42,7 +42,7 @@ function Juego() {
   const clima = useClima(huerto?.ubicacion)
   const luna = useFaseLunar()
   const ahora = useAhora()
-  const { pendientes } = useRecordatorios(ahora, usuarioActual?.id)
+  const { pendientes, lista: listaRecordatorios, completar: completarRecordatorio, error: errorRecordatorios, cargando: cargandoRecordatorios, fuentes, recargar: recargarRecordatorios } = useRecordatorios(usuarioActual?.id)
 
   // UI state
   const [modal, setModal] = useState(null) // 'perfil' | 'seleccionarPlanta' | null
@@ -57,6 +57,8 @@ function Juego() {
       navigate(boton.destino)
     } else if (boton.accion === 'modal') {
       setModal(boton.clave)
+    } else if (boton.clave === 'recordatorios') {
+      setModal('recordatorios')
     } else if (boton.clave === 'siembra') {
       setHerramientaActiva('siembra')
       setModal('seleccionarPlanta')
@@ -228,6 +230,33 @@ function Juego() {
       )}
       {modal === 'seleccionarPlanta' && (
         <ModalSeleccionPlanta onSeleccionar={onPlantaElegida} onCerrar={() => setModal(null)} />
+      )}
+      {modal === 'recordatorios' && (
+        <div className={styles.recordatoriosOverlay} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setModal(null) }}>
+          <section className={styles.recordatoriosPanel} role="dialog" aria-modal="true" aria-labelledby="recordatorios-titulo">
+            <button className={styles.recordatoriosCerrar} type="button" onClick={() => setModal(null)} aria-label="Cerrar recordatorios">×</button>
+            <h2 id="recordatorios-titulo">Recordatorios del huerto</h2>
+            <p>Se calculan con los registros del huerto, el calendario lunar y el pronóstico disponible.</p>
+            {errorRecordatorios && <p role="alert">{errorRecordatorios} <button type="button" onClick={recargarRecordatorios}>Reintentar</button></p>}
+            {errorAccion && <p role="alert">{errorAccion}</p>}
+            {cargandoRecordatorios && <p role="status">Consultando condiciones actuales…</p>}
+            {!cargandoRecordatorios && !errorRecordatorios && listaRecordatorios.length === 0 && <p>No hay recordatorios activos por ahora.</p>}
+            <ul className={styles.recordatoriosLista}>
+              {listaRecordatorios.map((recordatorio) => (
+                <li key={recordatorio.id}>
+                  <strong>{recordatorio.tipo.replaceAll('_', ' ')}</strong>
+                  <span>{recordatorio.texto}</span>
+                  <small>Fuente: {recordatorio.fuente}</small>
+                  {recordatorio.accion && <button type="button" onClick={async () => {
+                    setErrorAccion('')
+                    try { await completarRecordatorio(recordatorio) } catch (error) { setErrorAccion(error.message) }
+                  }}>Registrar actividad</button>}
+                </li>
+              ))}
+            </ul>
+            <footer>{Object.entries(fuentes).map(([key, value]) => <small key={key}>{key}: {value} · </small>)}</footer>
+          </section>
+        </div>
       )}
     </div>
   )

@@ -39,6 +39,46 @@
   pointer-events: none;
 }
 
+.recordatoriosOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(20 26 19 / 68%);
+}
+
+.recordatoriosPanel {
+  position: relative;
+  width: min(620px, 100%);
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  padding: 26px;
+  border: 4px solid var(--madera-oscura);
+  border-radius: 14px;
+  background: var(--crema);
+  color: #451f3a;
+  box-shadow: 5px 6px 0 #222;
+}
+
+.recordatoriosPanel h2 { margin: 0 40px 8px 0; }
+.recordatoriosPanel p { line-height: 1.6; }
+.recordatoriosCerrar {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 28px;
+  cursor: pointer;
+}
+.recordatoriosLista { display: grid; gap: 10px; padding: 0; list-style: none; }
+.recordatoriosLista li { display: grid; gap: 7px; padding: 12px; border: 2px solid #9b714a; border-radius: 8px; background: #fff9eb; }
+.recordatoriosLista small, .recordatoriosPanel footer { color: #5d654e; font-size: 12px; }
+.recordatoriosLista button { justify-self: start; padding: 7px 12px; border: 2px solid #28623b; border-radius: 5px; background: #d9ebd7; color: #183d23; cursor: pointer; }
+
 /* ===== Jugador ===== */
 .jugador {
   position: absolute;
