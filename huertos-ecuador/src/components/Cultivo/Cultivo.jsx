@@ -5,7 +5,7 @@ const DIA_MS = 86_400_000
 // Fases 0 a 3: Crecimiento (cuatro etapas).
 // Fase 4: Cosechado / Maduración lista.
 // Fase 5: Marchita / Muerta (withered).
-function calcularFase({ sembradoEn, cosechado, muerto, planta }, ahora) {
+export function calcularFase({ sembradoEn, cosechado, muerto, planta }, ahora) {
   if (muerto) return 5
   if (cosechado) return 4
   const dias = (ahora - new Date(sembradoEn).getTime()) / DIA_MS

@@ -36,6 +36,9 @@ export function cropResponse(row) {
     sembradoEn: fecha,
     x: Number.isFinite(metadata.x) ? metadata.x : 50,
     y: Number.isFinite(metadata.y) ? metadata.y : 50,
+    cantidad: Number(row.cantidad) || 1,
+    zona: row.zona == null ? null : Number(row.zona),
+    parcela: row.parcela == null ? null : Number(row.parcela),
     cosechado: metadata.cosechado === true || Number(row.id_estado) === Number(process.env.HARVEST_STATE_ID || 6),
   }
 }

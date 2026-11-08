@@ -1,0 +1,28 @@
+.parcela {
+  position: absolute;
+  padding: 0;
+  border: 2px dashed transparent;
+  border-radius: 4px;
+  background: none;
+}
+.libre:not(:disabled) { cursor: pointer; border-color: rgb(255 255 255 / 55%); background: rgb(255 255 255 / 10%); }
+.libre:not(:disabled):hover,
+.libre:focus-visible { border-color: #fff6dc; background: rgb(255 246 220 / 25%); }
+.cosechable { cursor: pointer; border-color: #d7a94b; }
+.parcela img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  image-rendering: pixelated;
+}
+.cantidad {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #3a2412;
+  color: #fff6dc;
+  font: 12px 'Press Start 2P', monospace;
+}

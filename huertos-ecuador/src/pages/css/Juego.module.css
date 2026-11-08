@@ -3,11 +3,43 @@
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  background-color: #d79a2b;      /* respaldo si falta la imagen del fondo */
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
+  background-color: #2f5d34;
+}
+
+.pantalla::before {
+  content: '';
+  position: absolute;
+  inset: -24px;
+  background: var(--fondo) center / cover no-repeat;
+  filter: blur(14px) brightness(0.75);
+}
+
+/* El huerto se muestra completo y con su proporción: las parcelas (%) quedan alineadas */
+.escenario {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(100vw, calc(100vh * var(--relacion)));
+  aspect-ratio: var(--relacion);
+  transform: translate(-50%, -50%);
+  background-size: 100% 100%;
   image-rendering: pixelated;
+}
+
+.zonas {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border: 3px solid #87613d;
+  border-radius: 6px;
+  background: #fff9e8;
+  transform: translateX(-50%);
+  font: 10px 'Press Start 2P', monospace;
 }
 
 .cargando {
@@ -16,13 +48,6 @@
   font-size: 12px;
 }
 
-/* Capa de plantas: las coordenadas x/y son relativas a ella */
-.huerto {
-  position: absolute;
-  inset: 0;
-}
-
-.huerto[role='button'] { cursor: crosshair; }
 
 .avisoSiembra {
   position: absolute;

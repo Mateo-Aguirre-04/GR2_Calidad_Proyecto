@@ -6,6 +6,7 @@ import { requireUser, requireMember, cropResponse, growthDays, httpError, sendEr
 import { canEditGuildProfile, updateGuildProfile } from '../data/guildProfile.js'
 import { createGuildRecords } from '../data/guildCreation.js'
 import { isValidBirthDate } from '../data/registration.js'
+import { zonasDelHuerto, M2_POR_PARCELA } from '../data/parcelas.js'
 
 // Con Supabase conectado, nunca se usan los controladores de demostración.
 export const realOrDemo = (real, demo) => (req, res, next) => isDbConnected() ? real(req, res, next) : demo(req, res, next)
@@ -160,7 +161,7 @@ export const getHuerto = handle(async (req,res) => {
   const userId=requireUser(req)
   const id=Number(req.params.id)
   await requireMember({query},userId,id)
-  const gardens=await query(`SELECT h.*,g.latitud,g.longitud,g.nombre_gremio,sd.imagen
+  const gardens=await query(`SELECT h.*,g.latitud,g.longitud,g.nombre_gremio,g.area_total,sd.imagen,sd.num_parcelas
     FROM huerto h JOIN gremio g USING(id_gremio)
     JOIN subdiseño_huerto sd ON sd.id_diseño=h.id_diseño AND sd.id_subdiseño=h.id_subdiseño
     WHERE h.id_huerto=$1`,[id])
@@ -170,20 +171,42 @@ export const getHuerto = handle(async (req,res) => {
     WHERE hp.id_huerto=$1 ORDER BY hp.fecha_siembra`,[id])
   res.json({ id:Number(h.id_huerto),gremioId:Number(h.id_gremio),nombre:h.nombre_gremio,
     tipo:h.imagen?.replace(/^.*\//,'').replace(/\.png$/,'') || 'surcos',
-    ubicacion:{lat:Number(h.latitud),lng:Number(h.longitud)},cultivos:crops.rows.map(cropResponse) })
+    ubicacion:{lat:Number(h.latitud),lng:Number(h.longitud)},
+    areaTotal:Number(h.area_total),
+    parcelas:{ porFondo:Number(h.num_parcelas), m2PorParcela:M2_POR_PARCELA, zonas:zonasDelHuerto(h.area_total,h.num_parcelas) },
+    cultivos:crops.rows.map(cropResponse) })
 })
 
 export const sembrar = handle(async (req,res) => {
   const userId=requireUser(req)
-  const {plantaId,x,y}=req.body
-  if (![x,y].every((v) => Number.isFinite(v) && v>=0 && v<=100) || !Number.isSafeInteger(Number(plantaId))) throw httpError(400,'Planta o posición inválida.')
+  const plantaId=Number(req.body.plantaId)
+  const zona=Number(req.body.zona)
+  const parcela=Number(req.body.parcela)
+  const cantidad=Number(req.body.cantidad)
+  if (![plantaId,zona,parcela,cantidad].every(Number.isSafeInteger) || zona<1 || parcela<1 || cantidad<1 || cantidad>9999) {
+    throw httpError(400,'Planta, parcela o cantidad inválida.')
+  }
   const crop=await transaction(async (db) => {
     await requireMember(db,userId,req.params.id)
+    const {rows:[h]}=await db.query(`SELECT g.area_total,sd.num_parcelas
+      FROM huerto h JOIN gremio g USING(id_gremio)
+      JOIN subdiseño_huerto sd ON sd.id_diseño=h.id_diseño AND sd.id_subdiseño=h.id_subdiseño
+      WHERE h.id_huerto=$1`,[req.params.id])
+    if (!h) throw httpError(404,'Huerto no encontrado.')
+    const zonas=zonasDelHuerto(h.area_total,h.num_parcelas)
+    if (zona>zonas.length || parcela>zonas[zona-1]) throw httpError(400,'Esa parcela no está habilitada en tu huerto.')
     const plant=(await db.query('SELECT * FROM planta WHERE id_planta=$1',[plantaId])).rows[0]
     if (!plant) throw httpError(404,'Planta no encontrada.')
-    const {rows}=await db.query(`INSERT INTO huerto_planta(id_huerto,id_planta,cantidad,id_estado,observaciones)
-      VALUES($1,$2,1,1,$3) RETURNING *,fecha_siembra::text AS fecha_exacta`,[req.params.id,plantaId,JSON.stringify({x,y,cosechado:false})])
-    return cropResponse({...rows[0],...plant})
+    try {
+      const {rows}=await db.query(`INSERT INTO huerto_planta(id_huerto,id_planta,cantidad,id_estado,observaciones,zona,parcela)
+        VALUES($1,$2,$3,1,$4,$5,$6) RETURNING *,fecha_siembra::text AS fecha_exacta`,
+        [req.params.id,plantaId,cantidad,JSON.stringify({cosechado:false}),zona,parcela])
+      return cropResponse({...plant,...rows[0]})
+    } catch (error) {
+      // ux_huerto_planta_parcela_activa: ya hay una planta viva en esa parcela
+      if (error.code==='23505') throw httpError(409,'Esa parcela ya tiene una planta.')
+      throw error
+    }
   })
   res.status(201).json({mensaje:'Siembra guardada en Supabase.',cultivo:crop})
 })
