@@ -8,6 +8,7 @@ import { createGuildRecords } from '../data/guildCreation.js'
 import { isValidBirthDate } from '../data/registration.js'
 import { distribucionHuerto, areaDeParcela, capacidadParcela, tipoDesdeImagen } from '../data/parcelas.js'
 import { fasesCrecimiento, listaParaCosechar } from '../data/fases.js'
+import { daysUntilLunarAge, lunarPhase } from '../data/lunarCalendar.js'
 
 // Con Supabase conectado, nunca se usan los controladores de demostración.
 export const realOrDemo = (real, demo) => (req, res, next) => isDbConnected() ? real(req, res, next) : demo(req, res, next)
@@ -267,6 +268,170 @@ export const guardarDescripcion = handle(async (req,res) => {
   res.json({mensaje:'Descripción guardada.'})
 })
 
-// No existe una tabla de recordatorios en esta instancia; no inventar tareas ni puntos.
-export const getRecordatorios = handle(async (req,res) => { requireUser(req);res.json([]) })
-export const completarRecordatorio = handle(async () => { throw httpError(404,'No hay recordatorios configurados en la base real.') })
+const EVENT_TYPES = new Set(['riego','retirar_maleza','preparar_tierra','cosecha_sombra','almacenar_cosecha','abono','limpiar_huerto','colocar_senaletica'])
+const DAY_MS = 86_400_000
+
+async function weatherAt(lat, lng) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  const url = new URL('https://api.open-meteo.com/v1/forecast')
+  url.search = new URLSearchParams({
+    latitude: String(lat), longitude: String(lng), timezone: 'auto', forecast_days: '2',
+    current: 'temperature_2m,relative_humidity_2m,precipitation,weather_code',
+    hourly: 'relative_humidity_2m,precipitation,weather_code,temperature_2m',
+  }).toString()
+  const response = await fetch(url, { signal: AbortSignal.timeout(8000) })
+  if (!response.ok) throw new Error(`Open-Meteo respondió ${response.status}`)
+  return response.json()
+}
+
+function reminder({ id, tipo, texto, fuente, huertoId, plantaId = null, accion, venceEn = null }) {
+  return { id, tipo, texto, fuente, huertoId, plantaId, accion, venceEn }
+}
+
+export const getRecordatorios = handle(async (req, res) => {
+  const userId = requireUser(req)
+  const now = new Date()
+  const gardens = await query(`SELECT h.id_huerto AS id, g.latitud, g.longitud
+    FROM huerto h JOIN gremio g USING(id_gremio)
+    JOIN miembro_gremio m USING(id_gremio)
+    WHERE m.id_usuario=$1 ORDER BY h.id_huerto`, [userId])
+  const result = []
+  const fuentes = { luna: 'estimación astronómica', clima: 'no disponible', eventos: 'base de datos' }
+
+  const fullMoon = daysUntilLunarAge(14.765, now)
+  const firstQuarter = daysUntilLunarAge(7.382, now)
+  const nextSowingPhase = Math.min(fullMoon, firstQuarter)
+  if (nextSowingPhase >= 1.5 && nextSowingPhase < 2.5) {
+    result.push(reminder({ id: 'luna-siembra', tipo: 'siembra', texto: 'En dos días habrá cuarto creciente o luna llena. Prepara la siembra.', fuente: 'Calendario lunar calculado en el backend', venceEn: new Date(now.getTime() + nextSowingPhase * DAY_MS).toISOString() }))
+  }
+
+  const phase = lunarPhase(now)
+  if (['creciente','cuarto_creciente','gibosa_creciente','llena'].includes(phase)) {
+    result.push(reminder({ id: 'luna-cosecha-hojas', tipo: 'cosecha', texto: 'La luna está creciente o llena. Si tus hojas, flores o frutos ya maduraron, puedes cosecharlos.', fuente: `Calendario lunar calculado en el backend (${phase})` }))
+  }
+  if (phase === 'cuarto_menguante') {
+    result.push(reminder({ id: 'luna-cosecha-raices', tipo: 'cosecha', texto: 'Es cuarto menguante. Si tus raíces o semillas ya maduraron, puedes cosecharlas.', fuente: 'Calendario lunar calculado en el backend' }))
+  }
+
+  const latestUser = await query('SELECT last_seen FROM usuario_general WHERE id_usuario=$1', [userId])
+  const lastSeen = latestUser.rows[0]?.last_seen ? new Date(latestUser.rows[0].last_seen) : null
+  const inactive = lastSeen && now - lastSeen >= 3 * DAY_MS
+
+  for (const garden of gardens.rows) {
+    const huertoId = Number(garden.id)
+    const crops = await query(`SELECT hp.id_planta, hp.fecha_siembra, hp.id_estado,
+        p.nombre_comun, p.ciclo_cultivo,
+        (SELECT max(e.registrado_en) FROM huerto_evento e WHERE e.id_huerto=hp.id_huerto AND e.id_planta=hp.id_planta AND e.fecha_siembra=hp.fecha_siembra AND e.tipo='riego') AS ultimo_riego,
+        (SELECT max(e.registrado_en) FROM huerto_evento e WHERE e.id_huerto=hp.id_huerto AND e.id_planta=hp.id_planta AND e.fecha_siembra=hp.fecha_siembra AND e.tipo='abono') AS ultimo_abono
+      FROM huerto_planta hp JOIN planta p USING(id_planta)
+      WHERE hp.id_huerto=$1`, [huertoId])
+    const events = await query(`SELECT tipo, id_planta, fecha_siembra, max(registrado_en) AS fecha
+      FROM huerto_evento WHERE id_huerto=$1 GROUP BY tipo,id_planta,fecha_siembra`, [huertoId])
+    const eventDate = (type, plantId = null, sowingDate = null) => events.rows.find((e) => e.tipo === type
+      && (e.id_planta == null ? plantId == null : Number(e.id_planta) === plantId)
+      && (e.fecha_siembra == null ? sowingDate == null : String(e.fecha_siembra).slice(0,10) === String(sowingDate).slice(0,10)))?.fecha
+
+    for (const crop of crops.rows) {
+      const plantId = Number(crop.id_planta)
+      const fechaSiembra = String(crop.fecha_siembra).slice(0, 10)
+      const harvested = Number(crop.id_estado) === Number(process.env.HARVEST_STATE_ID || 6)
+      if (harvested) {
+        if (!eventDate('cosecha_sombra', plantId, fechaSiembra)) {
+          result.push(reminder({ id: `sombra-${huertoId}-${plantId}-${fechaSiembra}`, tipo: 'almacenar', huertoId, plantaId, fechaSiembra, texto: `Si ya pusiste la cosecha de ${crop.nombre_comun} a la sombra, registra el inicio del secado para calcular los diez días.`, fuente: 'Cosecha registrada en el huerto', accion: 'cosecha_sombra' }))
+        }
+        continue
+      }
+      const ageHours = crop.ultimo_riego ? (now - new Date(crop.ultimo_riego)) / 3_600_000 : Infinity
+      const mature = (now - new Date(crop.fecha_siembra)) / DAY_MS >= growthDays(crop.ciclo_cultivo)
+      if (crop.ultimo_riego && ageHours >= 48 && mature) {
+        result.push(reminder({ id: `riego-cosecha-${huertoId}-${plantId}-${fechaSiembra}`, tipo: 'cosecha', huertoId, plantaId, fechaSiembra, texto: `Han pasado más de 48 horas desde el último riego de ${crop.nombre_comun}; el ciclo estimado ya se cumplió. Revisa su madurez antes de cosechar.`, fuente: 'Registro de riego y ciclo de cultivo del catálogo' }))
+      }
+      const daysSincePlanting = (now - new Date(crop.fecha_siembra)) / DAY_MS
+      const daysSinceFertilizing = crop.ultimo_abono ? (now - new Date(crop.ultimo_abono)) / DAY_MS : daysSincePlanting
+      if (daysSinceFertilizing >= 30) {
+        result.push(reminder({ id: `abono-${huertoId}-${plantId}-${fechaSiembra}`, tipo: 'abono', huertoId, plantaId, fechaSiembra, texto: `${crop.nombre_comun} lleva al menos 30 días en el huerto sin un abono registrado. Revisa si necesita compost.`, fuente: 'Fecha de siembra y registro de abono (sin medición de nutrientes)', accion: 'abono' }))
+      }
+    }
+    const weeds = eventDate('retirar_maleza')
+    const prepared = eventDate('preparar_tierra')
+    if (weeds && (!prepared || new Date(weeds) > new Date(prepared))) {
+      result.push(reminder({ id: `preparar-tierra-${huertoId}`, tipo: 'preparar_tierra', huertoId, texto: 'Registraste el retiro de maleza y aún no la preparación de la tierra. La parcela está lista para preparar.', fuente: 'Secuencia de labores guardada en el huerto', accion: 'preparar_tierra' }))
+    }
+    const shade = events.rows.filter((e) => e.tipo === 'cosecha_sombra' && e.fecha)
+    for (const harvest of shade) {
+      const stored = events.rows.find((e) => e.tipo === 'almacenar_cosecha' && Number(e.id_planta) === Number(harvest.id_planta) && String(e.fecha_siembra).slice(0,10) === String(harvest.fecha_siembra).slice(0,10))
+      if (now - new Date(harvest.fecha) >= 10 * DAY_MS && (!stored || new Date(stored.fecha) < new Date(harvest.fecha))) {
+        result.push(reminder({ id: `almacenar-${huertoId}-${harvest.id_planta || 0}-${harvest.fecha_siembra}`, tipo: 'almacenar', huertoId, plantaId: harvest.id_planta ? Number(harvest.id_planta) : null, fechaSiembra: String(harvest.fecha_siembra).slice(0,10), texto: 'Han pasado 10 días desde que pusiste la cosecha a la sombra. Ya puedes almacenarla definitivamente.', fuente: 'Fecha registrada al poner la cosecha a secar', accion: 'almacenar_cosecha' }))
+      }
+    }
+    const lastCleaning = eventDate('limpiar_huerto')
+    if (inactive && (!lastCleaning || now - new Date(lastCleaning) >= 7 * DAY_MS)) {
+      result.push(reminder({ id: `limpieza-${huertoId}`, tipo: 'limpieza', huertoId, texto: 'El huerto no registra actividad desde hace al menos tres días. Date una vuelta para revisar y limpiar el espacio.', fuente: 'Última actividad de la cuenta', accion: 'limpiar_huerto' }))
+    }
+    if (crops.rows.length >= 5 && !eventDate('colocar_senaletica')) {
+      result.push(reminder({ id: `senaletica-${huertoId}`, tipo: 'organizacion', huertoId, texto: 'Tu huerto ya tiene cinco cultivos registrados. Organiza las zonas con señalética.', fuente: 'Progresión actual del huerto', accion: 'colocar_senaletica' }))
+    }
+
+    let weather = null
+    try {
+      weather = await weatherAt(Number(garden.latitud), Number(garden.longitud))
+      fuentes.clima = 'Open-Meteo'
+    } catch (error) {
+      console.warn('[Recordatorios] Clima no disponible:', error.message)
+    }
+    if (weather?.current) {
+      const current = weather.current
+      const code = Number(current.weather_code)
+      const temp = Number(current.temperature_2m)
+      const humidity = Number(current.relative_humidity_2m)
+      const localTime = String(current.time || '')
+      const hour = Number(localTime.slice(11, 13))
+      const phaseIsDark = phase === 'luna_nueva'
+      if (code === 0 && temp >= 18 && temp <= 28) {
+        result.push(reminder({ id: `clima-cosecha-${huertoId}`, tipo: 'cosecha', huertoId, texto: `El clima actual está soleado y templado (${temp} °C). Revisa qué cultivos están maduros.`, fuente: 'Open-Meteo (condición actual)' }))
+      }
+      if (hour >= 8 && hour <= 11 && humidity < 70) {
+        result.push(reminder({ id: `rocío-${huertoId}`, tipo: 'cosecha', huertoId, texto: `La humedad relativa es ${humidity}% esta mañana; probablemente el rocío ya se secó. Revisa tus cultivos.`, fuente: 'Open-Meteo (humedad relativa; estimación indirecta)' }))
+      }
+      const lastWeeding = eventDate('retirar_maleza')
+      if (code === 0 && phaseIsDark && (!lastWeeding || now - new Date(lastWeeding) >= 7 * DAY_MS)) {
+        result.push(reminder({ id: `maleza-${huertoId}`, tipo: 'limpieza', huertoId, texto: 'El pronóstico actual es soleado y la fase lunar calculada es luna nueva. Puedes retirar la maleza.', fuente: 'Open-Meteo y calendario lunar', accion: 'retirar_maleza' }))
+      }
+
+      for (const crop of crops.rows) {
+        if (Number(crop.id_estado) === Number(process.env.HARVEST_STATE_ID || 6)) continue
+        const plantId = Number(crop.id_planta)
+        const fechaSiembra = String(crop.fecha_siembra).slice(0, 10)
+        const referenciaRiego = crop.ultimo_riego || crop.fecha_siembra
+        const ageHours = (now - new Date(referenciaRiego)) / 3_600_000
+        const raining = Number(current.precipitation) > 0.5
+        if (ageHours >= 24 && !raining) {
+          result.push(reminder({ id: `regar-${huertoId}-${plantId}-${fechaSiembra}`, tipo: 'riego', huertoId, plantaId, fechaSiembra, texto: `Han pasado al menos 24 horas desde el último riego registrado o la siembra de ${crop.nombre_comun}. Comprueba la humedad del suelo y riega solo si está seco.`, fuente: 'Registro de riego y precipitación actual; no hay sensor de humedad', accion: 'riego' }))
+        }
+      }
+    }
+  }
+  res.set('Cache-Control', 'no-store').json({ recordatorios: result, fuentes, generadoEn: now.toISOString() })
+})
+
+export const registrarEventoHuerto = handle(async (req, res) => {
+  const userId = requireUser(req)
+  const huertoId = Number(req.params.id)
+  const tipo = String(req.body.tipo || '')
+  const plantaId = req.body.plantaId == null ? null : Number(req.body.plantaId)
+  const fechaSiembra = req.body.fechaSiembra == null ? null : String(req.body.fechaSiembra)
+  const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(fechaSiembra || '')
+    && Number.isFinite(Date.parse(`${fechaSiembra}T00:00:00Z`))
+    && new Date(`${fechaSiembra}T00:00:00Z`).toISOString().slice(0, 10) === fechaSiembra
+  if (!Number.isSafeInteger(huertoId) || huertoId <= 0 || !EVENT_TYPES.has(tipo)) throw httpError(400, 'Huerto o tipo de actividad inválido.')
+  if (['riego','abono','cosecha_sombra','almacenar_cosecha'].includes(tipo) && (!Number.isSafeInteger(plantaId) || plantaId <= 0 || !fechaValida)) throw httpError(400, 'Selecciona un cultivo válido para esta actividad.')
+  await transaction(async (db) => {
+    await requireMember(db, userId, huertoId)
+    if (plantaId != null) {
+      const crop = await db.query('SELECT 1 FROM huerto_planta WHERE id_huerto=$1 AND id_planta=$2 AND ($3::date IS NULL OR fecha_siembra=$3::date)', [huertoId, plantaId, fechaSiembra])
+      if (!crop.rows.length) throw httpError(404, 'El cultivo no pertenece a este huerto.')
+    }
+    await db.query('INSERT INTO huerto_evento(id_huerto,id_usuario,id_planta,fecha_siembra,tipo,datos) VALUES($1,$2,$3,$4,$5,$6)', [huertoId,userId,plantaId,fechaSiembra,tipo,JSON.stringify(req.body.datos || {})])
+  })
+  res.status(201).json({ mensaje: 'Actividad registrada.', tipo, huertoId, plantaId, fechaSiembra })
+})
