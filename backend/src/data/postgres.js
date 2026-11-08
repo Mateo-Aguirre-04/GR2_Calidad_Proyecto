@@ -1,3 +1,5 @@
+import { fasesCrecimiento } from './fases.js'
+
 export function httpError(status, message) {
   return Object.assign(new Error(message), { status })
 }
@@ -29,8 +31,13 @@ export function cropResponse(row) {
     plantaId: Number(row.id_planta),
     planta: {
       nombre: row.nombre_comun,
+      nombreCientifico: row.nombre_cientifico || '',
+      ciclo: row.ciclo_cultivo || '',
+      imagen: row.imagen || '',
       diasCrecimiento: growthDays(row.ciclo_cultivo),
-      imagenes: Array.isArray(row.fases) ? row.fases.map((f) => f.imagen) : [],
+      // Solo fases de crecimiento (la última es la de cosecha); la muerta va en imagenMuerta.
+      fases: fasesCrecimiento(row.fases).map((f) => ({ fase: Number(f.fase), nombre: f.nombre || '', imagen: f.imagen || '' })),
+      imagenes: fasesCrecimiento(row.fases).map((f) => f.imagen),
       imagenMuerta: row.imagen_muerta || (Array.isArray(row.fases) ? row.fases.find(f => f.muerta)?.imagen : '') || '',
     },
     sembradoEn: fecha,

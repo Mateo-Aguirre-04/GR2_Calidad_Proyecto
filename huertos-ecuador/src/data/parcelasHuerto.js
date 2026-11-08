@@ -5,7 +5,7 @@
 //  - relacion: ancho / alto de la imagen; mantiene todo alineado con el fondo.
 //  - m2PorParcela: área real (m²) que representa UNA parcela. El área total del huerto
 //              viene de la base de datos y se reparte en parcelas con este valor
-//              (ver zonasDelHuerto), así se aprovechan todos los m² del huerto.
+//              (ver distribucionHuerto), así se aprovechan todos los m² del huerto.
 //  - maxPlantas: tope fijo de plantas por parcela (p. ej. 1 por botella). Si falta,
 //              se calcula con m2PorParcela y el espacio de cada planta.
 
@@ -178,26 +178,31 @@ export function m2PorParcela(tipo) {
   return fondoHuerto(tipo).m2PorParcela ?? M2_POR_PARCELA
 }
 
-// Reparte el área TOTAL del huerto (m², viene de la base de datos) en zonas del tamaño del fondo.
-// Ej.: 1000 m², surcos (100 m²/parcela), fondo de 6 -> [6, 4]
-//      1000 m², botellas (1 m²/parcela), fondo de 11 -> 90 zonas de 11 y una de 10.
-export function zonasDelHuerto(areaTotal, parcelasPorFondo, m2Parcela = M2_POR_PARCELA) {
-  const porFondo = Math.max(1, Math.trunc(Number(parcelasPorFondo)) || 1)
-  const m2 = Number(m2Parcela) > 0 ? Number(m2Parcela) : M2_POR_PARCELA
+const redondear = (n) => Math.round(n * 100) / 100
+
+// Reparte el área TOTAL del huerto en parcelas y las parcelas en zonas del tamaño del fondo.
+// Misma lógica que backend/src/data/parcelas.js (el backend es quien la envía en huerto.parcelas;
+// esta copia es el respaldo si no llega). La última parcela se queda con el sobrante.
+// Ej.: surcos (100 m², 6 por fondo): 100 m² -> [[100]]; 800 m² -> [[100 x6], [100, 100]].
+export function distribucionHuerto(areaTotal, tipo) {
+  const fondo = fondoHuerto(tipo)
+  const m2 = m2PorParcela(tipo)
+  const porFondo = fondo.parcelas.length
+  const area = Number(areaTotal) > 0 ? Number(areaTotal) : m2
   // 1e-9 evita errores de coma flotante (p. ej. 0.3 / 0.1).
-  const total = Math.max(1, Math.floor((Number(areaTotal) || 0) / m2 + 1e-9))
+  const completas = Math.floor(area / m2 + 1e-9)
+  const sobrante = redondear(area - completas * m2)
+  const areas = Array(completas).fill(m2)
+  if (sobrante > 0) areas.push(sobrante)
   const zonas = []
-  for (let restantes = total; restantes > 0; restantes -= porFondo) {
-    zonas.push(Math.min(porFondo, restantes))
-  }
-  return zonas
+  for (let i = 0; i < areas.length; i += porFondo) zonas.push(areas.slice(i, i + porFondo))
+  return { porFondo, m2PorParcela: m2, maxPlantas: fondo.maxPlantas ?? null, areaTotal: area, zonas }
 }
 
-// Cuántas plantas caben en una parcela de ese tipo (máximo al sembrar).
+// Cuántas plantas caben en una parcela de `m2Parcela` m² (máximo al sembrar).
 // planta.espacioM2 = m² que ocupa una planta; si no existe se usa un valor por defecto.
-export function capacidadParcela(tipo, planta) {
+export function capacidadParcela(m2Parcela, maxPlantas, planta) {
   const porPlanta = Number(planta?.espacioM2) > 0 ? Number(planta.espacioM2) : M2_POR_PLANTA_DEFECTO
-  const porArea = Math.max(1, Math.floor(m2PorParcela(tipo) / porPlanta + 1e-9))
-  const tope = Number(fondoHuerto(tipo).maxPlantas)
-  return tope > 0 ? Math.min(tope, porArea) : porArea
+  const porArea = Math.max(1, Math.floor(Number(m2Parcela) / porPlanta + 1e-9))
+  return Number(maxPlantas) > 0 ? Math.min(Number(maxPlantas), porArea) : porArea
 }

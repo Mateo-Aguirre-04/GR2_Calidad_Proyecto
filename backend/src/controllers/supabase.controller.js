@@ -6,7 +6,8 @@ import { requireUser, requireMember, cropResponse, growthDays, httpError, sendEr
 import { canEditGuildProfile, updateGuildProfile } from '../data/guildProfile.js'
 import { createGuildRecords } from '../data/guildCreation.js'
 import { isValidBirthDate } from '../data/registration.js'
-import { zonasDelHuerto, M2_POR_PARCELA } from '../data/parcelas.js'
+import { distribucionHuerto, areaDeParcela, capacidadParcela, tipoDesdeImagen } from '../data/parcelas.js'
+import { fasesCrecimiento, listaParaCosechar } from '../data/fases.js'
 
 // Con Supabase conectado, nunca se usan los controladores de demostración.
 export const realOrDemo = (real, demo) => (req, res, next) => isDbConnected() ? real(req, res, next) : demo(req, res, next)
@@ -167,13 +168,15 @@ export const getHuerto = handle(async (req,res) => {
     WHERE h.id_huerto=$1`,[id])
   const h=gardens.rows[0]
   if (!h) throw httpError(404,'Huerto no encontrado.')
-  const crops=await query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.ciclo_cultivo,p.fases,p.imagen_muerta FROM huerto_planta hp JOIN planta p USING(id_planta)
+  const crops=await query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.nombre_cientifico,p.ciclo_cultivo,p.fases,p.imagen,p.imagen_muerta
+    FROM huerto_planta hp JOIN planta p USING(id_planta)
     WHERE hp.id_huerto=$1 ORDER BY hp.fecha_siembra`,[id])
+  const tipo=tipoDesdeImagen(h.imagen)
   res.json({ id:Number(h.id_huerto),gremioId:Number(h.id_gremio),nombre:h.nombre_gremio,
-    tipo:h.imagen?.replace(/^.*\//,'').replace(/\.png$/,'') || 'surcos',
+    tipo,
     ubicacion:{lat:Number(h.latitud),lng:Number(h.longitud)},
     areaTotal:Number(h.area_total),
-    parcelas:{ porFondo:Number(h.num_parcelas), m2PorParcela:M2_POR_PARCELA, zonas:zonasDelHuerto(h.area_total,h.num_parcelas) },
+    parcelas:distribucionHuerto(h.area_total,tipo,h.num_parcelas),
     cultivos:crops.rows.map(cropResponse) })
 })
 
@@ -188,13 +191,16 @@ export const sembrar = handle(async (req,res) => {
   }
   const crop=await transaction(async (db) => {
     await requireMember(db,userId,req.params.id)
-    const {rows:[h]}=await db.query(`SELECT g.area_total,sd.num_parcelas
+    const {rows:[h]}=await db.query(`SELECT g.area_total,sd.num_parcelas,sd.imagen
       FROM huerto h JOIN gremio g USING(id_gremio)
       JOIN subdiseño_huerto sd ON sd.id_diseño=h.id_diseño AND sd.id_subdiseño=h.id_subdiseño
       WHERE h.id_huerto=$1`,[req.params.id])
     if (!h) throw httpError(404,'Huerto no encontrado.')
-    const zonas=zonasDelHuerto(h.area_total,h.num_parcelas)
-    if (zona>zonas.length || parcela>zonas[zona-1]) throw httpError(400,'Esa parcela no está habilitada en tu huerto.')
+    const distribucion=distribucionHuerto(h.area_total,tipoDesdeImagen(h.imagen),h.num_parcelas)
+    const m2=areaDeParcela(distribucion,zona,parcela)
+    if (m2==null) throw httpError(400,'Esa parcela no está habilitada en tu huerto.')
+    const maximo=capacidadParcela(m2,distribucion.maxPlantas)
+    if (cantidad>maximo) throw httpError(400,`En esta parcela caben máximo ${maximo} plantas.`)
     const plant=(await db.query('SELECT * FROM planta WHERE id_planta=$1',[plantaId])).rows[0]
     if (!plant) throw httpError(404,'Planta no encontrada.')
     try {
@@ -219,11 +225,16 @@ export const cosechar = handle(async (req,res) => {
   if (delimiter<1 || !Number.isSafeInteger(plantId) || !Number.isFinite(Date.parse(fecha))) throw httpError(400,'Cultivo inválido.')
   const crop=await transaction(async (db) => {
     await requireMember(db,userId,req.params.id)
-    const {rows}=await db.query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.ciclo_cultivo FROM huerto_planta hp JOIN planta p USING(id_planta)
+    const {rows}=await db.query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.nombre_cientifico,p.ciclo_cultivo,p.fases,p.imagen,p.imagen_muerta
+      FROM huerto_planta hp JOIN planta p USING(id_planta)
       WHERE hp.id_huerto=$1 AND hp.id_planta=$2 AND hp.fecha_siembra=$3 FOR UPDATE OF hp`,[req.params.id,plantId,fecha])
     if (!rows.length) throw httpError(404,'Cultivo no encontrado.')
     const current=cropResponse(rows[0])
     if (current.cosechado) throw httpError(409,'Este cultivo ya fue cosechado.')
+    const totalFases=fasesCrecimiento(rows[0].fases).length || 5
+    if (!listaParaCosechar(current.sembradoEn,current.planta.diasCrecimiento,totalFases)) {
+      throw httpError(409,'La planta aún no está en la fase de cosecha.')
+    }
     const metadata=JSON.stringify({x:current.x,y:current.y,cosechado:true})
     await db.query(`UPDATE huerto_planta SET id_estado=$4,observaciones=$5,modified_at=now()
       WHERE id_huerto=$1 AND id_planta=$2 AND fecha_siembra=$3`,[req.params.id,plantId,fecha,Number(process.env.HARVEST_STATE_ID || 6),metadata])

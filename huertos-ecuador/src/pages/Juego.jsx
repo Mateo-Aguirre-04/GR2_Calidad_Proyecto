@@ -7,13 +7,15 @@ import { useClima } from '../hooks/useClima'
 import { useFaseLunar } from '../hooks/useFaseLunar'
 import { useAhora } from '../hooks/useAhora'
 import { useRecordatorios } from '../hooks/useRecordatorios'
-import { fondoHuerto, capacidadParcela, m2PorParcela } from '../data/parcelasHuerto'
+import { fondoHuerto, capacidadParcela, distribucionHuerto } from '../data/parcelasHuerto'
+import { DURACION_COSECHA_MS, listaParaCosechar } from '../data/fasesPlanta'
 import Parcela from '../components/Parcela/Parcela'
 import ModalCantidadSiembra from '../components/ModalCantidadSimebra/ModalCantidadSiembra'
 import BotonLateral from '../components/BotonLateral/BotonLateral'
 import IconoEstado from '../components/IconoEstado/IconoEstado'
 import ModalPerfil from '../components/ModalPerfil/ModalPerfil'
 import ModalSeleccionPlanta from '../components/ModalSeleccionPlanta/ModalSeleccionPlanta'
+import ModalInfoCultivo from '../components/ModalInfoCultivo/ModalInfoCultivo'
 import styles from './css/Juego.module.css'
 
 // accion: 'ruta' navega, 'modal' abre un modal, 'pendiente' aún sin definir.
@@ -53,6 +55,8 @@ function Juego() {
   const [errorAccion, setErrorAccion] = useState('')
   const [herramientaActiva, setHerramientaActiva] = useState(null) // 'siembra' | 'cosecha'
   const [plantaSeleccionada, setPlantaSeleccionada] = useState(null) // plant chosen for planting
+  const [cultivoInfo, setCultivoInfo] = useState(null) // cultivo cuya información se muestra
+  const [cosechaAnimada, setCosechaAnimada] = useState(null) // id del cultivo que se está cosechando
 
   // Handler for lateral button selection
   function seleccionar(boton) {
@@ -86,7 +90,7 @@ function Juego() {
   setLoadingAccion(true)
   setErrorAccion('')
   try {
-    const max = capacidadParcela(tipo, plantaSeleccionada)
+    const max = capacidadParcela(areaParcela(parcelaElegida), distribucion.maxPlantas, plantaSeleccionada)
     const cantidad = Math.min(Math.max(1, Math.trunc(Number(cantidadPedida)) || 1), max)
 
     const resp = await authenticatedFetch(`/api/huertos/${huerto.id}/sembrar`, {
@@ -104,10 +108,15 @@ function Juego() {
     cerrarSiembra()
   }
 }
-  // Callback when a mature crop is selected for harvest
+  // Solo se cosecha en la fase 4; el backend vuelve a validarlo.
   async function onCultivoSeleccionado(cultivo) {
+    if (!listaParaCosechar(cultivo, Date.now())) {
+      setErrorAccion(`${cultivo.planta?.nombre ?? 'La planta'} aún no está en la fase de cosecha.`)
+      return
+    }
     setLoadingAccion(true)
     setErrorAccion('')
+    setCultivoInfo(null) // cierra el modal para que se vea la animación
     try {
       const resp = await authenticatedFetch(`/api/huertos/${huerto.id}/cosechar`, {
         method: 'POST',
@@ -116,6 +125,10 @@ function Juego() {
       })
       if (!resp.ok) throw new Error((await resp.json()).error || 'No se pudo guardar la cosecha.')
       await resp.json()
+      // Animación: la parcela muestra la fase 5 y la planta sale volando. Se recarga al terminar;
+      // el id se queda puesto hasta entonces para que la planta no reaparezca en fase 4.
+      setCosechaAnimada(cultivo.id)
+      await new Promise((resolver) => setTimeout(resolver, DURACION_COSECHA_MS))
       recargar()
     } catch (e) {
       setErrorAccion(e.message)
@@ -144,9 +157,14 @@ function Juego() {
 
   const tipo = huerto.tipo ?? 'surcos'
   const fondo = fondoHuerto(tipo)
-  const zonas = huerto.parcelas?.zonas ?? [fondo.parcelas.length]
+  // El backend envía zonas = [[m² de cada parcela], ...]; si no llega (o es el formato viejo), se calcula aquí.
+  const distribucion = Array.isArray(huerto.parcelas?.zonas?.[0])
+    ? huerto.parcelas
+    : distribucionHuerto(huerto.areaTotal, tipo)
+  const zonas = distribucion.zonas
   const zonaActual = Math.min(zona, zonas.length)
-  const habilitadas = fondo.parcelas.slice(0, Math.min(zonas[zonaActual - 1], fondo.parcelas.length))
+  const habilitadas = fondo.parcelas.slice(0, zonas[zonaActual - 1].length)
+  const areaParcela = (numero) => zonas[zonaActual - 1]?.[numero - 1] ?? distribucion.m2PorParcela
   // Último cultivo no cosechado de cada parcela (los cultivos llegan ordenados por fecha)
   const cultivoEn = (numero) =>
     huerto.cultivos.filter((c) => c.zona === zonaActual && c.parcela === numero && !c.cosechado).at(-1)
@@ -198,8 +216,10 @@ function Juego() {
             ahora={ahora}
             modo={herramientaActiva}
             deshabilitada={loadingAccion}
+            cosechando={cosechaAnimada != null && cultivoEn(i + 1)?.id === cosechaAnimada}
             onSembrar={elegirParcela}
             onCosechar={onCultivoSeleccionado}
+            onVerInfo={setCultivoInfo}
           />
         ))}
       </div>
@@ -242,11 +262,22 @@ function Juego() {
           planta={plantaSeleccionada}
           zona={zonaActual}
           parcela={parcelaElegida}
-          maximo={capacidadParcela(tipo, plantaSeleccionada)}
-          m2={m2PorParcela(tipo)}
+          maximo={capacidadParcela(areaParcela(parcelaElegida), distribucion.maxPlantas, plantaSeleccionada)}
+          m2={areaParcela(parcelaElegida)}
           enviando={loadingAccion}
           onConfirmar={confirmarSiembra}
           onCerrar={cerrarSiembra}
+        />
+      )}
+      {cultivoInfo && (
+        <ModalInfoCultivo
+          cultivo={cultivoInfo}
+          zona={cultivoInfo.zona}
+          parcela={cultivoInfo.parcela}
+          ahora={ahora}
+          enviando={loadingAccion}
+          onCosechar={onCultivoSeleccionado}
+          onCerrar={() => setCultivoInfo(null)}
         />
       )}
     </div>

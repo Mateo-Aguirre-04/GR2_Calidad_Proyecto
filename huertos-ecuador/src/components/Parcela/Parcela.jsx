@@ -1,8 +1,10 @@
-import { calcularFase } from '../Cultivo/Cultivo'
+import { imagenCosecha, imagenCultivo, listaParaCosechar, usarRespaldo } from '../../data/fasesPlanta'
 import styles from './Parcela.module.css'
 
 // Máximo de imágenes dibujadas por parcela (el total real se muestra en ×N).
 const MAX_IMAGENES = 48
+// Tope de tamaño de una planta, en % del ancho del fondo (evita plantas gigantes en surcos).
+const LADO_MAXIMO = 4
 
 // Elige columnas/filas para repartir n plantas en una zona de proporción (ancho / alto) = aspecto.
 function mejorCuadricula(n, aspecto) {
@@ -18,57 +20,65 @@ function mejorCuadricula(n, aspecto) {
 // rect   = [x, y, ancho, alto] de la parcela (clicable), en % de la imagen del fondo.
 // tierra = [x, y, ancho, alto] de la tierra de esa parcela, en % de la imagen del fondo.
 // relacion = ancho / alto de la imagen (para pasar % de alto a % de ancho).
-function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, deshabilitada, onSembrar, onCosechar }) {
+function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, deshabilitada, cosechando = false, onSembrar, onCosechar, onVerInfo }) {
   const [x, y, ancho, alto] = rect
   // Si `tierra` falta o no es [x, y, ancho, alto], se usa toda la parcela.
   const tierraValida = Array.isArray(tierra) && tierra.length === 4 && tierra.every((n) => Number.isFinite(n))
   const [tx, ty, tw, th] = tierraValida ? tierra : rect
   const muerta = Boolean(cultivo?.muerto)
   const ocupada = Boolean(cultivo) && !muerta
-  const fase = cultivo ? calcularFase(cultivo, ahora) : null
-  const imagen = muerta ? cultivo.planta?.imagenMuerta : cultivo?.planta?.imagenes?.[fase]
+  // Al cosechar sale la fase 5; en el terreno nunca pasa de la fase 4.
+  const animando = ocupada && cosechando
+  const imagen = !ocupada ? '' : animando ? imagenCosecha(cultivo.planta) : imagenCultivo(cultivo, ahora)
+  const lista = ocupada && listaParaCosechar(cultivo, ahora)
 
-  const cosechar = ocupada && modo === 'cosecha'
-  // Una planta muerta no ocupa la parcela: se puede volver a sembrar encima.
-  const accion = cosechar ? () => onCosechar(cultivo) : !ocupada ? () => onSembrar(numero) : null
+  const cosechar = lista && modo === 'cosecha'
+  // Ocupada: cosecha si está lista y la herramienta está activa; si no, muestra su información.
+  // Libre o muerta: se puede sembrar encima.
+  const accion = cosechar
+    ? () => onCosechar(cultivo)
+    : ocupada
+      ? () => onVerInfo(cultivo)
+      : () => onSembrar(numero)
 
   const etiqueta = ocupada
-    ? `Parcela ${numero}: ${cultivo.planta?.nombre} (${cultivo.cantidad} plantas)${cosechar ? '. Cosechar' : ''}`
+    ? `Parcela ${numero}: ${cultivo.planta?.nombre} (${cultivo.cantidad} plantas)${cosechar ? '. Cosechar' : '. Ver información'}`
     : `Parcela ${numero}: libre. Sembrar`
 
-  // Plantas: una imagen por planta, plantadas SOBRE la tierra (no sobre el recipiente).
-  // Medidas en "% del ancho de la imagen" para que el sprite sea cuadrado en pantalla.
+  // Una imagen por planta, repartidas en cuadrícula SOBRE la tierra. Medidas en "% del ancho
+  // de la imagen" para que el sprite sea cuadrado en pantalla.
   const cantidad = Math.max(1, Math.trunc(Number(cultivo?.cantidad)) || 1)
-  const visibles = ocupada ? Math.min(cantidad, MAX_IMAGENES) : 0
+  const visibles = ocupada && imagen ? Math.min(cantidad, MAX_IMAGENES) : 0
   const thAncho = th / relacion // alto de la tierra expresado en % del ancho de la imagen
   const { cols, filas } = mejorCuadricula(Math.max(visibles, 1), tw / thAncho)
   const celdaW = tw / cols
   const celdaH = thAncho / filas
-  // Tamaño natural de una planta (no depende de cuántas haya): la mayor que la tierra permite,
-  // con un tope para que en terrenos enormes (surcos) no salga gigante. Solo se achica si no caben.
-  const natural = Math.min(tw * 0.6, thAncho * 2.4, 4)
-  const lado = Math.min(natural, celdaW * 1.4, celdaH * 2.4)
+  // Tierra grande (surcos, camadas...): la planta cabe entera en su celda.
+  // Tierra fina (boca de botella, maceta): la raíz queda en la tierra y la planta crece hacia arriba,
+  // pero nunca más ancha que su celda de tierra.
+  const tierraFina = th / alto < 0.5
+  const lado = Math.min(LADO_MAXIMO, celdaW * 0.95, tierraFina ? thAncho * 3 : celdaH * 0.95)
 
   const plantas = Array.from({ length: visibles }, (_, i) => {
     const fila = Math.floor(i / cols)
     const enFila = fila === filas - 1 ? visibles - fila * cols : cols // última fila centrada
     const col = i - fila * cols
-    const cx = ((cols - enFila) / 2 + col + 0.5) * celdaW // en % del ancho de la imagen, dentro de la tierra
-    const base = (fila + 0.75) * celdaH // la base de la planta pisa la parte baja de su celda
+    const cx = ((cols - enFila) / 2 + col + 0.5) * celdaW
+    const base = (fila + 1) * celdaH - (celdaH - Math.min(lado, celdaH)) / 2 // base dentro de la celda
     return { cx, base }
   })
 
   return (
     <button
-        type="button"
-        className={`${styles.parcela} ${ocupada ? styles.ocupada : styles.libre} ${cosechar ? styles.cosechable : ''}`}
-        style={{ left: `${x}%`, top: `${y}%`, width: `${ancho}%`, height: `${alto}%`, overflow: 'visible' }}
-        onClick={accion ?? undefined}
-        disabled={deshabilitada || !accion}
-        aria-label={etiqueta}
-        title={etiqueta}
-      >
-      {imagen && visibles > 0 && (
+      type="button"
+      className={`${styles.parcela} ${ocupada ? styles.ocupada : styles.libre} ${cosechar ? styles.cosechable : ''}`}
+      style={{ left: `${x}%`, top: `${y}%`, width: `${ancho}%`, height: `${alto}%`, overflow: 'visible' }}
+      onClick={accion}
+      disabled={deshabilitada}
+      aria-label={etiqueta}
+      title={etiqueta}
+    >
+      {visibles > 0 && (
         <span
           aria-hidden="true"
           style={{
@@ -85,28 +95,35 @@ function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, des
               key={i}
               src={imagen}
               alt=""
+              onError={usarRespaldo}
+              className={animando ? styles.cosechando : undefined}
               style={{
-                // Tamaño y posición explícitos (esquina superior izquierda): no dependen de que el CSS
-                // de .parcela img (inset, height, transform...) deje las propiedades en su valor inicial.
+                // Posición explícita: no depende del CSS de .parcela img.
                 position: 'absolute',
                 inset: 'auto',
                 margin: 0,
                 padding: 0,
                 maxWidth: 'none',
                 maxHeight: 'none',
-                transform: 'none',
                 left: `${((cx - lado / 2) / tw) * 100}%`,
                 top: `${((base - lado) / thAncho) * 100}%`,
                 width: `${(lado / tw) * 100}%`,
                 height: `${(lado / thAncho) * 100}%`,
                 objectFit: 'contain',
                 objectPosition: 'bottom',
+                // Pequeño desfase para que las plantas no salten todas a la vez.
+                animationDelay: animando ? `${(i % 8) * 40}ms` : undefined,
               }}
             />
           ))}
         </span>
       )}
-        {ocupada && <span className={styles.cantidad}>×{cultivo.cantidad}</span>}
+      {animando && (
+        <span className={styles.textoCosecha} aria-hidden="true">
+          +{cultivo.cantidad} 🧺
+        </span>
+      )}
+      {ocupada && !animando && <span className={styles.cantidad}>×{cultivo.cantidad}</span>}
     </button>
   )
 }
