@@ -6,6 +6,8 @@ import { requestOnce, requestKey } from './checklistRequests.js'
 import { wateringInput } from './watering.js'
 import { loadEnvironment, catalogDays, localDate, lunarWindow, harvestReminder, nextLunarEventDate, sunny, daysBetween } from './checklistEnvironment.js'
 import { taskDetails, availability, assertAvailable, sowingReasons, RITUAL_REQUIRED } from './checklistRules.js'
+import { synchronizeSections, mappedSection, validatePlanting, gardenLayout } from './sections.js'
+import { areaDeParcela } from './parcelas.js'
 
 const DAY=86400000
 const shiftDate=(date,days)=>new Date(Date.parse(date)+days*DAY).toISOString().slice(0,10)
@@ -25,10 +27,10 @@ async function cropExists(db,garden,crop) {
 }
 async function createTask(db,garden,code,key,options={}) {
   const {rows}=await db.query(`INSERT INTO tareas_huerto(id_huerto,codigo_actividad,clave_generacion,modalidad,
-    id_planta,fecha_siembra,id_ciclo,id_lote,programada_para,responsable_id)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING RETURNING id_tarea::text AS id`,
+    id_planta,fecha_siembra,id_ciclo,id_lote,programada_para,responsable_id,id_zona)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING RETURNING id_tarea::text AS id`,
   [garden,code,key,options.modalidad || 'individual',options.plantaId || null,options.fechaSiembra || null,
-    options.cicloId || null,options.loteId || null,options.programadaPara || null,options.responsable || null])
+    options.cicloId || null,options.loteId || null,options.programadaPara || null,options.responsable || null,options.zonaId || null])
   if(rows[0]) return rows[0].id
   return (await db.query(`SELECT id_tarea::text AS id FROM tareas_huerto WHERE id_huerto=$1
     AND (clave_generacion=$2 OR (codigo_actividad=$3 AND id_planta=$4 AND fecha_siembra=$5))
@@ -37,12 +39,18 @@ async function createTask(db,garden,code,key,options={}) {
 
 export async function synchronize(db,user,garden,env) {
   await member(db,user,garden)
+  await synchronizeSections(db,garden)
   if(env.zonaHoraria) await db.query(`INSERT INTO checklist_configuracion(id_huerto,zona_horaria)
     VALUES($1,$2) ON CONFLICT DO NOTHING`,[garden,env.zonaHoraria])
   const cycles=(await db.query(`SELECT c.id_ciclo::text AS id FROM ciclos_zona c WHERE c.id_huerto=$1
+    AND NOT EXISTS(SELECT 1 FROM ciclos_zona newer WHERE newer.id_zona=c.id_zona AND newer.id_ciclo>c.id_ciclo)
+    AND NOT EXISTS(SELECT 1 FROM zonas_huerto z JOIN huerto_planta hp
+      ON hp.id_huerto=z.id_huerto AND hp.zona=z.zona_mapa AND hp.parcela=z.parcela_mapa
+      WHERE z.id_zona=c.id_zona AND hp.id_estado<>$2
+      AND NOT EXISTS(SELECT 1 FROM tareas_huerto s WHERE s.id_ciclo=c.id_ciclo AND s.codigo_actividad='siembra'))
     AND NOT (EXISTS(SELECT 1 FROM cultivos_checklist cc WHERE cc.id_ciclo=c.id_ciclo)
       AND NOT EXISTS(SELECT 1 FROM tareas_huerto s WHERE s.id_ciclo=c.id_ciclo AND s.codigo_actividad='siembra'))
-    ORDER BY c.id_ciclo`,[garden])).rows
+    ORDER BY c.id_ciclo`,[garden,HARVEST()])).rows
   for(const cycle of cycles) {
     await createTask(db,garden,'retiro_maleza',`maleza:${cycle.id}`,{cicloId:cycle.id,programadaPara:env.ahora})
     const weed=(await db.query(`SELECT completada_en FROM tareas_huerto WHERE id_ciclo=$1 AND codigo_actividad='retiro_maleza'`,[cycle.id])).rows[0]
@@ -89,7 +97,7 @@ export async function panel(db,user,garden,env) {
       loteId:raw.id_lote?String(raw.id_lote):null,confirmaciones:raw.confirmaciones,
       responsableId:raw.responsable_id?String(raw.responsable_id):null})
   }
-  const zones=(await db.query(`SELECT z.id_zona::text AS id,z.nombre,c.id_ciclo::text AS "cicloId",
+  const zones=(await db.query(`SELECT z.id_zona::text AS id,z.nombre,z.zona_mapa AS zona,z.parcela_mapa AS parcela,c.id_ciclo::text AS "cicloId",
     p.completada_en AS "preparadaEn",
     (EXISTS(SELECT 1 FROM cultivos_checklist cc WHERE cc.id_ciclo=c.id_ciclo)
       AND NOT EXISTS(SELECT 1 FROM cultivos_checklist cc JOIN huerto_planta hp USING(id_huerto,id_planta,fecha_siembra)
@@ -97,39 +105,38 @@ export async function panel(db,user,garden,env) {
     FROM zonas_huerto z LEFT JOIN ciclos_zona c ON c.id_zona=z.id_zona
       AND NOT EXISTS(SELECT 1 FROM ciclos_zona newer WHERE newer.id_zona=c.id_zona AND newer.id_ciclo>c.id_ciclo)
     LEFT JOIN tareas_huerto p ON p.id_ciclo=c.id_ciclo AND p.codigo_actividad='preparacion_tierra'
-    WHERE z.id_huerto=$1 ORDER BY z.id_zona,c.id_ciclo`,[garden,HARVEST()])).rows
+    WHERE z.id_huerto=$1 AND z.zona_mapa IS NOT NULL ORDER BY z.zona_mapa,z.parcela_mapa`,[garden,HARVEST()])).rows
   const reminders=zones.filter(z=>z.preparadaEn&&!z.requiereNuevoCiclo).map(z=>{
     const habilitadaDesde=new Date(new Date(z.preparadaEn).getTime()+15*DAY)
     const fecha=env.zonaHoraria?nextLunarEventDate(env.ahora,env.zonaHoraria,[1,2],habilitadaDesde):null
     if(!fecha||shiftDate(fecha,-1)!==localDate(env.ahora,env.zonaHoraria))return null
     return {tipo:'siembra',zonaId:z.id,cicloId:z.cicloId,nombre:z.nombre,programadaPara:fecha,
       diasRestantes:1,recordatorioActivo:true,anticipado:true,
-      texto:'Mañana comienza una ventana lunar creciente o llena. Prepárate para sembrar al amanecer.',
+      texto:'Próxima ventana: mañana se aproxima cuarto creciente o luna llena. Revisa la disponibilidad de 08:00 a 12:00 y realiza el ritual al amanecer.',
       motivos:sowingReasons(z.preparadaEn,env)}
   }).filter(Boolean)
   if(env.zonaHoraria) {
-    const watersByCrop=new Map()
-    const waters=(await db.query(`SELECT DISTINCT id_planta::text AS planta,fecha_siembra::text AS siembra,
+    const watersBySection=new Map()
+    const waters=(await db.query(`SELECT DISTINCT id_zona::text AS seccion,
       (completada_en AT TIME ZONE $2)::date::text AS fecha FROM tareas_huerto
       WHERE id_huerto=$1 AND codigo_actividad='riego' AND completada_en IS NOT NULL
       AND (completada_en AT TIME ZONE $2)::date >= (($3::timestamptz AT TIME ZONE $2)::date-2)`,[garden,env.zonaHoraria,env.ahora])).rows
     for(const water of waters) {
-      const key=`${water.planta}:${water.siembra}`
-      if(!watersByCrop.has(key))watersByCrop.set(key,[])
-      watersByCrop.get(key).push(water.fecha)
+      if(!watersBySection.has(water.seccion))watersBySection.set(water.seccion,[])
+      watersBySection.get(water.seccion).push(water.fecha)
     }
     for(const task of details.filter(t=>t.codigo_actividad==='cosecha'&&!t.completada_en&&Number(t.id_estado)!==HARVEST())) {
-      const plan=harvestReminder(task,env,watersByCrop.get(`${task.id_planta}:${task.fecha_exacta}`) || [])
+      const plan=task.id_zona?harvestReminder(task,env,watersBySection.get(task.id_zona) || []):null
       if(plan)reminders.push({tipo:'riego_previo_cosecha',cultivo:{huertoId:garden,plantaId:String(task.id_planta),fechaSiembra:task.fecha_exacta},
-      anticipado:plan.anticipado,
+      zonaId:task.id_zona,nombre:task.zona_nombre,anticipado:plan.anticipado,
       texto:plan.requiereRiego
         ?(plan.anticipado
-          ?'Mañana riega, tres días antes de la próxima ventana posible de cosecha.'
+          ?'Mañana corresponde el riego de la sección para una posible cosecha dos fechas locales después.'
           :'Riega hoy, dos días antes de la próxima ventana posible de cosecha.')
         :(plan.anticipado
           ?'Mañana inicia la posible ventana de cosecha; el riego previo ya está registrado.'
           :plan.fechaCosechaPrevista===localDate(env.ahora,env.zonaHoraria)
-            ?'Han pasado dos días desde que regaste esta planta. El suelo está listo para la cosecha.'
+            ?'Hay un riego de esta sección de hace dos fechas locales. Revisa los demás requisitos de cosecha.'
             :'El riego registrado ya cubre la próxima ventana posible de cosecha.'),...plan})
     }
   }
@@ -142,27 +149,13 @@ export async function panel(db,user,garden,env) {
     (hp.id_estado<>$2 OR COALESCE(cc.conservado_tras_cosecha,false)) AS activo
     FROM huerto_planta hp LEFT JOIN cultivos_checklist cc USING(id_huerto,id_planta,fecha_siembra)
     LEFT JOIN ciclos_zona c ON c.id_ciclo=cc.id_ciclo WHERE hp.id_huerto=$1 ORDER BY hp.fecha_siembra,hp.id_planta`,[garden,HARVEST()])).rows
-  // Reglas informativas se generan por fecha local y cultivo; completar sigue pasando por disponibilidad.
-  if(env.zonaHoraria) {
-    const today=localDate(env.ahora,env.zonaHoraria)
-    const watered=(await db.query(`SELECT DISTINCT id_planta::text AS planta,fecha_siembra::text AS siembra
-      FROM tareas_huerto WHERE id_huerto=$1 AND codigo_actividad='riego' AND completada_en IS NOT NULL
-      AND (completada_en AT TIME ZONE $2)::date=($3::timestamptz AT TIME ZONE $2)::date`,[garden,env.zonaHoraria,env.ahora])).rows
-    const wateredSet=new Set(watered.map(w=>`${w.planta}:${w.siembra}`))
-    for(const crop of crops.filter(c=>c.activo&&!wateredSet.has(`${c.plantaId}:${c.fechaSiembra}`))) reminders.push({
-      tipo:'riego',cultivo:{huertoId:garden,plantaId:crop.plantaId,fechaSiembra:crop.fechaSiembra},fecha:today,recordatorioActivo:true,
-      texto:'No olvides regar tus plantas hoy para mantenerlas con vida y saludables.'})
-    const parts=new Intl.DateTimeFormat('en-US',{timeZone:env.zonaHoraria,month:'numeric',day:'numeric'}).formatToParts(new Date(env.ahora))
-    const day=Number(parts.find(p=>p.type==='day')?.value)
-    reminders.push({tipo:'ritual_mensual',fecha:today,recordatorioActivo:day===14,anticipado:day===14,
-      texto:'Cada día 15 del mes, tómate un momento para realizar el ritual de agradecimiento a la Pachamama y honrar a la tierra.',
-      motivos:day===15?[]:['Este recordatorio corresponde al día 15 de cada mes.']})
-  }
+  // Riego sin frecuencia automática: solo tareas programadas y planes previos a cosecha.
   const tomorrow=env.zonaHoraria?shiftDate(localDate(env.ahora,env.zonaHoraria),1):null
   for(const task of enriched.filter(t=>!t.completado&&(t.recordatorioActivo
     ||(env.zonaHoraria&&t.programadaPara&&daysBetween(env.ahora,t.programadaPara,env.zonaHoraria)===1)))) {
     const code=task.actividad.codigo
     const messages={
+      riego:`Riego pendiente de ${task.zona?.nombre || 'la sección sin configurar'}.`,
       retiro_maleza:env.zonaHoraria&&nextLunarEventDate(env.ahora,env.zonaHoraria,[0],tomorrow)===tomorrow
         ?'Mañana se aproxima la luna nueva; comprueba el pronóstico antes de retirar la maleza.'
         :sunny(env)&&env.zonaHoraria&&lunarWindow(env.ahora,env.zonaHoraria,[0])
@@ -170,7 +163,7 @@ export async function panel(db,user,garden,env) {
         :'Revisa la disponibilidad para retirar la maleza; requiere sol sin lluvia y luna nueva (±1 día).',
       preparacion_tierra:'Has terminado de quitar la maleza. La tierra está lista para ser preparada.',
       cosecha:'Revisa la madurez, la fase lunar, el riego previo, el clima y confirma que el rocío esté seco antes de cosechar.',
-      secado_almacenamiento:'Han pasado 10 días desde que guardaste tu cosecha en la sombra. ¡Ya está lista para ser almacenada de forma definitiva!',
+      secado_almacenamiento:'Llegó el día de revisión del secado. Comprueba que el lote esté seco antes de empacar, etiquetar y almacenar.',
       limpieza_huerto:'Tu huerto necesita un poco de atención. Date una vuelta para limpiarlo y dejarlo impecable.',
       abono_organico:'Es hora de nutrir la tierra. No olvides aplicar abono orgánico a tus cultivos.',
       senaletica:'Organiza tu espacio colocando la señalética correspondiente en las zonas del huerto.',
@@ -181,7 +174,7 @@ export async function panel(db,user,garden,env) {
       ?'Mañana se cumplen 10 días de secado; prepara el almacenamiento definitivo.'
       :fechaManana?`Mañana: ${messages[code]}`:messages[code]
     const lunaManana=code==='retiro_maleza'&&env.zonaHoraria&&nextLunarEventDate(env.ahora,env.zonaHoraria,[0],tomorrow)===tomorrow
-    if(messages[code])reminders.push({tipo:code,tareaId:task.id,recordatorioActivo:true,anticipado:!!fechaManana||!!lunaManana,texto,
+    if(messages[code])reminders.push({tipo:code,tareaId:task.id,zonaId:task.zona?.id,nombre:task.zona?.nombre,recordatorioActivo:true,anticipado:!!fechaManana||!!lunaManana,texto,
       motivos:task.disponibilidad.motivos})
   }
   const activeHarvest=enriched.filter(t=>t.actividad.codigo==='cosecha'&&!t.completado&&t.recordatorioActivo)
@@ -193,15 +186,12 @@ export async function panel(db,user,garden,env) {
   for(const task of activeHarvest.filter(t=>t.programadaPara&&env.zonaHoraria
     &&localDate(t.programadaPara,env.zonaHoraria)<=localDate(env.ahora,env.zonaHoraria)
     &&t.cultivo?.parteCosecha
-    &&nextLunarEventDate(env.ahora,env.zonaHoraria,['semillas','raices'].includes(task.cultivo.parteCosecha)?[3]:[1,2],tomorrow)===tomorrow)) {
+    &&nextLunarEventDate(env.ahora,env.zonaHoraria,['semillas','raices'].includes(t.cultivo.parteCosecha)?[3]:[1,2],tomorrow)===tomorrow)) {
     const semillasRaices=['semillas','raices'].includes(task.cultivo.parteCosecha)
     reminders.push({tipo:'cosecha_lunar',tareaId:task.id,recordatorioActivo:true,anticipado:true,
-      texto:semillasRaices?'Nos encontramos en cuarto menguante. ¡Aprovecha para cosechar semillas y raíces!':'La luna está en fase creciente o llena. Es el momento idóneo para cosechar hojas, flores y frutos.'})
+      texto:semillasRaices?'Próxima ventana: mañana se aproxima cuarto menguante para semillas y raíces.':'Próxima ventana: mañana se aproxima cuarto creciente o luna llena para hojas, flores y frutos.'})
   }
-  const visibleReminders=reminders.filter(reminder=>reminder.tipo!=='ritual_mensual'||(reminder.recordatorioActivo
-    &&!enriched.some(task=>task.actividad.codigo==='ritual_agradecimiento'&&task.completado&&task.completadaEn
-      &&localDate(task.completadaEn,env.zonaHoraria)===reminder.fecha)))
-  return {tareas:enriched,zonas:zones,lotes:lots,cultivos:crops,recordatorios:visibleReminders,
+  return {tareas:enriched,zonas:zones,lotes:lots,cultivos:crops,recordatorios:reminders,
     contexto:{ahora:env.ahora,zonaHoraria:env.zonaHoraria,clima:env.clima,climaVerificado:!!env.clima,amanecer:env.amanecer,
       ventanasLunares:env.zonaHoraria?{nueva:lunarWindow(env.ahora,env.zonaHoraria,[0]),
         crecienteOLlena:lunarWindow(env.ahora,env.zonaHoraria,[1,2]),menguante:lunarWindow(env.ahora,env.zonaHoraria,[3])}:null}}
@@ -209,15 +199,21 @@ export async function panel(db,user,garden,env) {
 
 export async function createZone(db,user,garden,body,env) {
   await member(db,user,garden)
-  if(typeof body?.nombre!=='string'||!body.nombre.trim()||body.nombre.trim().length>100) throw httpError(400,'Indica un nombre de zona de hasta 100 caracteres.')
-  const zone=(await db.query(`INSERT INTO zonas_huerto(id_huerto,nombre) VALUES($1,$2)
-    ON CONFLICT(id_huerto,nombre) DO UPDATE SET nombre=EXCLUDED.nombre RETURNING id_zona::text AS id,nombre`,[garden,body.nombre.trim()])).rows[0]
+  const zona=Number(body?.zona),parcela=Number(body?.parcela)
+  const layout=await gardenLayout(db,garden)
+  if(!Number.isSafeInteger(zona)||!Number.isSafeInteger(parcela)||areaDeParcela(layout,zona,parcela)==null) throw httpError(400,'Selecciona una zona y parcela existentes del huerto.')
+  const zone=(await db.query(`INSERT INTO zonas_huerto(id_huerto,nombre,zona_mapa,parcela_mapa) VALUES($1,$2,$3,$4)
+    ON CONFLICT(id_huerto,zona_mapa,parcela_mapa) DO UPDATE SET nombre=EXCLUDED.nombre RETURNING id_zona::text AS id,nombre`,[garden,`Zona ${zona} · Parcela ${parcela}`,zona,parcela])).rows[0]
   return zone
 }
 export async function startCycle(db,user,garden,body,env) {
   await member(db,user,garden)
   validId(body?.zonaId,'zona')
   return requestOnce(db,user,garden,body.claveSolicitud,'ciclo',{zonaId:body.zonaId},async()=>{
+    const section=await mappedSection(db,garden,body.zonaId)
+    const occupied=(await db.query(`SELECT 1 FROM huerto_planta WHERE id_huerto=$1 AND zona=$2 AND parcela=$3 AND id_estado<>$4 LIMIT 1`,
+      [garden,section.zona_mapa,section.parcela_mapa,HARVEST()])).rows.length
+    if(occupied) throw httpError(409,'La sección todavía tiene cultivos activos.')
     const zone=(await db.query('SELECT id_zona FROM zonas_huerto WHERE id_zona=$1 AND id_huerto=$2 FOR UPDATE',[body.zonaId,garden])).rows[0]
     if(!zone) throw httpError(404,'Zona no encontrada.')
     const previous=(await db.query('SELECT id_ciclo FROM ciclos_zona WHERE id_zona=$1 ORDER BY id_ciclo DESC LIMIT 1',[body.zonaId])).rows[0]
@@ -247,6 +243,8 @@ export async function configureCrop(db,user,garden,body) {
   let cycleId=existing?.id_ciclo || null
   if(body.zonaId!==undefined) {
     validId(body.zonaId,'zona')
+    const section=await mappedSection(db,garden,body.zonaId)
+    if(raw.zona!=null&&(Number(raw.zona)!==section.zona_mapa||Number(raw.parcela)!==section.parcela_mapa)) throw httpError(409,'La sección no coincide con la ubicación física del cultivo.')
     const zone=(await db.query('SELECT id_zona FROM zonas_huerto WHERE id_zona=$1 AND id_huerto=$2 FOR UPDATE',[body.zonaId,garden])).rows[0]
     if(!zone)throw httpError(404,'Zona no encontrada en este huerto.')
     if(cycleId) {
@@ -262,6 +260,8 @@ export async function configureCrop(db,user,garden,body) {
         cycleId=(await db.query('INSERT INTO ciclos_zona(id_zona,id_huerto) VALUES($1,$2) RETURNING id_ciclo',[body.zonaId,garden])).rows[0].id_ciclo
       }
     }
+    if(raw.zona==null) await db.query(`UPDATE huerto_planta SET zona=$4,parcela=$5
+      WHERE id_huerto=$1 AND id_planta=$2 AND fecha_siembra=$3`,[garden,crop.plantaId,crop.fechaSiembra,section.zona_mapa,section.parcela_mapa])
   }
   const configured=await db.query(`INSERT INTO cultivos_checklist(id_huerto,id_planta,fecha_siembra,parte_cosecha,id_ciclo) VALUES($1,$2,$3,$4,$5)
     ON CONFLICT(id_huerto,id_planta,fecha_siembra) DO UPDATE SET parte_cosecha=EXCLUDED.parte_cosecha
@@ -274,27 +274,30 @@ export async function configureCrop(db,user,garden,body) {
 }
 export async function schedule(db,user,garden,body,env) {
   await member(db,user,garden)
-  if(!['abono_organico','limpieza_huerto'].includes(body?.actividad)) throw httpError(400,'Solo se programan abono orgánico y jornadas de limpieza.')
+  if(!['riego','abono_organico','limpieza_huerto'].includes(body?.actividad)) throw httpError(400,'Solo se programan riego, abono orgánico y jornadas de limpieza.')
+  const zonaId=body.actividad==='riego'?validId(body.zonaId,'sección'):null
   if(typeof body.programadaPara!=='string'||!/(Z|[+-]\d\d:\d\d)$/.test(body.programadaPara)||!Number.isFinite(Date.parse(body.programadaPara))) throw httpError(400,'Envía una fecha programada con zona horaria.')
   const crop=body.actividad==='abono_organico'?cropInput(body.cultivo):null
   const key=requestKey(body.claveSolicitud)
-  return requestOnce(db,user,garden,key,'programar',{actividad:body.actividad,programadaPara:body.programadaPara,cultivo:crop},async()=>{
+  return requestOnce(db,user,garden,key,'programar',{actividad:body.actividad,programadaPara:body.programadaPara,cultivo:crop,zonaId},async()=>{
+    if(zonaId) await mappedSection(db,garden,zonaId)
     if(crop) {
       const raw=await cropExists(db,garden,crop)
       if(Number(raw.id_estado)===HARVEST()) throw httpError(409,'El cultivo ya fue cosechado.')
     }
     const id=await createTask(db,garden,body.actividad,crop?`abono:${cropKey(crop)}`:`limpieza:${key}`,
-      {...crop,modalidad:crop?'individual':'grupal',programadaPara:body.programadaPara})
+      {...crop,zonaId,modalidad:crop||zonaId?'individual':'grupal',programadaPara:body.programadaPara})
     return {id}
   })
 }
 export async function sow(db,user,garden,body,env) {
   await member(db,user,garden)
   validId(body?.cicloId,'ciclo');validId(body?.plantaId,'planta')
-  if(!PARTS.includes(body.parteCosecha)||![body.x,body.y].every(n=>Number.isFinite(n)&&n>=0&&n<=100)) throw httpError(400,'Indica la parte de cosecha y coordenadas x,y entre 0 y 100.')
+  if(!PARTS.includes(body.parteCosecha)) throw httpError(400,'Indica la parte de cosecha.')
   if(body.confirmaciones?.ritualAmanecer!==true) throw httpError(400,'Confirma que realizaste el ritual de siembra al amanecer.')
-  const content={cicloId:body.cicloId,plantaId:body.plantaId,parteCosecha:body.parteCosecha,x:body.x,y:body.y,ritualAmanecer:true}
+  const content={cicloId:body.cicloId,plantaId:body.plantaId,parteCosecha:body.parteCosecha,cantidad:body.cantidad,ritualAmanecer:true}
   return requestOnce(db,user,garden,body.claveSolicitud,'siembra',content,async()=>{
+    const {section,cantidad}=await validatePlanting(db,garden,body.cicloId,body)
     await db.query(`SELECT z.id_zona FROM zonas_huerto z JOIN ciclos_zona c USING(id_zona)
       WHERE c.id_ciclo=$1 AND c.id_huerto=$2 FOR UPDATE OF z`,[body.cicloId,garden])
     const exhausted=(await db.query(`SELECT EXISTS(SELECT 1 FROM cultivos_checklist WHERE id_ciclo=$1)
@@ -309,8 +312,8 @@ export async function sow(db,user,garden,body,env) {
     if(reasons.length) throw httpError(409,reasons.join(' '))
     const plant=(await db.query('SELECT * FROM planta WHERE id_planta=$1',[body.plantaId])).rows[0]
     if(!plant) throw httpError(404,'Planta no encontrada.')
-    const raw=(await db.query(`INSERT INTO huerto_planta(id_huerto,id_planta,fecha_siembra,cantidad,id_estado,observaciones)
-      VALUES($1,$2,$3,1,1,$4) RETURNING *,fecha_siembra::text AS fecha_exacta`,[garden,body.plantaId,env.ahora,JSON.stringify({x:body.x,y:body.y,cosechado:false})])).rows[0]
+    const raw=(await db.query(`INSERT INTO huerto_planta(id_huerto,id_planta,fecha_siembra,cantidad,id_estado,observaciones,zona,parcela)
+      VALUES($1,$2,$3,$4,1,$5,$6,$7) RETURNING *,fecha_siembra::text AS fecha_exacta`,[garden,body.plantaId,env.ahora,cantidad,JSON.stringify({cosechado:false}),section.zona_mapa,section.parcela_mapa])).rows[0]
     const crop={plantaId:body.plantaId,fechaSiembra:raw.fecha_exacta,cicloId:body.cicloId}
     await db.query(`INSERT INTO cultivos_checklist(id_huerto,id_planta,fecha_siembra,id_ciclo,parte_cosecha)
       VALUES($1,$2,$3,$4,$5)`,[garden,crop.plantaId,crop.fechaSiembra,crop.cicloId,body.parteCosecha])

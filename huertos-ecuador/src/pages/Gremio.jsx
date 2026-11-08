@@ -4,11 +4,13 @@ import { useGremio } from '../hooks/useGremio'
 import Header from '../components/Header/Header'
 import Button from '../components/Button/Button'
 import ModalInvitar from '../components/ModalInvitar/ModalInvitar'
+import RankingGremios from '../components/RankingGremios/RankingGremios'
 import styles from './css/Gremio.module.css'
 
 const PESTANAS = [
   { clave: 'comunidad', titulo: 'Comunidad' },
   { clave: 'miembros',  titulo: 'Miembros' },
+  { clave: 'ranking', titulo: 'Ranking de gremios' },
 ]
 
 // Únicos niveles dentro de un gremio
@@ -115,6 +117,8 @@ function Gremio() {
               </header>
 
               <div id="panel-gremio" role="tabpanel" aria-labelledby={`tab-${pestana}`}>
+                <p>Puntos acumulados del gremio: {gremio.puntos ?? 0}</p>
+                {pestana === 'ranking' && <RankingGremios />}
                 {pestana === 'comunidad' && (
                   <>
                     <div className={styles.cuerpo}>

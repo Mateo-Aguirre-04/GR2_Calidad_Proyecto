@@ -1,0 +1,13 @@
+.overlay { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgb(14 30 17 / 70%); padding: 18px; }
+.panel { position: relative; background: #f3faf0; color: #203e2b; width: min(720px,100%); max-height: 88vh; overflow: auto; padding: 24px; border-radius: 18px; border: 2px solid #a9c9a7; }
+.panel h2 { padding-right: 30px; }
+.panel label { display: flex; align-items: center; gap: 9px; margin: 12px 0; flex-wrap: wrap; }
+.panel p,.panel li { line-height: 1.5; }
+.panel select,.panel input,.panel button { font: inherit; }
+.panel select,.panel input:not([type=checkbox]) { padding: 8px; max-width: 100%; }
+.panel button { padding: 9px 13px; border: 1px solid #356340; border-radius: 8px; background: #e1efdc; color: #203e2b; cursor: pointer; }
+.panel button:disabled { opacity: .55; cursor: default; }
+.cerrar { position: absolute; top: 12px; right: 12px; }
+.tarea { padding: 15px; margin: 12px 0; background: white; border: 1px solid #cfe0cc; border-radius: 10px; }
+.acciones { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.panel details { margin: 16px 0; padding: 12px; border: 1px solid #cfe0cc; border-radius: 10px; }

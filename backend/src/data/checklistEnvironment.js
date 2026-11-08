@@ -71,7 +71,7 @@ export function harvestReminder(task,env,waterDates=[]) {
   candidates.sort()
   // Un riego ya registrado puede servir para una cosecha de hoy o de los próximos días.
   const covered=candidates.find(date=>waterDates.includes(shiftDate(date,-2)))
-  if(covered&&[today,tomorrow].includes(covered)) return {fechaCosechaPrevista:covered,fechaRiego:shiftDate(covered,-2),requiereRiego:false,anticipado:covered===tomorrow}
+  if(covered) return {fechaCosechaPrevista:covered,fechaRiego:shiftDate(covered,-2),requiereRiego:false,recordatorioActivo:covered===today,anticipado:covered===tomorrow}
   const next=candidates.find(date=>[today,tomorrow].includes(shiftDate(date,-2))&&!waterDates.includes(shiftDate(date,-2)))
   if(!next)return null
   return {fechaCosechaPrevista:next,fechaRiego:shiftDate(next,-2),requiereRiego:true,

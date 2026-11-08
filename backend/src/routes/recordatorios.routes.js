@@ -27,8 +27,7 @@ export function createRecordatoriosRouter(db = { query }, runTransaction = trans
   router.post('/huerto/:huertoId/siembras', workflow((client,user,garden,req,env)=>sow(client,user,garden,req.body,env)))
   router.post('/huerto/:huertoId/secados', workflow((client,user,garden,req,env)=>startDrying(client,user,garden,req.body,env)))
   router.post('/huerto/:huertoId/tareas/:tareaId/completar', workflow((client,user,garden,req,env)=>finish(client,user,garden,req.params.tareaId,req.body,env)))
-  router.post('/huerto/:huertoId/riegos', taskMutationHandler(runTransaction,
-    (client, user, garden, _task, body) => recordWatering(client, user, garden, body)))
+  router.post('/huerto/:huertoId/riegos', workflow((client,user,garden,req,env)=>recordWatering(client,user,garden,req.body,env)))
   router.post('/huerto/:huertoId/tareas/:tareaId/inscribirse', taskMutationHandler(runTransaction, enrollTask))
   router.get('/:usuarioId?', real.realOrDemo(real.getRecordatorios, getRecordatorios))
   router.post('/:id/completar', real.realOrDemo(real.completarRecordatorio, completarRecordatorio))

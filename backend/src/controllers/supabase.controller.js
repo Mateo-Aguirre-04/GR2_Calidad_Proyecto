@@ -9,6 +9,7 @@ import { isValidBirthDate } from '../data/registration.js'
 import { distribucionHuerto, areaDeParcela, capacidadParcela, tipoDesdeImagen } from '../data/parcelas.js'
 import { fasesCrecimiento, listaParaCosechar } from '../data/fases.js'
 import { daysUntilLunarAge, lunarPhase } from '../data/lunarCalendar.js'
+import { guildRankingHandler } from '../data/guildRanking.js'
 
 // Con Supabase conectado, nunca se usan los controladores de demostración.
 export const realOrDemo = (real, demo) => (req, res, next) => isDbConnected() ? real(req, res, next) : demo(req, res, next)
@@ -19,13 +20,7 @@ const guildFields = `g.id_gremio AS id, g.nombre_gremio AS nombre, g.area_total 
   g.puntos_gremio AS puntos, g.latitud, g.longitud, g.created_at AS "creadoEn"`
 const guildResponse = (g) => ({ ...g, id: Number(g.id), ubicacion: { lat: Number(g.latitud), lng: Number(g.longitud) } })
 
-export const getGremios = handle(async (req, res) => {
-  requireUser(req)
-  const { rows } = await query(`SELECT ${guildFields}, count(m.id_usuario)::int AS "miembrosCount"
-    FROM gremio g LEFT JOIN miembro_gremio m USING(id_gremio)
-    GROUP BY g.id_gremio ORDER BY g.puntos_gremio DESC`)
-  res.json(rows.map(guildResponse))
-})
+export const getGremios = guildRankingHandler({query})
 
 export const getConfiguracion = handle(async (req,res) => {
   requireUser(req)

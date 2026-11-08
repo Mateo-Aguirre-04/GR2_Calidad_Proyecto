@@ -6,7 +6,7 @@ const DIA_MS = 86_400_000
 const formatoFecha = new Intl.DateTimeFormat('es-EC', { dateStyle: 'long', timeStyle: 'short' })
 
 // Información de la planta sembrada en una parcela (los datos vienen de la tabla planta).
-function ModalInfoCultivo({ cultivo, zona, parcela, ahora, enviando, onCosechar, onCerrar }) {
+function ModalInfoCultivo({ cultivo, zona, parcela, ahora, enviando, onCosechar, onCerrar, disponibilidadCosecha }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onCerrar() }
     window.addEventListener('keydown', handler)
@@ -34,7 +34,7 @@ function ModalInfoCultivo({ cultivo, zona, parcela, ahora, enviando, onCosechar,
         <button className={styles.cerrar} type="button" onClick={onCerrar} disabled={enviando} aria-label="Cerrar">×</button>
         <h2 id="info-cultivo-titulo">{planta?.nombre}</h2>
         {planta?.nombreCientifico && <p className={styles.cientifico}>{planta.nombreCientifico}</p>}
-        {imagen && <img className={styles.imagen} src={imagen} alt={`${planta?.nombre}, fase ${fase + 1}`} />}
+        {imagen && <img className={styles.imagen} src={imagen} onError={usarRespaldo} alt={`${planta?.nombre}, fase ${fase + 1}`} />}
 
         <dl className={styles.datos}>
           <dt>Ubicación</dt><dd>Zona {zona} · Parcela {parcela}</dd>
@@ -49,11 +49,12 @@ function ModalInfoCultivo({ cultivo, zona, parcela, ahora, enviando, onCosechar,
           <span style={{ width: `${progreso}%` }} />
         </div>
         <p className={styles.aviso}>
-          {lista ? '¡Lista para cosechar!' : `Faltan ${diasFaltan} ${diasFaltan === 1 ? 'día' : 'días'} para la fase de cosecha.`}
+          {lista ? 'Fase visual de cosecha alcanzada. Revisa los requisitos de la actividad.' : `Faltan ${diasFaltan} ${diasFaltan === 1 ? 'día' : 'días'} para la fase visual de cosecha.`}
         </p>
+        {disponibilidadCosecha?.motivos?.map(m=><p key={m}>{m}</p>)}
 
-        <button className={styles.cosechar} type="button" disabled={!lista || enviando} onClick={() => onCosechar(cultivo)}>
-          {enviando ? 'Guardando…' : 'Cosechar'}
+        <button className={styles.cosechar} type="button" disabled={enviando} onClick={() => onCosechar(cultivo)}>
+          {enviando ? 'Guardando…' : 'Revisar actividad de cosecha'}
         </button>
       </section>
     </div>

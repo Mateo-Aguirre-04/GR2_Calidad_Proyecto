@@ -11,6 +11,19 @@ import { recordWatering } from '../src/data/watering.js'
 import { requireMember } from '../src/data/postgres.js'
 import { localDate } from '../src/data/checklistEnvironment.js'
 import { SearchMoonQuarter, NextMoonQuarter } from 'astronomy-engine'
+import { readGuildRanking, guildRankingHandler } from '../src/data/guildRanking.js'
+
+async function installCurrentSchema(db) {
+  await db.query(`CREATE TABLE gremio(id_gremio bigint PRIMARY KEY,puntos_gremio integer DEFAULT 0,area_total numeric DEFAULT 1800,
+      nombre_gremio text DEFAULT 'Prueba',latitud numeric DEFAULT -0.2,longitud numeric DEFAULT -78.5,created_at timestamptz DEFAULT now());
+    INSERT INTO gremio(id_gremio) VALUES(10),(11);
+    CREATE TABLE subdiseño_huerto(id_diseño integer,id_subdiseño integer,imagen text,num_parcelas integer);
+    INSERT INTO subdiseño_huerto VALUES(1,1,'surcos.png',6);
+    ALTER TABLE huerto ADD COLUMN id_diseño integer DEFAULT 1, ADD COLUMN id_subdiseño integer DEFAULT 1;
+    ALTER TABLE huerto_planta ADD COLUMN zona integer, ADD COLUMN parcela integer;`)
+  await db.query(`CREATE TABLE IF NOT EXISTS planta(id_planta bigint PRIMARY KEY,nombre_comun text,ciclo_cultivo text,fases jsonb DEFAULT '[]',imagen_muerta text)`)
+  await db.query(await readFile(new URL('../migrations/20261108_004_secciones_puntos_ranking.sql',import.meta.url),'utf8'))
+}
 
 const url = process.env.CHECKLIST_TEST_DATABASE_URL
 test('PostgreSQL aislado: baseline, consulta HTTP, permisos e inscripción por miembro', { skip: !url }, async () => {
@@ -34,6 +47,7 @@ test('PostgreSQL aislado: baseline, consulta HTTP, permisos e inscripción por m
     await db.query(await readFile(new URL('../migrations/20261108_001_checklist_baseline.sql', import.meta.url), 'utf8'))
     await db.query(await readFile(new URL('../migrations/20261108_002_solicitudes_checklist.sql', import.meta.url), 'utf8'))
     await db.query(await readFile(new URL('../migrations/20261108_003_programacion_checklist.sql', import.meta.url), 'utf8'))
+    await installCurrentSchema(db)
     await db.query(`INSERT INTO usuario_general VALUES (5),(6),(7);
       INSERT INTO huerto VALUES (42,10),(43,11),(44,10);
       INSERT INTO miembro_gremio VALUES (5,10),(6,10),(7,11);
@@ -45,6 +59,7 @@ test('PostgreSQL aislado: baseline, consulta HTTP, permisos e inscripción por m
       INSERT INTO tareas_huerto (codigo_actividad,id_huerto,modalidad,id_planta,fecha_siembra,completada_en,completada_por)
         VALUES ('riego',42,'individual',9,'2026-11-08 10:00:00.123456+00',now(),5);
       INSERT INTO participantes_tarea(id_tarea,id_usuario) VALUES (1,5);`)
+    let now=new Date('2026-11-08T15:00Z')
     const app = express()
     app.use(express.json())
     // Sesiones ficticias solo en esta prueba, sin login ni escrituras de presencia.
@@ -52,6 +67,7 @@ test('PostgreSQL aislado: baseline, consulta HTTP, permisos e inscripción por m
       if (req.headers['x-test-user']) req.session = { usuarioId: req.headers['x-test-user'], source: 'postgres' }
       next()
     })
+    app.get('/api/gremios',guildRankingHandler(db))
     app.use('/api/recordatorios', createRecordatoriosRouter(db, async operation => {
       await db.query('SAVEPOINT http_operation')
       try {
@@ -65,7 +81,7 @@ test('PostgreSQL aislado: baseline, consulta HTTP, permisos e inscripción por m
       }
     },async(client,user,garden)=>{
       await requireMember(client,user,garden)
-      return {ahora:new Date('2026-11-08T15:00Z'),zonaHoraria:'America/Guayaquil',clima:null,amanecer:null}
+      return {ahora:now,zonaHoraria:'America/Guayaquil',clima:null,amanecer:null}
     }))
     server = app.listen(0, '127.0.0.1')
     await new Promise(resolve => server.once('listening', resolve))
@@ -136,34 +152,62 @@ test('PostgreSQL aislado: baseline, consulta HTTP, permisos e inscripción por m
     await db.query('ROLLBACK TO SAVEPOINT reward_failure')
     assert.deepEqual((await db.query('SELECT puntos FROM usuario_general WHERE id_usuario=5')).rows, [{ puntos: 30 }])
     await db.query("INSERT INTO huerto_planta VALUES(42,10,'2026-11-08 10:00:00.654321+00')")
-    const wateringBody = { claveSolicitud: '23f70b94-af20-46c5-9f88-7db0887a6cac', cultivos: [
-      { plantaId: '9', fechaSiembra: '2026-11-08 10:00:00.123456+00' },
-      { plantaId: '10', fechaSiembra: '2026-11-08 10:00:00.654321+00' },
-    ] }
+    await db.query("INSERT INTO zonas_huerto(id_huerto,nombre,zona_mapa,parcela_mapa) VALUES(42,'Seccion 1',1,1)")
+    await db.query('UPDATE huerto_planta SET zona=1,parcela=1,cantidad=20 WHERE id_huerto=42')
+    const wateringBody = { claveSolicitud:'23f70b94-af20-46c5-9f88-7db0887a6cac',zonaId:'1' }
     const water = (body, user = '5') => fetch(
       `http://127.0.0.1:${server.address().port}/api/recordatorios/huerto/42/riegos`,
       { method: 'POST', headers: { 'x-test-user': user, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     const registered = await water(wateringBody)
     assert.equal(registered.status, 200)
     const receipt = await registered.json()
-    assert.equal(receipt.puntosOtorgados, 10)
-    assert.equal(receipt.tareas.length, 2)
+    assert.equal(receipt.puntosOtorgados, 5)
+    assert.equal(receipt.tareas.length, 1)
+    const rankingUrl=`http://127.0.0.1:${server.address().port}/api/gremios`
+    const ranking=async()=>{
+      const response=await fetch(rankingUrl,{headers:{'x-test-user':'5'}})
+      assert.equal(response.headers.get('cache-control'),'no-store')
+      return response.json()
+    }
+    assert.equal((await ranking())[0].puntos,65)
     assert.deepEqual(await (await water(wateringBody)).json(), receipt)
-    assert.equal((await water({ ...wateringBody, cultivos: [wateringBody.cultivos[0]] })).status, 409)
+    assert.equal((await water({ ...wateringBody, zonaId:'2' })).status, 409)
     assert.equal((await water(wateringBody, '7')).status, 403)
-    assert.equal((await db.query('SELECT puntos FROM usuario_general WHERE id_usuario=5')).rows[0].puntos, 40)
+    assert.equal((await db.query('SELECT puntos FROM usuario_general WHERE id_usuario=5')).rows[0].puntos, 35)
     assert.equal((await db.query('SELECT count(*)::int AS n FROM solicitudes_checklist')).rows[0].n, 1)
-    const duplicate = await water({ ...wateringBody, claveSolicitud: 'f75bc56c-c137-4b8c-8c17-f9cfb987e6ce',
-      cultivos: [wateringBody.cultivos[0], wateringBody.cultivos[0]] })
-    assert.equal(duplicate.status, 400)
-    assert.equal((await db.query('SELECT count(*)::int AS n FROM solicitudes_checklist')).rows[0].n, 1)
+    const invalid = await water({ ...wateringBody, claveSolicitud:'f75bc56c-c137-4b8c-8c17-f9cfb987e6ce',zonaId:'999' })
+    assert.equal(invalid.status,404)
+    assert.equal((await db.query('SELECT count(*)::int AS n FROM solicitudes_checklist')).rows[0].n,1)
     const tasksBefore = (await db.query('SELECT count(*)::int AS n FROM tareas_huerto')).rows[0].n
-    await db.query('ALTER TABLE usuario_general ADD CONSTRAINT test_batch_limit CHECK (puntos < 50)')
+    await db.query('ALTER TABLE usuario_general ADD CONSTRAINT test_batch_limit CHECK (puntos < 40)')
     const failedBatch = await water({ ...wateringBody, claveSolicitud: 'dfffb9a3-96bc-4ae6-9a36-6f26edc89a60' })
     assert.equal(failedBatch.status, 503)
-    assert.equal((await db.query('SELECT puntos FROM usuario_general WHERE id_usuario=5')).rows[0].puntos, 40)
+    assert.equal((await db.query('SELECT puntos FROM usuario_general WHERE id_usuario=5')).rows[0].puntos, 35)
     assert.equal((await db.query('SELECT count(*)::int AS n FROM tareas_huerto')).rows[0].n, tasksBefore)
     assert.equal((await db.query('SELECT count(*)::int AS n FROM solicitudes_checklist')).rows[0].n, 1)
+    await db.query('ALTER TABLE usuario_general DROP CONSTRAINT test_batch_limit')
+    const second=await water({...wateringBody,claveSolicitud:'00000000-0000-4000-8000-000000000099'})
+    assert.equal(second.status,200)
+    assert.equal((await db.query('SELECT puntos FROM usuario_general WHERE id_usuario=5')).rows[0].puntos,40)
+    assert.equal((await ranking())[0].puntos,70)
+    const base=`http://127.0.0.1:${server.address().port}/api/recordatorios/huerto/42`
+    const post=async(path,body)=>{
+      const res=await fetch(base+path,{method:'POST',headers:{'x-test-user':'5','Content-Type':'application/json'},body:JSON.stringify(body)})
+      return {status:res.status,data:await res.json()}
+    }
+    const scheduled=await post('/programar',{actividad:'riego',zonaId:'1',programadaPara:'2026-11-09T15:00:00Z',claveSolicitud:'00000000-0000-4000-8000-000000000100'})
+    assert.equal(scheduled.status,200)
+    let panelResponse=await fetch(base+'/panel',{headers:{'x-test-user':'5'}})
+    const before=await panelResponse.json()
+    assert.ok(before.recordatorios.some(r=>r.tipo==='riego'&&r.zonaId==='1'&&r.nombre==='Seccion 1'))
+    assert.equal((await post(`/tareas/${scheduled.data.id}/completar`,{confirmaciones:{}})).status,409)
+    now=new Date('2026-11-09T15:00Z')
+    const completedWater=await post(`/tareas/${scheduled.data.id}/completar`,{confirmaciones:{}})
+    assert.equal(completedWater.status,200)
+    assert.deepEqual((await post(`/tareas/${scheduled.data.id}/completar`,{confirmaciones:{}})).data,completedWater.data)
+    assert.equal((await ranking())[0].puntos,75)
+    panelResponse=await fetch(base+'/panel',{headers:{'x-test-user':'5'}})
+    assert.ok(!(await panelResponse.json()).recordatorios.some(r=>r.tipo==='riego'&&r.tareaId===scheduled.data.id))
   } finally {
     if (server) await new Promise(resolve => server.close(resolve))
     await db.query('ROLLBACK')
@@ -201,6 +245,8 @@ test('PostgreSQL: finalizaciones concurrentes e inscripción simultánea no dupl
           PRIMARY KEY(id_huerto,id_planta,fecha_siembra));`)
       await db.query(await readFile(new URL('../migrations/20261108_001_checklist_baseline.sql', import.meta.url), 'utf8'))
       await db.query(await readFile(new URL('../migrations/20261108_002_solicitudes_checklist.sql', import.meta.url), 'utf8'))
+      await db.query(await readFile(new URL('../migrations/20261108_003_programacion_checklist.sql', import.meta.url), 'utf8'))
+      await installCurrentSchema(db)
       await db.query(`INSERT INTO usuario_general(id_usuario) VALUES(5),(6),(8);
         INSERT INTO huerto VALUES(42,10);
         INSERT INTO miembro_gremio VALUES(5,10),(6,10),(8,10);
@@ -231,12 +277,21 @@ test('PostgreSQL: finalizaciones concurrentes e inscripción simultánea no dupl
     assert.deepEqual((await pool.query('SELECT puntos FROM usuario_general WHERE id_usuario IN (5,6) ORDER BY id_usuario')).rows,
       [{ puntos: 120 }, { puntos: 90 }])
     await pool.query("INSERT INTO huerto_planta VALUES(42,9,'2026-11-08 10:00:00.123456+00')")
-    const input = { claveSolicitud: '23f70b94-af20-46c5-9f88-7db0887a6cac',
-      cultivos: [{ plantaId: '9', fechaSiembra: '2026-11-08 10:00:00.123456+00' }] }
-    const watering = await Promise.all([1, 2, 3, 4].map(() => transaction(db => recordWatering(db, '5', '42', input))))
+    await pool.query("INSERT INTO zonas_huerto(id_huerto,nombre,zona_mapa,parcela_mapa) VALUES(42,'Seccion 1',1,1)")
+    const input = { claveSolicitud:'23f70b94-af20-46c5-9f88-7db0887a6cac',zonaId:'1' }
+    const watering = await Promise.all([1, 2, 3, 4].map(() => transaction(db => recordWatering(db, '5', '42', input,{ahora:new Date(),zonaHoraria:'America/Guayaquil'}))))
     for (const result of watering) assert.deepEqual(result, watering[0])
     assert.equal((await pool.query('SELECT puntos FROM usuario_general WHERE id_usuario=5')).rows[0].puntos, 125)
     assert.equal((await pool.query('SELECT count(*)::int AS n FROM solicitudes_checklist')).rows[0].n, 1)
+    const moves=await Promise.allSettled([
+      transaction(db=>db.query('UPDATE usuario_general SET puntos=puntos+7 WHERE id_usuario=8')),
+      transaction(db=>db.query('UPDATE miembro_gremio SET id_gremio=11 WHERE id_usuario=8')),
+      transaction(db=>db.query('UPDATE usuario_general SET puntos=puntos+3 WHERE id_usuario=6')),
+    ])
+    for(const move of moves) assert.equal(move.status,'fulfilled',move.reason?.message)
+    const differences=(await pool.query(`SELECT count(*)::int AS n FROM gremio g WHERE puntos_gremio<>
+      (SELECT COALESCE(sum(u.puntos),0) FROM miembro_gremio m JOIN usuario_general u USING(id_usuario) WHERE m.id_gremio=g.id_gremio)`)).rows[0].n
+    assert.equal(differences,0)
   } finally {
     // Exclusivamente la base local de prueba validada arriba, creada por este test.
     if (created) await pool.query('DROP SCHEMA huertos CASCADE')
@@ -278,6 +333,7 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     for(const file of ['20261108_001_checklist_baseline.sql','20261108_002_solicitudes_checklist.sql','20261108_003_programacion_checklist.sql']) {
       await db.query(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'))
     }
+    await installCurrentSchema(db)
     const transact=async operation=>{
       await db.query('SAVEPOINT operation')
       try {const result=await operation(db);await db.query('RELEASE SAVEPOINT operation');return result}
@@ -299,7 +355,7 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     const getTask=async code=>(await call()).data.find(t=>t.actividad.codigo===code)
 
     clock(phaseDate(0,'2026-10-01T00:00Z'))
-    const zoneResult=await call('/zonas',{nombre:'Cama A'});assert.equal(zoneResult.status,200)
+    const zoneResult=await call('/zonas',{zona:1,parcela:1});assert.equal(zoneResult.status,200)
     const zoneId=zoneResult.data.id
     const cycle=await call('/ciclos',{zonaId:zoneId,claveSolicitud:key(1)});assert.equal(cycle.status,200)
     assert.deepEqual((await call('/ciclos',{zonaId:zoneId,claveSolicitud:key(1)})).data,cycle.data)
@@ -311,7 +367,7 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     await join(prep.id,'5');await join(prep.id,'6')
     assert.equal((await done(prep.id,{abonoOrganico:true})).status,200)
     const preparedDate=new Date(env.ahora)
-    const sowBody={claveSolicitud:key(2),cicloId:cycle.data.cicloId,plantaId:'9',parteCosecha:'hojas',x:25,y:35,confirmaciones:{ritualAmanecer:true}}
+    const sowBody={claveSolicitud:key(2),cicloId:cycle.data.cicloId,plantaId:'9',parteCosecha:'hojas',cantidad:20,confirmaciones:{ritualAmanecer:true}}
     assert.equal((await call('/siembras',sowBody)).status,409)
     clock(phaseDate(1,new Date(+preparedDate+16*86400000)))
     assert.equal((await call('/siembras',{...sowBody,confirmaciones:{}})).status,400)
@@ -336,9 +392,16 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     const harvest=await getTask('cosecha')
     clock(phaseDate(2,new Date(+env.ahora+2*86400000)))
     assert.equal((await done(harvest.id,{cultivoListo:true,rocioSeco:true})).status,409)
+    const otherSection=(await call('/zonas',{zona:1,parcela:2})).data
+    await db.query(`INSERT INTO tareas_huerto(codigo_actividad,id_huerto,id_zona,modalidad,completada_en,completada_por)
+      VALUES('riego',42,$1,'individual',$2,5)`,[otherSection.id,new Date(+env.ahora-2*86400000)])
+    assert.ok((await getTask('cosecha')).disponibilidad.motivos.some(m=>m.includes('riego de la sección')))
     await db.query(`INSERT INTO tareas_huerto(codigo_actividad,id_huerto,id_planta,fecha_siembra,modalidad,completada_en,completada_por)
       VALUES('riego',42,$1,$2,'individual',$3,5)`,[crop.plantaId,crop.fechaSiembra,
       `${localDate(new Date(+env.ahora-2*86400000),zone)}T23:30:00-05:00`])
+    // Un riego adicional del día siguiente no invalida el de hace dos fechas locales.
+    await db.query(`INSERT INTO tareas_huerto(codigo_actividad,id_huerto,id_zona,modalidad,completada_en,completada_por)
+      VALUES('riego',42,$1,'individual',$2,5)`,[zoneId,new Date(+env.ahora-86400000)])
     const synced=await call('/sincronizar',{});assert.equal(synced.status,200)
     const ritual=await getTask('ritual_agradecimiento');assert.ok(ritual)
     await join(ritual.id,'5');await join(ritual.id,'6')
@@ -349,8 +412,8 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     assert.deepEqual((await done(harvest.id)).data,harvested.data)
     assert.equal((await db.query('SELECT id_estado FROM huerto_planta WHERE id_planta=9')).rows[0].id_estado,1)
     assert.equal((await call('/ciclos',{zonaId:zoneId,claveSolicitud:key(6)})).status,409)
-    const otherZone=(await call('/zonas',{nombre:'Cama B'})).data
-    assert.equal((await call('/ciclos',{zonaId:otherZone.id,claveSolicitud:key(7)})).status,200)
+    const otherZone=(await call('/zonas',{zona:1,parcela:2})).data
+    assert.ok(otherZone.id)
     const lots=(await call('/panel')).data.lotes;assert.equal(lots.length,1)
     const drying=await call('/secados',{loteId:lots[0].id,modalidad:'grupal',aLaSombra:true});assert.equal(drying.status,200)
     await join(drying.data.id,'6')
@@ -383,7 +446,8 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     assert.equal(unknown.disponibilidad.estado,'pendiente_configuracion')
     // Al completar los datos del catálogo se puede cosechar y finalizar el cultivo.
     await db.query("UPDATE planta SET ciclo_cultivo='2 días' WHERE id_planta=10")
-    const importedZone=(await call('/zonas',{nombre:'Cama C'})).data
+    await db.query('UPDATE gremio SET area_total=2400 WHERE id_gremio=10')
+    const importedZone=(await call('/zonas',{zona:4,parcela:1})).data
     const configured=await call('/cultivos/configuracion',{plantaId:'10',fechaSiembra:'2026-01-01T10:00:00Z',parteCosecha:'flores',zonaId:importedZone.id},'6','PUT')
     assert.equal(configured.status,200)
     assert.equal((await call('/ciclos',{zonaId:importedZone.id,claveSolicitud:key(10)})).status,409)
@@ -414,4 +478,43 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     if(server) await new Promise(resolve=>server.close(resolve))
     await db.query('ROLLBACK');await db.end()
   }
+})
+
+test('004: totales iniciales, cambios de membresía e inmutabilidad de recompensas', {skip:!url},async()=>{
+  const target=new URL(url)
+  assert.ok(['localhost','127.0.0.1'].includes(target.hostname));assert.equal(target.pathname,'/gr2_checklist_test')
+  const db=new pg.Client({connectionString:url});await db.connect()
+  try {
+    await db.query(`BEGIN;CREATE SCHEMA huertos;SET LOCAL search_path=huertos,public;
+      CREATE TABLE usuario_general(id_usuario bigint PRIMARY KEY,puntos integer DEFAULT 0);
+      CREATE TABLE miembro_gremio(id_usuario bigint,id_gremio bigint,PRIMARY KEY(id_usuario,id_gremio));
+      CREATE TABLE huerto(id_huerto bigint PRIMARY KEY,id_gremio bigint);
+      CREATE TABLE huerto_planta(id_huerto bigint,id_planta bigint,fecha_siembra timestamptz,PRIMARY KEY(id_huerto,id_planta,fecha_siembra));
+      INSERT INTO usuario_general VALUES(5,50),(6,20);
+      INSERT INTO miembro_gremio VALUES(5,10),(6,11);
+      INSERT INTO huerto VALUES(42,10);`)
+    for(const file of ['20261108_001_checklist_baseline.sql','20261108_002_solicitudes_checklist.sql','20261108_003_programacion_checklist.sql'])
+      await db.query(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'))
+    await installCurrentSchema(db)
+    assert.deepEqual((await readGuildRanking(db)).map(g=>[g.id,g.puntos]),[['10',50],['11',20]])
+    await db.query('UPDATE miembro_gremio SET id_gremio=10 WHERE id_usuario=6')
+    assert.deepEqual((await readGuildRanking(db)).map(g=>g.puntos),[70,0])
+    await db.query('UPDATE usuario_general SET puntos=puntos+7 WHERE id_usuario=6')
+    assert.equal((await readGuildRanking(db))[0].puntos,77)
+    await db.query('DELETE FROM miembro_gremio WHERE id_usuario=5;INSERT INTO miembro_gremio VALUES(5,11)')
+    assert.deepEqual((await readGuildRanking(db)).map(g=>[g.id,g.puntos]),[['11',50],['10',27]])
+    await db.query(`INSERT INTO tareas_huerto(codigo_actividad,id_huerto,modalidad,completada_en,completada_por)
+      VALUES('limpieza_huerto',42,'grupal',now(),6);
+      INSERT INTO participantes_tarea(id_tarea,id_usuario,puntos_otorgados) VALUES(1,6,30);`)
+    assert.equal((await db.query('SELECT puntos FROM usuario_general WHERE id_usuario=6')).rows[0].puntos,57)
+    await db.query('UPDATE participantes_tarea SET puntos_otorgados=30 WHERE id_tarea=1 AND id_usuario=6')
+    assert.equal((await db.query('SELECT puntos FROM usuario_general WHERE id_usuario=6')).rows[0].puntos,57)
+    for(const sql of ['UPDATE participantes_tarea SET puntos_otorgados=999 WHERE id_tarea=1',
+      'DELETE FROM participantes_tarea WHERE id_tarea=1',
+      "INSERT INTO participantes_tarea(id_tarea,id_usuario,puntos_otorgados) VALUES(1,5,30)"]) {
+      await db.query('SAVEPOINT invalid_reward')
+      await assert.rejects(db.query(sql),{code:'P0001'})
+      await db.query('ROLLBACK TO SAVEPOINT invalid_reward')
+    }
+  } finally {await db.query('ROLLBACK');await db.end()}
 })

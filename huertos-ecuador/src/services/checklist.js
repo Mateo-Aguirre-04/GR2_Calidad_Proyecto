@@ -27,8 +27,8 @@ export function completarTarea(huertoId, tareaId, confirmaciones = {}) {
     'POST', undefined, { confirmaciones })
 }
 
-export function crearZona(huertoId, nombre) {
-  return request(`${gardenPath(huertoId)}/zonas`, 'POST', undefined, { nombre })
+export function crearZona(huertoId, zona, parcela) {
+  return request(`${gardenPath(huertoId)}/zonas`, 'POST', undefined, { zona, parcela })
 }
 
 export function iniciarCicloZona(huertoId, zonaId, claveSolicitud) {
@@ -59,7 +59,7 @@ export function inscribirseEnTarea(huertoId, tareaId) {
   return request(`/api/recordatorios/huerto/${encodeURIComponent(huertoId)}/tareas/${encodeURIComponent(tareaId)}/inscribirse`, 'POST')
 }
 
-export function registrarRiegos(huertoId, cultivos, claveSolicitud) {
+export function registrarRiegos(huertoId, zonaId, claveSolicitud) {
   return request(`/api/recordatorios/huerto/${encodeURIComponent(huertoId)}/riegos`,
-    'POST', undefined, { cultivos, claveSolicitud })
+    'POST', undefined, { zonaId, claveSolicitud })
 }

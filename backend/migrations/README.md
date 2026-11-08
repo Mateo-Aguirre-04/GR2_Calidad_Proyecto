@@ -7,6 +7,7 @@ El comando previo pnpm db:migrate sigue limitado a last_seen y no se cambió.
 | 20261108_001_checklist_baseline.sql | Ya aplicado manualmente | Actividades, tareas y participantes; NO volver a ejecutar allí |
 | 20261108_002_solicitudes_checklist.sql | Aplicado y verificado el 2026-11-08 | Comprobantes idempotentes de acciones |
 | 20261108_003_programacion_checklist.sql | Aplicado y verificado el 2026-11-08 | Zonas, ciclos, metadatos de cultivo, lotes, zona horaria y contexto de tareas |
+| 20261108_004_secciones_puntos_ranking.sql | Aplicada y verificada en Supabase el 2026-11-08 | Secciones mapeadas, riego por sección y triggers de puntos y gremios |
 
 002 y 003 agregan seis tablas y columnas/índices en tareas_huerto. No borran tablas,
 no cambian puntos ni rellenan cultivos existentes. Las nuevas tablas tienen RLS activo
@@ -34,6 +35,18 @@ La aplicación ya se realizó y la revisión posterior confirmó las seis tablas
 sin escribir datos en la base compartida.
 
 ## Prueba local
+
+Para 004, después de validar localmente:
+
+```powershell
+node scripts/migrate-activities.js         # Solo lectura: triggers y diferencias de saldos
+node scripts/migrate-activities.js --apply # 004 en una transacción; calcula totales iniciales
+```
+
+El ejecutor rechaza triggers previos desconocidos para impedir una doble acreditación.
+004 conserva saldos de miembros y premios anteriores; cambia el saldo del gremio para
+igualarlo a la suma actual. El backend actualizado requiere 004 antes de reiniciar.
+No ejecutar 001–003 ni el SQL raíz sobre la base compartida.
 
 ```powershell
 cd backend

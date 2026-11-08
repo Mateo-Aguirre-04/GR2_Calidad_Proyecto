@@ -1,12 +1,12 @@
-# Checklist: contrato para conectar la interfaz de Karen
+# Actividades, recordatorios, puntos y ranking
 
 El backend usa la cookie de sesión PostgreSQL y valida la membresía del huerto. No
 recibe usuarioId, rango ni puntos del cliente. IDs como texto; el cultivo conserva
 huertoId, plantaId y fechaSiembra exacta, incluidos microsegundos y zona horaria.
 
-El login y las pantallas actuales se mantienen. Misiones, insignias, certificación,
-niveles y ranking quedan fuera. La referencia local de Karen solo tenía el commit
-inicial, por lo que no se modificó su interfaz ni se contactó a otros integrantes.
+El juego usa las parcelas ya dibujadas: cada sección se identifica por zona y parcela.
+El checklist sincroniza esos destinos con zonas_huerto sin crear otra distribución.
+El alcance incluye el ranking real de gremios; misiones, insignias y certificación quedan fuera.
 
 ## React
 
@@ -22,10 +22,10 @@ Sincroniza al montar, después de las acciones y cada minuto con la pestaña vis
 Cancela lecturas antiguas y evita mostrar datos de otro huerto. Las acciones propagan
 errores para mostrarlos en la interfaz. El adaptador está en `src/services/checklist.js`.
 
-No usar el hook legado useRecordatorios para este contrato. Usar sembrar/completar
-del hook nuevo para guardar operación y recompensa juntas. Las rutas operativas
-anteriores `/api/huertos/:id/sembrar` y `/cosechar` se conservaron; no otorgan estas
-recompensas ni ejecutan este flujo. La pantalla de Karen deberá usar las acciones nuevas.
+Usar useChecklist para guardar operación y recompensa juntas. Las rutas anteriores
+`/api/huertos/:id/sembrar` y `/cosechar` también pasan por el workflow y sus reglas;
+cosechar exige tareaId y confirmaciones. La pantalla ya usa el checklist para ambas acciones.
+Regar y Recordatorios abren el panel de actividades; Gremio incluye la pestaña de ranking.
 
 ## API
 
@@ -36,13 +36,13 @@ Prefijo: `/api/recordatorios/huerto/:huertoId`.
 | GET | `/` | Arreglo de tareas con disponibilidad y participación |
 | GET | `/panel` | Tareas, zonas, lotes, recordatorios y contexto; solo lectura |
 | POST | `/sincronizar` | Genera tareas faltantes sin duplicarlas y devuelve el panel |
-| POST | `/zonas` | `{ nombre }` → `{ id, nombre }` |
+| POST | `/zonas` | `{ zona, parcela }` de la distribución existente → `{ id, nombre }` |
 | POST | `/ciclos` | `{ zonaId, claveSolicitud }` → `{ cicloId, zonaId }` |
 | PUT | `/cultivos/configuracion` | `{ plantaId, fechaSiembra, parteCosecha, zonaId? }` para cultivos existentes |
 | POST | `/cultivos/finalizar` | `{ plantaId, fechaSiembra, cultivoFinalizado: true }`; libera el cultivo sin entregar puntos |
 | POST | `/programar` | Jornada de limpieza o aplicación de abono |
 | POST | `/siembras` | Registra cultivo, siembra y 30 puntos juntos |
-| POST | `/riegos` | Una tarea completada y 5 puntos por cultivo seleccionado |
+| POST | `/riegos` | `{ zonaId, claveSolicitud }`: una tarea completada y 5 puntos en total por sección |
 | POST | `/tareas/:tareaId/inscribirse` | Inscribe al miembro actual, una sola vez |
 | POST | `/tareas/:tareaId/completar` | `{ confirmaciones }`; devuelve el comprobante original al reintentar |
 | POST | `/secados` | `{ loteId, modalidad, aLaSombra: true }`; inicia secado y registra al responsable |
@@ -96,7 +96,7 @@ registrado ya sirve para una cosecha posible, no se vuelve a pedir.
 
 | Actividad | Regla |
 |---|---|
-| Riego | Individual, 5 por cultivo/tarea. Frecuencia habitual y límite diario pendientes. |
+| Riego | Individual, 5 en total por sección/tarea, sin multiplicar por plantas. Se programa o registra explícitamente; frecuencia automática y límite diario pendientes. |
 | Maleza | Individual por ciclo de zona; luna nueva local ±1 día, sol y sin lluvia; 15. |
 | Preparación | Grupal después de maleza en esa zona/ciclo; 30 por inscrito. Abono opcional durante preparación no entrega puntos adicionales. |
 | Siembra | Esperar 15 días transcurridos; 08:00 incluida a 12:00 excluida, hora local; cuarto creciente o luna llena ±1 día; confirmar ritual al amanecer; 30 por cultivo. |
@@ -104,7 +104,7 @@ registrado ya sirve para una cosecha posible, no se vuelve a pedir.
 | Abono | Programado para un cultivo, disponible en su fecha local; 20 una vez por cultivo/ciclo. Otra programación devuelve la misma tarea, sin otro premio. |
 | Limpieza | Jornada grupal bajo demanda en su fecha local; 30 por inscrito. |
 | Ritual de agradecimiento | Jornada grupal de cosecha del día local, después del amanecer; confirmar ritual al amanecer; 20 por inscrito. Es distinto del ritual de siembra. |
-| Cosecha | Ciclo cumplido, parte registrada, riego del mismo cultivo en la fecha local de hace dos días, fase ±1 día, sol/sin lluvia y ritual de la jornada completado. Confirmar madurez y rocío seco; 35 una vez por cultivo. |
+| Cosecha | Ciclo cumplido, parte registrada, riego de la misma sección en la fecha local de hace dos días, fase ±1 día, sol/sin lluvia y ritual de la jornada completado. Confirmar madurez y rocío seco; 35 una vez por cultivo. Otro riego más reciente no invalida el anterior. |
 | Secado | Lote único por cosecha, individual o grupal. Registrar inicio a la sombra. Desde día local 10 confirmar seco, empacado, etiquetado y almacenado; 20 por registrado. No se completa automáticamente al día 15. |
 
 Hojas/flores/frutos: cuarto creciente o luna llena. Semillas/raíces: cuarto menguante.
@@ -141,18 +141,18 @@ sustituye por clima soleado; no se añade umbral térmico. Documentación técni
 
 Crear una clave con crypto.randomUUID() una vez por acción. Conservar clave y contenido
 durante los reintentos. Si cambia la acción, usar otra clave. Se exige en ciclos,
-programación, siembra y riego. Un envío de riego acepta de 1 a 100 cultivos distintos.
+programación, siembra y riego. Un envío de riego corresponde a una sección existente.
 
 ```js
 const claveRiego = crypto.randomUUID() // Conservar en el estado de la acción para reintentar.
-await registrarRiegos([{ plantaId: '9', fechaSiembra: fechaExacta }], claveRiego)
+await registrarRiegos(seccionId, claveRiego)
 const claveAbono = crypto.randomUUID()
 await programar({ actividad: 'abono_organico', cultivo: { plantaId: '9', fechaSiembra: fechaExacta },
   programadaPara: fechaConZonaHoraria, claveSolicitud: claveAbono })
 const claveLimpieza = crypto.randomUUID()
 await programar({ actividad: 'limpieza_huerto', programadaPara: fechaConZonaHoraria, claveSolicitud: claveLimpieza })
 const claveSiembra = crypto.randomUUID()
-await sembrar({ cicloId: '1', plantaId: '9', parteCosecha: 'flores', x: 25, y: 35,
+await sembrar({ cicloId: '1', plantaId: '9', parteCosecha: 'flores', cantidad: 20,
   confirmaciones: { ritualAmanecer: true }, claveSolicitud: claveSiembra })
 await completar(cosechaId, { cultivoListo: true, rocioSeco: true, conservarCultivo: true })
 // Cuando posteriormente el cultivo conservado termine de ocupar la zona:
@@ -164,17 +164,38 @@ await completar(secadoId, { seco: true, empacado: true, etiquetado: true, almace
 Los true deben salir de la confirmación del miembro, no marcarse automáticamente.
 La preparación acepta confirmación opcional abonoOrganico. Ambos rituales usan
 ritualAmanecer. sembrar devuelve `{ cultivo, comprobante }`; actualizar luego la vista
-del huerto. Riego devuelve `{ claveSolicitud, huertoId, puntosOtorgados, tareas }`.
+del huerto. Riego devuelve `{ claveSolicitud, huertoId, zonaId, puntosOtorgados: 5, tareas }`.
 Comprobante de cierre: `{ id, completado, completadaEn, completadaPor,
 recompensas: [{ usuarioId, puntos }] }`. Reenviar conserva fecha, autor y puntos.
 Estado, participaciones y acumulados se confirman en una transacción; ante un fallo
-se revierte todo el envío, incluso si falló después de regar la primera planta.
+se revierte toda la actividad. Los riegos y premios anteriores conservan su historial.
+
+## Puntos y ranking
+
+004 incorpora acreditar_recompensa_tarea (AFTER INSERT o UPDATE OF puntos_otorgados
+en participantes_tarea). Solo pasar de NULL a una recompensa válida incrementa
+usuario_general.puntos. El backend ya no incrementa ese saldo por separado.
+validar_recompensa_tarea impide acreditar una tarea incompleta, un monto distinto al
+catálogo, un miembro ajeno o alterar/eliminar una recompensa acreditada.
+
+sincronizar_puntos_gremio (AFTER UPDATE OF puntos en usuario_general) y
+sincronizar_membresia_gremio (AFTER INSERT/UPDATE/DELETE en miembro_gremio)
+mantienen gremio.puntos_gremio como suma de sus miembros actuales. El trigger BEFORE
+bloquear_saldo_membresia serializa contra cambios de saldo. La migración calcula los
+totales iniciales sin volver a acreditar premios anteriores. Los cambios concurrentes
+usan bloqueos ordenados.
+
+GET /api/gremios consulta esos saldos, ordena por puntos_gremio DESC y desempata por ID.
+La pestaña Ranking de gremios consulta esta ruta al abrirse y permite actualizarla.
+Al completar actividades se recargan el perfil y el huerto. No existe una tabla adicional
+de recordatorios: el panel los deriva de tareas, cultivos, lotes y condiciones verificadas.
 
 ## SQL y pruebas
 
 001 es la baseline ya creada manualmente. 002 agrega idempotencia; 003 agrega zonas,
-ciclos, cultivos, lotes y contexto de tareas. Ver [migraciones](backend/migrations/README.md).
-Las migraciones 002 y 003 se aplicaron y verificaron en Supabase el 8 de noviembre de 2026.
+ciclos, cultivos, lotes y contexto; 004 vincula las secciones mapeadas, el riego por sección
+y los triggers de puntos y gremios. Ver [migraciones](backend/migrations/README.md).
+Las migraciones 002, 003 y 004 se aplicaron y verificaron en Supabase el 8 de noviembre de 2026.
 El SQL raíz contiene las mismas secciones y un modelo legado destructivo: no ejecutar
 ese archivo completo. No se escriben datos ficticios en Supabase.
 
@@ -184,9 +205,11 @@ de secado, reenvíos, concurrencia y reversión de fallos. La base temporal se d
 terminar. El lint general del frontend tenía 7 errores y 2 advertencias en otros módulos;
 el adaptador y el hook nuevos se verifican por separado.
 
-Verificación compartida mediante `node scripts/verify-checklist.js`: seis tablas nuevas
-con RLS activo, lectura de un miembro existente correcta, lectura ajena rechazada con
-403 y panel real con clima y zona horaria America/Guayaquil. Se hizo dentro de READ ONLY,
-sin sincronizar tareas ni escribir datos ficticios. La primera sincronización la hace
-el hook cuando Karen lo conecte. Los cuatro cultivos anteriores necesitan que el miembro
-indique su zona y parte de cosecha; el backend no adivina esos datos físicos.
+Verificación compartida mediante `node scripts/verify-checklist.js`: seis tablas de
+programación con RLS activo, lectura de un miembro existente correcta, lectura ajena
+rechazada con 403 y panel real con clima y zona horaria America/Guayaquil. Se hizo
+dentro de READ ONLY, sin registrar actividades ficticias. El hook conectado sincroniza
+las secciones desde zona/parcela y vincula los cultivos ubicados allí. Si falta ubicación
+o parte de cosecha, el miembro debe configurar los datos reales; el backend no los adivina.
+`node scripts/migrate-activities.js` verificó los cinco triggers de 004 y cero diferencias
+entre los totales de gremio y la suma de saldos de sus miembros actuales.

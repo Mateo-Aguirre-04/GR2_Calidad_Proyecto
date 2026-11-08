@@ -28,7 +28,8 @@ export function cropResponse(row) {
   const fecha = new Date(row.fecha_siembra).toISOString()
   return {
     id: `${row.id_planta}:${row.fecha_exacta || fecha}`,
-    plantaId: Number(row.id_planta),
+    plantaId: String(row.id_planta),
+    fechaSiembra: row.fecha_exacta || fecha,
     planta: {
       nombre: row.nombre_comun,
       nombreCientifico: row.nombre_cientifico || '',
@@ -51,6 +52,6 @@ export function cropResponse(row) {
 }
 
 export function sendError(res, error) {
-  console.error('[PostgreSQL]', error.code || error.status || 'ERROR')
+  console.error('[PostgreSQL]', error.code || error.status || error.stack || 'ERROR')
   return res.status(error.status || 503).json({ error: error.status ? error.message : 'No se pudo guardar o consultar la base de datos.' })
 }
