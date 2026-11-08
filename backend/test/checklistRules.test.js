@@ -59,3 +59,12 @@ test('el riego previo se recuerda dos fechas locales antes de una cosecha posibl
   const covered=harvestReminder(task,{ahora:new Date(`${plan.fechaRiego}T15:00Z`),zonaHoraria:zone},[plan.fechaRiego])
   assert.equal(covered.requiereRiego,false)
 })
+
+test('ritual opcional solo permite marcar la tarea de ese mes el día 15 local, sin exigir amanecer',async()=>{
+  const task={codigo_actividad:'ritual_agradecimiento',clave_generacion:'ritual:2026-11-15',programada_para:'2026-11-15T15:00Z'}
+  for(const [now,allowed] of [['2026-11-14T15:00Z',false],['2026-11-15T05:00Z',true],['2026-11-16T05:00Z',false],['2026-12-15T15:00Z',false]]) {
+    const state=await availability({},task,{ahora:new Date(now),zonaHoraria:zone,amanecer:null})
+    assert.equal(state.puedeCompletar,allowed)
+    assert.deepEqual(state.confirmacionesRequeridas,[])
+  }
+})

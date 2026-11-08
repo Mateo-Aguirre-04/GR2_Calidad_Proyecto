@@ -25,7 +25,9 @@ errores para mostrarlos en la interfaz. El adaptador está en `src/services/chec
 Usar useChecklist para guardar operación y recompensa juntas. Las rutas anteriores
 `/api/huertos/:id/sembrar` y `/cosechar` también pasan por el workflow y sus reglas;
 cosechar exige tareaId y confirmaciones. La pantalla ya usa el checklist para ambas acciones.
-Regar y Recordatorios abren el panel de actividades; Gremio incluye la pestaña de ranking.
+Regar abre una ventana exclusiva con las secciones que tienen plantas activas.
+Recordatorios abre los avisos y permite pasar a la pestaña Actividades; Gremio incluye ranking.
+usePerfil devuelve recargar para actualizar los puntos después de una actividad.
 
 ## API
 
@@ -85,26 +87,46 @@ cultivo. Esta elección no se presupone ni debe marcarse automáticamente.
 No volver a decidir las reglas con el reloj o
 el clima del navegador. Las tareas terminadas se conservan para consulta.
 
-recordatorioActivo marca tareas pendientes cuya fecha local ya llegó, aunque haya
-condiciones que impidan completarlas. Los recordatorios adicionales incluyen siembra
-por zona y riego previo a una posible cosecha. Estos últimos contienen cultivo,
-fechaRiego, fechaCosechaPrevista, requiereRiego y recordatorioActivo. Son planes
-sujetos al clima/confirmaciones, no una frecuencia habitual de riego. Si un riego
-registrado ya sirve para una cosecha posible, no se vuelve a pedir.
+recordatorioActivo en una tarea indica que su fecha local llegó; no implica que deba
+mostrarse como notificación. El arreglo recordatorios se calcula en activityReminders.js
+con las condiciones específicas del documento de revisión:
+
+- Riego diario por sección con plantas; desaparece al registrar riego en esa fecha local.
+- Siembra en la víspera de cuarto creciente o luna llena, sin plantas ni siembra realizada
+  en ese ciclo, con preparación que pueda cumplir los 15 días.
+- Cosecha solo para cultivos pendientes que cumplieron los días explícitos del catálogo.
+  Aviso individual de riego de hace dos fechas locales; rocío desde las 08:00, de día,
+  sin lluvia y con datos recientes, manteniendo confirmación manual de rocío seco.
+- Hojas/flores/frutos: víspera de creciente/llena. Semillas/raíces: día de cuarto menguante.
+- Maleza: día de luna nueva y cielo despejado verificado, sección libre y ciclo vigente.
+- Preparación: maleza completada, sección libre y preparación pendiente.
+- Secado: desde el día local 10; sigue pendiente hasta confirmar seco/empacado/etiquetado/almacenado.
+- Limpieza: se genera una jornada pendiente a los 7 días locales de la última limpieza
+  (o creación del huerto, si no hay ninguna); el aviso desaparece al completar.
+- Señalética: cultivo activo con tarea pendiente; desaparece al colocarla o finalizar el cultivo.
+- Abono: desde 20 días locales de la siembra o última aplicación; cada aplicación entrega
+  20 puntos. El aviso permanece hasta completarla y luego espera otros 20 días.
+- Ritual de agradecimiento: opcional, aviso los días 14 y 15, marcable solo el 15 del
+  mes correspondiente. Mantiene la jornada grupal y sus 20 puntos por inscrito.
+- Clima de cosecha: cultivo maduro, cielo despejado, sin lluvia, temperatura >=22 °C
+  y cuarto creciente o luna llena en la fecha actual o la noche anterior.
+
+Las reglas de disponibilidad para completar actividades siguen validándose en el servidor;
+un aviso favorable sobre una condición de cosecha no omite las demás restricciones.
 
 ## Reglas implementadas
 
 | Actividad | Regla |
 |---|---|
-| Riego | Individual, 5 en total por sección/tarea, sin multiplicar por plantas. Se programa o registra explícitamente; frecuencia automática y límite diario pendientes. |
+| Riego | Individual, 5 en total por sección/tarea con plantas activas, sin multiplicar por plantas. Aviso diario; no se impone un límite diario de acciones. |
 | Maleza | Individual por ciclo de zona; luna nueva local ±1 día, sol y sin lluvia; 15. |
 | Preparación | Grupal después de maleza en esa zona/ciclo; 30 por inscrito. Abono opcional durante preparación no entrega puntos adicionales. |
 | Siembra | Esperar 15 días transcurridos; 08:00 incluida a 12:00 excluida, hora local; cuarto creciente o luna llena ±1 día; confirmar ritual al amanecer; 30 por cultivo. |
 | Señalética | Individual, se genera por cultivo después de sembrar; 25 una vez. |
-| Abono | Programado para un cultivo, disponible en su fecha local; 20 una vez por cultivo/ciclo. Otra programación devuelve la misma tarea, sin otro premio. |
-| Limpieza | Jornada grupal bajo demanda en su fecha local; 30 por inscrito. |
-| Ritual de agradecimiento | Jornada grupal de cosecha del día local, después del amanecer; confirmar ritual al amanecer; 20 por inscrito. Es distinto del ritual de siembra. |
-| Cosecha | Ciclo cumplido, parte registrada, riego de la misma sección en la fecha local de hace dos días, fase ±1 día, sol/sin lluvia y ritual de la jornada completado. Confirmar madurez y rocío seco; 35 una vez por cultivo. Otro riego más reciente no invalida el anterior. |
+| Abono | Por cultivo activo, cada 20 días locales desde la siembra o última aplicación; 20 por aplicación. Programaciones repetidas reutilizan la tarea pendiente. |
+| Limpieza | Jornada grupal programable y aviso automático cada 7 días sin limpieza; 30 por inscrito. |
+| Ritual de agradecimiento | Opcional; jornada mensual grupal, solo se marca el día 15 local, 20 por inscrito. No requiere amanecer ni bloquea la cosecha. Es distinto del ritual obligatorio de siembra. |
+| Cosecha | Ciclo cumplido, parte registrada, riego de la misma sección en la fecha local de hace dos días, fase ±1 día, sol/sin lluvia. Confirmar madurez y rocío seco; 35 una vez por cultivo. Otro riego más reciente no invalida el anterior. |
 | Secado | Lote único por cosecha, individual o grupal. Registrar inicio a la sombra. Desde día local 10 confirmar seco, empacado, etiquetado y almacenado; 20 por registrado. No se completa automáticamente al día 15. |
 
 Hojas/flores/frutos: cuarto creciente o luna llena. Semillas/raíces: cuarto menguante.
@@ -133,7 +155,8 @@ reservado a su responsable; al iniciar un lote grupal, su responsable queda insc
 La zona horaria se resuelve desde la ubicación con Open-Meteo y se conserva al sincronizar.
 Astronomy Engine calcula las fases, comparadas por fecha local. Sol: WMO 0/1, de día,
 precipitación 0 y observación reciente. Caché de clima: cinco minutos. Un fallo no se
-sustituye por clima soleado; no se añade umbral térmico. Documentación técnica:
+sustituye por clima soleado. El aviso de clima cálido exige 22 °C y cielo despejado;
+ese umbral corresponde al recordatorio, no añade una prohibición de cosecha. Documentación técnica:
 [Open-Meteo](https://open-meteo.com/en/docs) y
 [Astronomy Engine](https://github.com/cosinekitty/astronomy/blob/master/source/js/README.md).
 
@@ -162,8 +185,8 @@ await completar(secadoId, { seco: true, empacado: true, etiquetado: true, almace
 ```
 
 Los true deben salir de la confirmación del miembro, no marcarse automáticamente.
-La preparación acepta confirmación opcional abonoOrganico. Ambos rituales usan
-ritualAmanecer. sembrar devuelve `{ cultivo, comprobante }`; actualizar luego la vista
+La preparación acepta confirmación opcional abonoOrganico. Solo el ritual obligatorio
+de siembra usa ritualAmanecer. sembrar devuelve `{ cultivo, comprobante }`; actualizar luego la vista
 del huerto. Riego devuelve `{ claveSolicitud, huertoId, zonaId, puntosOtorgados: 5, tareas }`.
 Comprobante de cierre: `{ id, completado, completadaEn, completadaPor,
 recompensas: [{ usuarioId, puntos }] }`. Reenviar conserva fecha, autor y puntos.
@@ -196,6 +219,8 @@ de recordatorios: el panel los deriva de tareas, cultivos, lotes y condiciones v
 ciclos, cultivos, lotes y contexto; 004 vincula las secciones mapeadas, el riego por sección
 y los triggers de puntos y gremios. Ver [migraciones](backend/migrations/README.md).
 Las migraciones 002, 003 y 004 se aplicaron y verificaron en Supabase el 8 de noviembre de 2026.
+005, aplicada y verificada en la misma fecha, permite abono recurrente sin alterar
+las recompensas anteriores. Su ejecutor es `node scripts/migrate-recurring-fertilizer.js`.
 El SQL raíz contiene las mismas secciones y un modelo legado destructivo: no ejecutar
 ese archivo completo. No se escriben datos ficticios en Supabase.
 

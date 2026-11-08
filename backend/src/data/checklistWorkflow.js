@@ -4,13 +4,13 @@ import { completeTask } from './taskCompletion.js'
 import { readChecklist } from './checklist.js'
 import { requestOnce, requestKey } from './checklistRequests.js'
 import { wateringInput } from './watering.js'
-import { loadEnvironment, catalogDays, localDate, lunarWindow, harvestReminder, nextLunarEventDate, sunny, daysBetween } from './checklistEnvironment.js'
-import { taskDetails, availability, assertAvailable, sowingReasons, RITUAL_REQUIRED } from './checklistRules.js'
+import { loadEnvironment, catalogDays, localDate, lunarWindow, daysBetween } from './checklistEnvironment.js'
+import { activityReminders } from './activityReminders.js'
+import { taskDetails, availability, assertAvailable, sowingReasons } from './checklistRules.js'
 import { synchronizeSections, mappedSection, validatePlanting, gardenLayout } from './sections.js'
 import { areaDeParcela } from './parcelas.js'
 
 const DAY=86400000
-const shiftDate=(date,days)=>new Date(Date.parse(date)+days*DAY).toISOString().slice(0,10)
 const PARTS=['hojas','flores','frutos','semillas','raices']
 const HARVEST=()=>Number(process.env.HARVEST_STATE_ID || 6)
 const cropKey=c=>`${c.plantaId}:${c.fechaSiembra}`
@@ -33,8 +33,24 @@ async function createTask(db,garden,code,key,options={}) {
     options.cicloId || null,options.loteId || null,options.programadaPara || null,options.responsable || null,options.zonaId || null])
   if(rows[0]) return rows[0].id
   return (await db.query(`SELECT id_tarea::text AS id FROM tareas_huerto WHERE id_huerto=$1
-    AND (clave_generacion=$2 OR (codigo_actividad=$3 AND id_planta=$4 AND fecha_siembra=$5))
+    AND (clave_generacion=$2 OR ($3<>'abono_organico' AND codigo_actividad=$3 AND id_planta=$4 AND fecha_siembra=$5))
     ORDER BY id_tarea LIMIT 1`,[garden,key,code,options.plantaId || null,options.fechaSiembra || null])).rows[0]?.id
+}
+
+async function fertilizerTask(db,garden,crop,env,requestedDate=null) {
+  // Serializa la generación con otras aplicaciones sobre este cultivo.
+  await db.query(`SELECT 1 FROM huerto_planta WHERE id_huerto=$1 AND id_planta=$2 AND fecha_siembra=$3 FOR NO KEY UPDATE`,
+    [garden,crop.plantaId,crop.fechaSiembra])
+  const previous=(await db.query(`SELECT id_tarea::text AS id,completada_en FROM tareas_huerto
+    WHERE id_huerto=$1 AND id_planta=$2 AND fecha_siembra=$3 AND codigo_actividad='abono_organico'
+    ORDER BY completada_en DESC NULLS FIRST,id_tarea DESC LIMIT 1`,[garden,crop.plantaId,crop.fechaSiembra])).rows[0]
+  if(previous&&!previous.completada_en)return previous.id
+  const since=previous?.completada_en||crop.fechaSiembra
+  if(!requestedDate&&(!env.zonaHoraria||daysBetween(since,env.ahora,env.zonaHoraria)<20))return null
+  const earliest=new Date(new Date(since).getTime()+20*DAY)
+  const date=requestedDate&&new Date(requestedDate)>earliest?requestedDate:earliest
+  return createTask(db,garden,'abono_organico',`abono:${cropKey(crop)}:${previous?.id||'inicial'}`,
+    {...crop,programadaPara:date})
 }
 
 export async function synchronize(db,user,garden,env) {
@@ -66,17 +82,24 @@ export async function synchronize(db,user,garden,env) {
     const days=catalogDays(crop.ciclo_cultivo)
     await createTask(db,garden,'cosecha',`cosecha:${cropKey(crop)}`,{...crop,
       programadaPara:days?new Date(new Date(crop.fechaSiembra).getTime()+days*DAY):null})
+    await fertilizerTask(db,garden,crop,env)
   }
-  if(env.zonaHoraria && env.amanecer) {
-    const details=await taskDetails(db,garden,null,env)
-    for(const task of details.filter(t=>t.codigo_actividad==='cosecha'&&!t.completada_en)) {
-      const state=await availability(db,task,env)
-      if(!state.motivos.length || state.motivos.every(reason=>reason===RITUAL_REQUIRED)) {
-        await createTask(db,garden,'ritual_agradecimiento',`ritual:${localDate(env.ahora,env.zonaHoraria)}`,
-          {modalidad:'grupal',programadaPara:env.amanecer})
-        break
-      }
+  if(env.zonaHoraria) {
+    const cleaning=(await db.query(`SELECT max(completada_en) AS ultima,
+      bool_or(completada_en IS NULL) AS pendiente FROM tareas_huerto
+      WHERE id_huerto=$1 AND codigo_actividad='limpieza_huerto'`,[garden])).rows[0]
+    const created=(await db.query(`SELECT COALESCE(to_jsonb(h)->>'creado_en',to_jsonb(h)->>'created_at',
+      to_jsonb(g)->>'created_at') AS fecha FROM huerto h JOIN gremio g USING(id_gremio) WHERE h.id_huerto=$1`,[garden])).rows[0]?.fecha
+    const since=cleaning.ultima||created
+    if(since&&!cleaning.pendiente&&daysBetween(since,env.ahora,env.zonaHoraria)>=7) {
+      await createTask(db,garden,'limpieza_huerto',`limpieza_periodica:${new Date(since).toISOString()}`,
+        {modalidad:'grupal',programadaPara:env.ahora})
     }
+  }
+  if(env.zonaHoraria) {
+    const date=localDate(env.ahora,env.zonaHoraria)
+    if(['14','15'].includes(date.slice(-2)))await createTask(db,garden,'ritual_agradecimiento',`ritual:${date.slice(0,8)}15`,
+      {modalidad:'grupal',programadaPara:new Date(new Date(env.ahora).getTime()+(15-Number(date.slice(-2)))*DAY)})
   }
 }
 
@@ -106,40 +129,6 @@ export async function panel(db,user,garden,env) {
       AND NOT EXISTS(SELECT 1 FROM ciclos_zona newer WHERE newer.id_zona=c.id_zona AND newer.id_ciclo>c.id_ciclo)
     LEFT JOIN tareas_huerto p ON p.id_ciclo=c.id_ciclo AND p.codigo_actividad='preparacion_tierra'
     WHERE z.id_huerto=$1 AND z.zona_mapa IS NOT NULL ORDER BY z.zona_mapa,z.parcela_mapa`,[garden,HARVEST()])).rows
-  const reminders=zones.filter(z=>z.preparadaEn&&!z.requiereNuevoCiclo).map(z=>{
-    const habilitadaDesde=new Date(new Date(z.preparadaEn).getTime()+15*DAY)
-    const fecha=env.zonaHoraria?nextLunarEventDate(env.ahora,env.zonaHoraria,[1,2],habilitadaDesde):null
-    if(!fecha||shiftDate(fecha,-1)!==localDate(env.ahora,env.zonaHoraria))return null
-    return {tipo:'siembra',zonaId:z.id,cicloId:z.cicloId,nombre:z.nombre,programadaPara:fecha,
-      diasRestantes:1,recordatorioActivo:true,anticipado:true,
-      texto:'Próxima ventana: mañana se aproxima cuarto creciente o luna llena. Revisa la disponibilidad de 08:00 a 12:00 y realiza el ritual al amanecer.',
-      motivos:sowingReasons(z.preparadaEn,env)}
-  }).filter(Boolean)
-  if(env.zonaHoraria) {
-    const watersBySection=new Map()
-    const waters=(await db.query(`SELECT DISTINCT id_zona::text AS seccion,
-      (completada_en AT TIME ZONE $2)::date::text AS fecha FROM tareas_huerto
-      WHERE id_huerto=$1 AND codigo_actividad='riego' AND completada_en IS NOT NULL
-      AND (completada_en AT TIME ZONE $2)::date >= (($3::timestamptz AT TIME ZONE $2)::date-2)`,[garden,env.zonaHoraria,env.ahora])).rows
-    for(const water of waters) {
-      if(!watersBySection.has(water.seccion))watersBySection.set(water.seccion,[])
-      watersBySection.get(water.seccion).push(water.fecha)
-    }
-    for(const task of details.filter(t=>t.codigo_actividad==='cosecha'&&!t.completada_en&&Number(t.id_estado)!==HARVEST())) {
-      const plan=task.id_zona?harvestReminder(task,env,watersBySection.get(task.id_zona) || []):null
-      if(plan)reminders.push({tipo:'riego_previo_cosecha',cultivo:{huertoId:garden,plantaId:String(task.id_planta),fechaSiembra:task.fecha_exacta},
-      zonaId:task.id_zona,nombre:task.zona_nombre,anticipado:plan.anticipado,
-      texto:plan.requiereRiego
-        ?(plan.anticipado
-          ?'Mañana corresponde el riego de la sección para una posible cosecha dos fechas locales después.'
-          :'Riega hoy, dos días antes de la próxima ventana posible de cosecha.')
-        :(plan.anticipado
-          ?'Mañana inicia la posible ventana de cosecha; el riego previo ya está registrado.'
-          :plan.fechaCosechaPrevista===localDate(env.ahora,env.zonaHoraria)
-            ?'Hay un riego de esta sección de hace dos fechas locales. Revisa los demás requisitos de cosecha.'
-            :'El riego registrado ya cubre la próxima ventana posible de cosecha.'),...plan})
-    }
-  }
   const lots=(await db.query(`SELECT id_lote::text AS id,id_tarea_cosecha::text AS "cosechaId",
     secado_iniciado_en AS "secadoIniciadoEn",modalidad,responsable_id::text AS "responsableId"
     FROM lotes_cosecha WHERE id_huerto=$1 ORDER BY id_lote`,[garden])).rows
@@ -149,48 +138,7 @@ export async function panel(db,user,garden,env) {
     (hp.id_estado<>$2 OR COALESCE(cc.conservado_tras_cosecha,false)) AS activo
     FROM huerto_planta hp LEFT JOIN cultivos_checklist cc USING(id_huerto,id_planta,fecha_siembra)
     LEFT JOIN ciclos_zona c ON c.id_ciclo=cc.id_ciclo WHERE hp.id_huerto=$1 ORDER BY hp.fecha_siembra,hp.id_planta`,[garden,HARVEST()])).rows
-  // Riego sin frecuencia automática: solo tareas programadas y planes previos a cosecha.
-  const tomorrow=env.zonaHoraria?shiftDate(localDate(env.ahora,env.zonaHoraria),1):null
-  for(const task of enriched.filter(t=>!t.completado&&(t.recordatorioActivo
-    ||(env.zonaHoraria&&t.programadaPara&&daysBetween(env.ahora,t.programadaPara,env.zonaHoraria)===1)))) {
-    const code=task.actividad.codigo
-    const messages={
-      riego:`Riego pendiente de ${task.zona?.nombre || 'la sección sin configurar'}.`,
-      retiro_maleza:env.zonaHoraria&&nextLunarEventDate(env.ahora,env.zonaHoraria,[0],tomorrow)===tomorrow
-        ?'Mañana se aproxima la luna nueva; comprueba el pronóstico antes de retirar la maleza.'
-        :sunny(env)&&env.zonaHoraria&&lunarWindow(env.ahora,env.zonaHoraria,[0])
-        ?'El día está completamente soleado y nos encontramos en luna oscura. Es el momento perfecto para retirar la maleza.'
-        :'Revisa la disponibilidad para retirar la maleza; requiere sol sin lluvia y luna nueva (±1 día).',
-      preparacion_tierra:'Has terminado de quitar la maleza. La tierra está lista para ser preparada.',
-      cosecha:'Revisa la madurez, la fase lunar, el riego previo, el clima y confirma que el rocío esté seco antes de cosechar.',
-      secado_almacenamiento:'Llegó el día de revisión del secado. Comprueba que el lote esté seco antes de empacar, etiquetar y almacenar.',
-      limpieza_huerto:'Tu huerto necesita un poco de atención. Date una vuelta para limpiarlo y dejarlo impecable.',
-      abono_organico:'Es hora de nutrir la tierra. No olvides aplicar abono orgánico a tus cultivos.',
-      senaletica:'Organiza tu espacio colocando la señalética correspondiente en las zonas del huerto.',
-      ritual_agradecimiento:'Tómate un momento del día para realizar el ritual de agradecimiento a la Pachamama y honrar a la tierra.'
-    }
-    const fechaManana=task.programadaPara&&env.zonaHoraria&&daysBetween(env.ahora,task.programadaPara,env.zonaHoraria)===1
-    const texto=code==='secado_almacenamiento'&&fechaManana
-      ?'Mañana se cumplen 10 días de secado; prepara el almacenamiento definitivo.'
-      :fechaManana?`Mañana: ${messages[code]}`:messages[code]
-    const lunaManana=code==='retiro_maleza'&&env.zonaHoraria&&nextLunarEventDate(env.ahora,env.zonaHoraria,[0],tomorrow)===tomorrow
-    if(messages[code])reminders.push({tipo:code,tareaId:task.id,zonaId:task.zona?.id,nombre:task.zona?.nombre,recordatorioActivo:true,anticipado:!!fechaManana||!!lunaManana,texto,
-      motivos:task.disponibilidad.motivos})
-  }
-  const activeHarvest=enriched.filter(t=>t.actividad.codigo==='cosecha'&&!t.completado&&t.recordatorioActivo)
-  const harvestReady=activeHarvest.filter(t=>t.disponibilidad.puedeCompletar)
-  if(harvestReady.length&&sunny(env)) reminders.push({tipo:'cosecha_clima',recordatorioActivo:true,
-    texto:'El clima está soleado, es de día y no hay lluvia. ¡Condiciones ideales para cosechar!'})
-  if(harvestReady.length) reminders.push({tipo:'cosecha_rocio',recordatorioActivo:true,
-    texto:'Comprueba que el rocío de la mañana se haya secado por completo; confírmalo antes de recolectar.'})
-  for(const task of activeHarvest.filter(t=>t.programadaPara&&env.zonaHoraria
-    &&localDate(t.programadaPara,env.zonaHoraria)<=localDate(env.ahora,env.zonaHoraria)
-    &&t.cultivo?.parteCosecha
-    &&nextLunarEventDate(env.ahora,env.zonaHoraria,['semillas','raices'].includes(t.cultivo.parteCosecha)?[3]:[1,2],tomorrow)===tomorrow)) {
-    const semillasRaices=['semillas','raices'].includes(task.cultivo.parteCosecha)
-    reminders.push({tipo:'cosecha_lunar',tareaId:task.id,recordatorioActivo:true,anticipado:true,
-      texto:semillasRaices?'Próxima ventana: mañana se aproxima cuarto menguante para semillas y raíces.':'Próxima ventana: mañana se aproxima cuarto creciente o luna llena para hojas, flores y frutos.'})
-  }
+  const reminders=activityReminders({details,zones,crops,env})
   return {tareas:enriched,zonas:zones,lotes:lots,cultivos:crops,recordatorios:reminders,
     contexto:{ahora:env.ahora,zonaHoraria:env.zonaHoraria,clima:env.clima,climaVerificado:!!env.clima,amanecer:env.amanecer,
       ventanasLunares:env.zonaHoraria?{nueva:lunarWindow(env.ahora,env.zonaHoraria,[0]),
@@ -284,6 +232,7 @@ export async function schedule(db,user,garden,body,env) {
     if(crop) {
       const raw=await cropExists(db,garden,crop)
       if(Number(raw.id_estado)===HARVEST()) throw httpError(409,'El cultivo ya fue cosechado.')
+      return {id:await fertilizerTask(db,garden,crop,env,body.programadaPara)}
     }
     const id=await createTask(db,garden,body.actividad,crop?`abono:${cropKey(crop)}`:`limpieza:${key}`,
       {...crop,zonaId,modalidad:crop||zonaId?'individual':'grupal',programadaPara:body.programadaPara})
@@ -334,6 +283,11 @@ export async function finish(db,user,garden,taskId,body,env) {
   let details
   const result=await completeTask(db,user,garden,taskId,async()=>{
     details=(await taskDetails(db,garden,taskId,env))[0]
+    if(details.codigo_actividad==='abono_organico') {
+      await db.query(`SELECT 1 FROM huerto_planta WHERE id_huerto=$1 AND id_planta=$2 AND fecha_siembra=$3 FOR NO KEY UPDATE`,
+        [garden,String(details.id_planta),details.fecha_exacta])
+      details=(await taskDetails(db,garden,taskId,env))[0]
+    }
     if(details.codigo_actividad==='cosecha') {
       const current=(await db.query(`SELECT id_estado FROM huerto_planta
         WHERE id_huerto=$1 AND id_planta=$2 AND fecha_siembra=$3 FOR NO KEY UPDATE`,[garden,String(details.id_planta),details.fecha_exacta])).rows[0]

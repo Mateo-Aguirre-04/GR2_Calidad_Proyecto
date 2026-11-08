@@ -12,6 +12,7 @@ import { requireMember } from '../src/data/postgres.js'
 import { localDate } from '../src/data/checklistEnvironment.js'
 import { SearchMoonQuarter, NextMoonQuarter } from 'astronomy-engine'
 import { readGuildRanking, guildRankingHandler } from '../src/data/guildRanking.js'
+import { finish } from '../src/data/checklistWorkflow.js'
 
 async function installCurrentSchema(db) {
   await db.query(`CREATE TABLE gremio(id_gremio bigint PRIMARY KEY,puntos_gremio integer DEFAULT 0,area_total numeric DEFAULT 1800,
@@ -23,6 +24,7 @@ async function installCurrentSchema(db) {
     ALTER TABLE huerto_planta ADD COLUMN zona integer, ADD COLUMN parcela integer;`)
   await db.query(`CREATE TABLE IF NOT EXISTS planta(id_planta bigint PRIMARY KEY,nombre_comun text,ciclo_cultivo text,fases jsonb DEFAULT '[]',imagen_muerta text)`)
   await db.query(await readFile(new URL('../migrations/20261108_004_secciones_puntos_ranking.sql',import.meta.url),'utf8'))
+  await db.query(await readFile(new URL('../migrations/20261108_005_abono_recurrente.sql',import.meta.url),'utf8'))
 }
 
 const url = process.env.CHECKLIST_TEST_DATABASE_URL
@@ -199,7 +201,7 @@ test('PostgreSQL aislado: baseline, consulta HTTP, permisos e inscripción por m
     assert.equal(scheduled.status,200)
     let panelResponse=await fetch(base+'/panel',{headers:{'x-test-user':'5'}})
     const before=await panelResponse.json()
-    assert.ok(before.recordatorios.some(r=>r.tipo==='riego'&&r.zonaId==='1'&&r.nombre==='Seccion 1'))
+    assert.ok(!before.recordatorios.some(r=>r.tipo==='riego'&&r.tareaId===scheduled.data.id))
     assert.equal((await post(`/tareas/${scheduled.data.id}/completar`,{confirmaciones:{}})).status,409)
     now=new Date('2026-11-09T15:00Z')
     const completedWater=await post(`/tareas/${scheduled.data.id}/completar`,{confirmaciones:{}})
@@ -208,6 +210,43 @@ test('PostgreSQL aislado: baseline, consulta HTTP, permisos e inscripción por m
     assert.equal((await ranking())[0].puntos,75)
     panelResponse=await fetch(base+'/panel',{headers:{'x-test-user':'5'}})
     assert.ok(!(await panelResponse.json()).recordatorios.some(r=>r.tipo==='riego'&&r.tareaId===scheduled.data.id))
+    await db.query("INSERT INTO zonas_huerto(id_huerto,nombre,zona_mapa,parcela_mapa) VALUES(42,'Seccion vacia',1,2)")
+    const emptyWater=await water({...wateringBody,zonaId:'2',claveSolicitud:'00000000-0000-4000-8000-000000000101'})
+    assert.equal(emptyWater.status,409)
+    assert.match((await emptyWater.json()).error,/plantas activas/)
+    assert.equal((await ranking())[0].puntos,75)
+    const sync=await post('/sincronizar',{})
+    assert.equal(sync.status,200)
+    assert.ok(!sync.data.recordatorios.some(r=>r.tipo==='riego_diario'))
+    now=new Date('2026-11-10T05:00Z')
+    const tomorrowPanel=await post('/sincronizar',{})
+    assert.ok(tomorrowPanel.data.recordatorios.some(r=>r.tipo==='riego_diario'&&r.zonaId==='1'))
+    // La limpieza reaparece a los siete días locales de la última jornada.
+    now=new Date('2026-11-16T15:00Z')
+    const cleaningPanel=await post('/sincronizar',{})
+    assert.equal(cleaningPanel.status,200)
+    const pendingCleaning=cleaningPanel.data.tareas.find(t=>t.actividad.codigo==='limpieza_huerto'&&!t.completado)
+    assert.ok(pendingCleaning)
+    assert.equal((await post(`/tareas/${pendingCleaning.id}/inscribirse`,{})).status,200)
+    assert.equal((await post(`/tareas/${pendingCleaning.id}/completar`,{confirmaciones:{}})).status,200)
+    assert.ok(!(await post('/sincronizar',{})).data.recordatorios.some(r=>r.tipo==='limpieza_huerto'))
+    now=new Date('2026-11-22T15:00Z')
+    assert.ok(!(await post('/sincronizar',{})).data.recordatorios.some(r=>r.tipo==='limpieza_huerto'))
+    now=new Date('2026-11-23T05:00Z')
+    assert.ok((await post('/sincronizar',{})).data.recordatorios.some(r=>r.tipo==='limpieza_huerto'))
+    now=new Date('2026-12-14T15:00Z')
+    const monthly=(await post('/sincronizar',{})).data
+    const ritual=monthly.tareas.find(t=>t.actividad.codigo==='ritual_agradecimiento'&&!t.completado)
+    assert.ok(monthly.recordatorios.some(r=>r.tipo==='ritual_agradecimiento'&&r.anticipado))
+    assert.equal((await post(`/tareas/${ritual.id}/inscribirse`,{})).status,200)
+    assert.equal((await post(`/tareas/${ritual.id}/completar`,{})).status,409)
+    now=new Date('2026-12-15T05:00Z')
+    const ritualDone=await post(`/tareas/${ritual.id}/completar`,{})
+    assert.equal(ritualDone.status,200)
+    assert.deepEqual(ritualDone.data.recompensas,[{usuarioId:'5',puntos:20}])
+    assert.ok(!(await post('/sincronizar',{})).data.recordatorios.some(r=>r.tipo==='ritual_agradecimiento'))
+    now=new Date('2026-12-16T05:00Z')
+    assert.deepEqual((await post(`/tareas/${ritual.id}/completar`,{})).data,ritualDone.data)
   } finally {
     if (server) await new Promise(resolve => server.close(resolve))
     await db.query('ROLLBACK')
@@ -278,11 +317,21 @@ test('PostgreSQL: finalizaciones concurrentes e inscripción simultánea no dupl
       [{ puntos: 120 }, { puntos: 90 }])
     await pool.query("INSERT INTO huerto_planta VALUES(42,9,'2026-11-08 10:00:00.123456+00')")
     await pool.query("INSERT INTO zonas_huerto(id_huerto,nombre,zona_mapa,parcela_mapa) VALUES(42,'Seccion 1',1,1)")
+    await pool.query('UPDATE huerto_planta SET zona=1,parcela=1 WHERE id_huerto=42')
     const input = { claveSolicitud:'23f70b94-af20-46c5-9f88-7db0887a6cac',zonaId:'1' }
     const watering = await Promise.all([1, 2, 3, 4].map(() => transaction(db => recordWatering(db, '5', '42', input,{ahora:new Date(),zonaHoraria:'America/Guayaquil'}))))
     for (const result of watering) assert.deepEqual(result, watering[0])
     assert.equal((await pool.query('SELECT puntos FROM usuario_general WHERE id_usuario=5')).rows[0].puntos, 125)
     assert.equal((await pool.query('SELECT count(*)::int AS n FROM solicitudes_checklist')).rows[0].n, 1)
+    // Dos tareas legadas de abono para el mismo cultivo no pueden premiarse en paralelo.
+    const fertilizerTasks=(await pool.query(`INSERT INTO tareas_huerto(codigo_actividad,id_huerto,id_planta,fecha_siembra,modalidad)
+      VALUES('abono_organico',42,9,'2026-11-08 10:00:00.123456+00','individual'),
+            ('abono_organico',42,9,'2026-11-08 10:00:00.123456+00','individual') RETURNING id_tarea::text AS id`)).rows
+    const fertilized=await Promise.allSettled(fertilizerTasks.map(t=>transaction(db=>finish(db,'5','42',t.id,{},
+      {ahora:new Date('2026-12-01T15:00Z'),zonaHoraria:'America/Guayaquil'}))))
+    assert.equal(fertilized.filter(r=>r.status==='fulfilled').length,1)
+    assert.equal(fertilized.find(r=>r.status==='rejected').reason.status,409)
+    assert.equal((await pool.query('SELECT puntos FROM usuario_general WHERE id_usuario=5')).rows[0].puntos,145)
     const moves=await Promise.allSettled([
       transaction(db=>db.query('UPDATE usuario_general SET puntos=puntos+7 WHERE id_usuario=8')),
       transaction(db=>db.query('UPDATE miembro_gremio SET id_gremio=11 WHERE id_usuario=8')),
@@ -380,9 +429,19 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     assert.equal((await done(sign.id)).status,409)
     const fertilizer=await call('/programar',{actividad:'abono_organico',cultivo:crop,programadaPara:env.ahora.toISOString(),claveSolicitud:key(3)})
     assert.equal(fertilizer.status,200)
+    assert.equal((await done(fertilizer.data.id)).status,409)
+    clock(new Date(+env.ahora+20*86400000))
     assert.equal((await done(fertilizer.data.id)).status,200)
     const another=await call('/programar',{actividad:'abono_organico',cultivo:crop,programadaPara:env.ahora.toISOString(),claveSolicitud:key(4)})
-    assert.equal(another.data.id,fertilizer.data.id)
+    assert.notEqual(another.data.id,fertilizer.data.id)
+    assert.equal((await done(another.data.id)).status,409)
+    clock(new Date(+env.ahora+19*86400000))
+    assert.equal((await done(another.data.id)).status,409)
+    clock(new Date(+env.ahora+86400000))
+    const secondFertilizer=await done(another.data.id)
+    assert.equal(secondFertilizer.status,200)
+    assert.deepEqual(secondFertilizer.data.recompensas,[{usuarioId:'5',puntos:20}])
+    assert.deepEqual((await done(another.data.id)).data,secondFertilizer.data)
     const cleaning=await call('/programar',{actividad:'limpieza_huerto',programadaPara:new Date(+env.ahora+86400000).toISOString(),claveSolicitud:key(5)})
     await join(cleaning.data.id,'5');await join(cleaning.data.id,'6')
     assert.equal((await done(cleaning.data.id)).status,409)
@@ -403,9 +462,7 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     await db.query(`INSERT INTO tareas_huerto(codigo_actividad,id_huerto,id_zona,modalidad,completada_en,completada_por)
       VALUES('riego',42,$1,'individual',$2,5)`,[zoneId,new Date(+env.ahora-86400000)])
     const synced=await call('/sincronizar',{});assert.equal(synced.status,200)
-    const ritual=await getTask('ritual_agradecimiento');assert.ok(ritual)
-    await join(ritual.id,'5');await join(ritual.id,'6')
-    assert.equal((await done(ritual.id,{ritualAmanecer:true})).status,200)
+    assert.ok(!(await getTask('cosecha')).disponibilidad.motivos.some(m=>m.includes('ritual')))
     assert.equal((await done(harvest.id,{cultivoListo:true})).status,400)
     env.clima.codigo=3;assert.equal((await done(harvest.id,{cultivoListo:true,rocioSeco:true})).status,409);env.clima.codigo=0
     const harvested=await done(harvest.id,{cultivoListo:true,rocioSeco:true,conservarCultivo:true});assert.equal(harvested.status,200)
@@ -423,7 +480,9 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     assert.equal((await db.query('SELECT completada_en FROM tareas_huerto WHERE id_tarea=$1',[drying.data.id])).rows[0].completada_en,null)
     assert.equal((await done(drying.data.id,dryConfirm,'6')).status,200)
     const balances=(await db.query('SELECT id_usuario::text AS id,puntos FROM usuario_general ORDER BY id_usuario')).rows
-    assert.deepEqual(balances,[{id:'5',puntos:200},{id:'6',puntos:125},{id:'7',puntos:0},{id:'8',puntos:0}])
+    assert.deepEqual(balances,[{id:'5',puntos:200},{id:'6',puntos:105},{id:'7',puntos:0},{id:'8',puntos:0}])
+    // Al avanzar 15 días puede vencer otra limpieza; solo la primera sincronización la crea.
+    await call('/sincronizar',{})
     const taskCount=(await db.query('SELECT count(*)::int AS n FROM tareas_huerto')).rows[0].n
     await call('/sincronizar',{});await call('/sincronizar',{})
     assert.equal((await db.query('SELECT count(*)::int AS n FROM tareas_huerto')).rows[0].n,taskCount)
@@ -460,8 +519,6 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     await db.query(`INSERT INTO tareas_huerto(codigo_actividad,id_huerto,id_planta,fecha_siembra,modalidad,completada_en,completada_por)
       VALUES('riego',42,10,'2026-01-01T10:00Z','individual',$1,6)`,[new Date(+env.ahora-2*86400000)])
     await call('/sincronizar',{})
-    const extraRitual=(await call()).data.find(t=>t.actividad.codigo==='ritual_agradecimiento'&&!t.completado)
-    await join(extraRitual.id,'6');assert.equal((await done(extraRitual.id,{ritualAmanecer:true},'6')).status,200)
     const full=await done(unknown.id,{cultivoListo:true,rocioSeco:true,conservarCultivo:false},'6')
     assert.equal(full.status,200)
     assert.equal((await db.query('SELECT id_estado FROM huerto_planta WHERE id_planta=10')).rows[0].id_estado,6)
@@ -473,7 +530,7 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
     assert.equal((await join(individual.data.id,'5')).status,409)
     assert.equal((await done(individual.data.id,dryConfirm,'5')).status,403)
     assert.equal((await done(individual.data.id,dryConfirm,'6')).status,200)
-    assert.equal((await db.query('SELECT puntos FROM usuario_general WHERE id_usuario=6')).rows[0].puntos,200)
+    assert.equal((await db.query('SELECT puntos FROM usuario_general WHERE id_usuario=6')).rows[0].puntos,160)
   } finally {
     if(server) await new Promise(resolve=>server.close(resolve))
     await db.query('ROLLBACK');await db.end()

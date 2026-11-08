@@ -16,6 +16,7 @@ import ModalPerfil from '../components/ModalPerfil/ModalPerfil'
 import ModalSeleccionPlanta from '../components/ModalSeleccionPlanta/ModalSeleccionPlanta'
 import ModalInfoCultivo from '../components/ModalInfoCultivo/ModalInfoCultivo'
 import PanelActividades from '../components/PanelActividades/PanelActividades'
+import ModalRiego from '../components/PanelActividades/ModalRiego'
 import styles from './css/Juego.module.css'
 
 // accion: 'ruta' navega, 'modal' abre un modal, 'pendiente' aún sin definir.
@@ -60,6 +61,7 @@ function Juego() {
 
   const [mensajeAccion,setMensajeAccion]=useState('')
   const [seccionPanel,setSeccionPanel]=useState('')
+  const [vistaPanel,setVistaPanel]=useState('recordatorios')
   const solicitudes=useRef(new Map())
   const enCurso=useRef(false)
 
@@ -101,16 +103,18 @@ function Juego() {
   // Handler for lateral button selection
   function seleccionar(boton) {
     if(enCurso.current) return
+    setErrorAccion('')
+    setMensajeAccion('')
     if (boton.accion === 'ruta') {
       navigate(boton.destino)
     } else if (boton.accion === 'modal') {
       setModal(boton.clave)
     } else if (boton.clave === 'recordatorios') {
       setSeccionPanel('')
+      setVistaPanel('recordatorios')
       setModal('recordatorios')
     } else if (boton.clave === 'riego') {
-      setSeccionPanel(checklist.panel?.zonas?.find(s=>s.zona===zona&&s.parcela===1)?.id||'')
-      setModal('recordatorios')
+      setModal('riego')
       setHerramientaActiva(null)
     } else if (boton.clave === 'cosecha') {
       setHerramientaActiva('cosecha')
@@ -148,6 +152,7 @@ function Juego() {
     const section=checklist.panel?.zonas?.find(s=>s.zona===cultivo.zona&&s.parcela===cultivo.parcela)
     setCultivoInfo(null)
     setSeccionPanel(section?.id||'')
+    setVistaPanel('tareas')
     setModal('recordatorios')
     setHerramientaActiva(null)
   }
@@ -159,8 +164,8 @@ function Juego() {
     return <p className={styles.cargando} role="status">Cargando huerto...</p>
   }
 
-  const listaTareas = checklist.tareas || []
-  const herramientas = HERRAMIENTAS.map(h => ({ ...h, cantidad: h.clave === 'riego' ? listaTareas.filter(t => t.actividad?.codigo === 'riego' && t.disponibilidad?.puedeCompletar).length : 0 }))
+  const riegosPendientes = new Set(checklist.recordatorios.filter(r=>['riego','riego_diario'].includes(r.tipo)&&r.recordatorioActivo).map(r=>r.zonaId)).size
+  const herramientas = HERRAMIENTAS.map(h => ({ ...h, cantidad: h.clave === 'riego' ? riegosPendientes : 0 }))
 
   const tipo = huerto.tipo ?? 'surcos'
   const fondo = fondoHuerto(tipo)
@@ -291,9 +296,12 @@ function Juego() {
         />
       )}
       {modal === 'recordatorios' && <PanelActividades checklist={checklist} ejecutar={ejecutar} conClave={conClave}
+        vistaInicial={vistaPanel} onRegar={()=>setModal('riego')}
         cultivosVista={huerto.cultivos}
         ocupado={loadingAccion} seleccionInicial={seccionPanel} error={errorAccion} mensaje={mensajeAccion}
         onCerrar={()=>setModal(null)}/>}
+      {modal === 'riego' && <ModalRiego checklist={checklist} conClave={conClave} ocupado={loadingAccion}
+        cultivosVista={huerto.cultivos} error={errorAccion} mensaje={mensajeAccion} onCerrar={()=>setModal(null)}/>}
 
     </div>
   )

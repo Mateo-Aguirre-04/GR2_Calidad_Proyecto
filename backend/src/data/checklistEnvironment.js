@@ -86,12 +86,13 @@ export async function weatherAt(lat, lon) {
   const promise = (async () => {
     const url = new URL('https://api.open-meteo.com/v1/forecast')
     url.search = new URLSearchParams({ latitude: String(lat), longitude: String(lon),
-      current: 'weather_code,precipitation,is_day', daily: 'sunrise', forecast_days: '1',
+      current: 'weather_code,precipitation,is_day,temperature_2m', daily: 'sunrise', forecast_days: '1',
       timezone: 'auto', timeformat: 'unixtime' }).toString()
     const response = await fetch(url, { signal: AbortSignal.timeout(5000) })
     if (!response.ok) throw new Error('CLIMA_NO_DISPONIBLE')
     const result = await response.json()
     return { zonaHoraria: result.timezone, codigo: result.current?.weather_code,
+      temperatura: result.current?.temperature_2m,
       precipitacion: result.current?.precipitation, esDia: result.current?.is_day,
       observadaEn: result.current?.time ? new Date(result.current.time * 1000) : null,
       amanecer: result.daily?.sunrise?.[0] ? new Date(result.daily.sunrise[0] * 1000) : null }

@@ -13,6 +13,7 @@ function Tarea({tarea,checklist,ejecutar,ocupado,nombreCultivo}) {
     && (!state?.decisionesRequeridas?.includes('conservarCultivo')||typeof confirmaciones.conservarCultivo==='boolean')
   return <article className={styles.tarea}>
     <strong>{tarea.actividad.nombre} · {tarea.actividad.puntos} puntos</strong>
+    {tarea.actividad.codigo==='ritual_agradecimiento'&&<p>Actividad opcional del día 15. No es un requisito para cosechar.</p>}
     <p>{tarea.zona?.nombre || 'Jornada del huerto'}{nombreCultivo&&` · ${nombreCultivo}`}
       {tarea.programadaPara && ` · ${new Date(tarea.programadaPara).toLocaleString('es-EC')}`}</p>
     {tarea.completado ? <p>Completada</p> : <>
@@ -31,7 +32,8 @@ function Tarea({tarea,checklist,ejecutar,ocupado,nombreCultivo}) {
   </article>
 }
 
-export default function PanelActividades({checklist,ejecutar,conClave,ocupado,seleccionInicial,onCerrar,error,mensaje,cultivosVista=[]}) {
+export default function PanelActividades({checklist,ejecutar,conClave,ocupado,seleccionInicial,onCerrar,error,mensaje,cultivosVista=[],vistaInicial='recordatorios',onRegar}) {
+  const [vista,setVista]=useState(vistaInicial)
   const [seccionId,setSeccionId]=useState(seleccionInicial||'')
   const [actividad,setActividad]=useState('riego')
   const [fecha,setFecha]=useState('')
@@ -43,6 +45,7 @@ export default function PanelActividades({checklist,ejecutar,conClave,ocupado,se
   const nombres=Object.fromEntries(cultivosVista.map(c=>[c.id,c.planta?.nombre||'Cultivo']))
   const selectedCrop=crops.find(c=>`${c.plantaId}:${c.fechaSiembra}`===cultivoId)
   const tasks=checklist.tareas.filter(t=>(historial||!t.completado)&&(!seccionId||!t.zona||t.zona.id===seccionId))
+  const recordatorios=checklist.recordatorios.filter(r=>r.recordatorioActivo||r.anticipado).filter(r=>!seccionId||!r.zonaId||r.zonaId===seccionId)
   async function programar(e) {
     e.preventDefault()
     const body={actividad,programadaPara:new Date(fecha).toISOString(),
@@ -55,10 +58,24 @@ export default function PanelActividades({checklist,ejecutar,conClave,ocupado,se
     {error&&<p role="alert">{error}</p>}{mensaje&&<p role="status">{mensaje}</p>}
     {checklist.error&&<p role="alert">{checklist.error}<button onClick={checklist.recargar}>Reintentar consulta</button></p>}
     {checklist.cargando&&<p role="status">Actualizando actividades…</p>}
+    <nav className={styles.acciones} aria-label="Vista de actividades">
+      <button aria-pressed={vista==='recordatorios'} onClick={()=>setVista('recordatorios')}>Recordatorios</button>
+      <button aria-pressed={vista==='tareas'} onClick={()=>setVista('tareas')}>Actividades</button>
+    </nav>
     <label>Sección del huerto<select value={seccionId} onChange={e=>setSeccionId(e.target.value)} disabled={ocupado}>
       <option value="">Todas las secciones</option>{sections.map(s=><option key={s.id} value={s.id}>{s.nombre}</option>)}</select></label>
+    {vista==='recordatorios'?<>
+      <h3>Recordatorios</h3>
+      {!recordatorios.length&&!checklist.cargando&&!checklist.error&&<p>No tienes recordatorios pendientes con las condiciones actuales.</p>}
+      <ul>{recordatorios.map((r,i)=><li className={styles.recordatorio} key={`${r.tipo}:${r.tareaId||r.zonaId||i}`}>
+        <strong>{r.nombre}</strong><p>{r.texto}</p>
+        {r.cultivo&&<p>{nombres[`${r.cultivo.plantaId}:${r.cultivo.fechaSiembra}`]||'Cultivo'} · Siembra: {new Date(r.cultivo.fechaSiembra).toLocaleDateString('es-EC')}</p>}
+        <button disabled={ocupado} onClick={()=>{if(r.tipo==='riego_diario'||r.tipo==='riego')onRegar();else {setSeccionId(r.zonaId||'');setVista('tareas')}}}>
+          {r.tipo==='riego_diario'||r.tipo==='riego'?'Ir a regar':'Ver actividad y requisitos'}
+        </button>
+      </li>)}</ul>
+    </>:<>
     {section&&<div className={styles.acciones}>
-      <button disabled={ocupado} onClick={()=>conClave('riego',{zonaId:section.id},b=>checklist.registrarRiegos(b.zonaId,b.claveSolicitud))}>Registrar riego de esta sección · 5 puntos</button>
       {(!section.cicloId||section.requiereNuevoCiclo)&&<button disabled={ocupado} onClick={()=>conClave('ciclo',{zonaId:section.id},b=>checklist.iniciarCiclo(b.zonaId,b.claveSolicitud))}>{section.cicloId?'Iniciar otro ciclo de preparación':'Iniciar preparación de la sección'}</button>}
     </div>}
     <details><summary>Programar una actividad</summary><form onSubmit={programar}>
@@ -70,13 +87,10 @@ export default function PanelActividades({checklist,ejecutar,conClave,ocupado,se
       <button disabled={ocupado||(actividad==='riego'&&!section)||(actividad==='abono_organico'&&!selectedCrop)}>Programar</button>
     </form></details>
     <details><summary>Configurar cultivos existentes</summary>{crops.map(c=><ConfigurarCultivo key={`${c.plantaId}:${c.fechaSiembra}`} cultivo={c} checklist={checklist} ejecutar={ejecutar} ocupado={ocupado} sections={sections} nombre={nombres[`${c.plantaId}:${c.fechaSiembra}`]}/>)}</details>
-    <h3>Recordatorios</h3>
-    <ul>{checklist.recordatorios.filter(r=>r.recordatorioActivo||r.anticipado).filter(r=>!seccionId||!r.zonaId||r.zonaId===seccionId).map((r,i)=><li key={`${r.tipo}:${r.tareaId||i}`}>
-      <strong>{r.nombre}{r.anticipado?' · Próxima ventana o jornada':''}</strong> {r.texto}
-      {r.motivos?.map(m=><p key={m}>{m}</p>)}</li>)}</ul>
     <h3>Tareas</h3><label><input type="checkbox" checked={historial} onChange={e=>setHistorial(e.target.checked)}/>Mostrar también las completadas</label>
     {tasks.map(t=><Tarea key={t.id} tarea={t} checklist={checklist} ejecutar={ejecutar} ocupado={ocupado} nombreCultivo={nombres[`${t.cultivo?.plantaId}:${t.cultivo?.fechaSiembra}`]}/>)}
     <h3>Lotes de cosecha</h3>{checklist.panel?.lotes?.map(l=><Lote key={l.id} lote={l} checklist={checklist} ejecutar={ejecutar} ocupado={ocupado}/>)}
+    </>}
   </section></div>
 }
 

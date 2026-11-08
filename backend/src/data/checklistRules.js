@@ -3,10 +3,9 @@ import { httpError } from './postgres.js'
 
 export const confirmations = {
   siembra: ['ritualAmanecer'], cosecha: ['cultivoListo','rocioSeco'],
-  ritual_agradecimiento: ['ritualAmanecer'],
+  ritual_agradecimiento: [],
   secado_almacenamiento: ['seco','empacado','etiquetado','almacenado'],
 }
-export const RITUAL_REQUIRED='Falta completar el ritual de agradecimiento de esta jornada de cosecha.'
 export async function taskDetails(db,garden,id=null,env={}) {
   return (await db.query(`SELECT t.*,t.id_tarea::text AS id,t.fecha_siembra::text AS fecha_exacta,
       hp.id_estado,p.ciclo_cultivo,cc.parte_cosecha,z.id_zona::text,z.nombre AS zona_nombre,
@@ -15,11 +14,12 @@ export async function taskDetails(db,garden,id=null,env={}) {
       EXISTS(SELECT 1 FROM huerto_planta occupied WHERE occupied.id_huerto=t.id_huerto
         AND occupied.zona=z.zona_mapa AND occupied.parcela=z.parcela_mapa AND occupied.id_estado<>$5) AS seccion_ocupada,
       l.secado_iniciado_en,prep.completada_en AS preparada_en,
+      (SELECT max(a.completada_en) FROM tareas_huerto a WHERE a.id_huerto=t.id_huerto
+        AND a.id_planta=t.id_planta AND a.fecha_siembra=t.fecha_siembra
+        AND a.codigo_actividad='abono_organico' AND a.id_tarea<>t.id_tarea) AS ultimo_abono,
       maleza.completada_en AS maleza_retirada_en,
       EXISTS(SELECT 1 FROM tareas_huerto r WHERE r.id_huerto=t.id_huerto AND r.id_zona=z.id_zona
-        AND r.codigo_actividad='riego' AND (r.completada_en AT TIME ZONE $3)::date=(($4::timestamptz AT TIME ZONE $3)::date-2)) AS regada_dos_dias,
-      EXISTS(SELECT 1 FROM tareas_huerto ritual WHERE ritual.id_huerto=$1 AND ritual.codigo_actividad='ritual_agradecimiento'
-        AND (ritual.completada_en AT TIME ZONE $3)::date=($4::timestamptz AT TIME ZONE $3)::date) AS ritual_completado
+        AND r.codigo_actividad='riego' AND (r.completada_en AT TIME ZONE $3)::date=(($4::timestamptz AT TIME ZONE $3)::date-2)) AS regada_dos_dias
     FROM tareas_huerto t
     LEFT JOIN huerto_planta hp ON (hp.id_huerto,hp.id_planta,hp.fecha_siembra)=(t.id_huerto,t.id_planta,t.fecha_siembra)
     LEFT JOIN planta p ON p.id_planta=t.id_planta
@@ -57,18 +57,23 @@ export async function availability(db,task,env) {
   }
   if (!zone) { reasons.push('No se conoce la zona horaria del huerto.');pending=true }
   if (task.programada_para && new Date(task.programada_para)>new Date(env.ahora)
-    && !(['abono_organico','limpieza_huerto','secado_almacenamiento'].includes(task.codigo_actividad)
+    && !(['abono_organico','limpieza_huerto','secado_almacenamiento','ritual_agradecimiento'].includes(task.codigo_actividad)
       && zone && localDate(task.programada_para,zone)===localDate(env.ahora,zone))) {
     reasons.push('La fecha programada todavía no ha llegado.')
   }
-  const cropRequired=['abono_organico','cosecha','siembra'].includes(task.codigo_actividad)
+  const cropRequired=['abono_organico','cosecha','siembra','senaletica'].includes(task.codigo_actividad)
   if (cropRequired && (!task.id_planta || task.id_estado==null)) reasons.push('La tarea necesita un cultivo registrado.')
   if (cropRequired && Number(task.id_estado)===Number(process.env.HARVEST_STATE_ID || 6)) reasons.push('El cultivo ya fue cosechado.')
   switch(task.codigo_actividad) {
     case 'riego':
       if(!task.id_zona) {reasons.push('Falta vincular el riego a una sección del huerto.');pending=true}
+      if(!task.seccion_ocupada) reasons.push('Solo puedes regar secciones que tengan plantas activas en el huerto.')
       break
-    case 'abono_organico': case 'senaletica': case 'limpieza_huerto': break
+    case 'abono_organico':
+      if(zone&&daysBetween(task.ultimo_abono||task.fecha_exacta,env.ahora,zone)<20)
+        reasons.push('Deben pasar 20 días desde la siembra o la última aplicación de abono.')
+      break
+    case 'senaletica': case 'limpieza_huerto': break
     case 'retiro_maleza':
       if (zone && !lunarWindow(env.ahora,zone,[0])) reasons.push('Retirar maleza requiere el día de luna nueva, el anterior o el siguiente.')
       if (!sunny(env)) reasons.push(env.clima?'Retirar maleza requiere sol o tiempo mayormente soleado y sin lluvia.':'No se pudo comprobar el clima; vuelve a intentarlo.')
@@ -90,17 +95,13 @@ export async function availability(db,task,env) {
           WHERE actual.id_tarea=$1 AND r.codigo_actividad='riego' AND r.completada_en IS NOT NULL
           AND (r.completada_en AT TIME ZONE $2)::date=(($3::timestamptz AT TIME ZONE $2)::date-2)) AS ok`,[task.id,zone,env.ahora,task.id_zona || null])).rows[0].ok
         if (!watered) reasons.push('Falta un riego de la sección del cultivo en la fecha local de hace dos días.')
-        const ritual=task.ritual_completado ?? (await db.query(`SELECT EXISTS(SELECT 1 FROM tareas_huerto WHERE id_huerto=$1
-          AND codigo_actividad='ritual_agradecimiento' AND completada_en IS NOT NULL
-          AND (completada_en AT TIME ZONE $2)::date=($3::timestamptz AT TIME ZONE $2)::date) AS ok`,[String(task.id_huerto),zone,env.ahora])).rows[0].ok
-        if (!ritual) reasons.push(RITUAL_REQUIRED)
       }
       if (!sunny(env)) reasons.push(env.clima?'Se necesita sol o tiempo mayormente soleado, de día y sin lluvia.':'No se pudo comprobar el clima; vuelve a intentarlo.')
       break
     }
     case 'ritual_agradecimiento':
-      if (!env.amanecer || new Date(env.ahora)<new Date(env.amanecer)) reasons.push('Debe haber llegado el amanecer local de la jornada.')
-      if (zone && task.programada_para && localDate(task.programada_para,zone)!==localDate(env.ahora,zone)) reasons.push('El ritual corresponde a otra jornada de cosecha.')
+      if(zone&&(localDate(env.ahora,zone).slice(-2)!=='15'||task.clave_generacion!==`ritual:${localDate(env.ahora,zone)}`))
+        reasons.push('El ritual es opcional y solo se puede marcar el día 15 del mes correspondiente.')
       break
     case 'secado_almacenamiento':
       if (!task.secado_iniciado_en) reasons.push('Falta registrar el inicio del secado a la sombra.')

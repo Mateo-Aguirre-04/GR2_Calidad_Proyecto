@@ -5,18 +5,23 @@ Implementación y verificación: 8 de noviembre de 2026.
 ## Comportamiento entregado
 
 - Cada parcela dibujada, identificada por zona y parcela, es una sección del checklist. Se reutiliza la distribución real de área y capacidad del huerto.
-- Regar permite seleccionar una sección y registrar una tarea individual por **5 puntos totales**, independientemente de la cantidad de plantas. También permite programar una tarea pendiente y completarla por su ID.
-- Una solicitud reenviada conserva su clave, contenido, registro y premio. Repetir la finalización de una tarea devuelve su comprobante original. Una nueva actividad explícita puede acumular otra recompensa; no se introdujo frecuencia automática ni límite diario.
-- Los recordatorios identifican la sección y usan las mismas disponibilidades que la finalización. No se generan avisos diarios de riego sin una tarea programada.
+- Regar abre una ventana exclusiva para seleccionar una sección con plantas y registrar una tarea individual por **5 puntos totales**, independientemente de la cantidad. El servidor rechaza secciones vacías. También permite programar una tarea pendiente y completarla por su ID.
+- Una solicitud reenviada conserva su clave, contenido, registro y premio. Repetir la finalización devuelve el comprobante original. Se avisa del riego cada día local hasta realizarlo, sin imponer un límite diario de acciones.
+- Recordatorios y Actividades tienen vistas separadas. Los avisos tienen condiciones específicas de fecha, clima, madurez y fase lunar; no toda tarea pendiente produce una notificación. Al completar la actividad desaparece el aviso correspondiente.
 - La cosecha consulta todos los riegos completados de la sección en la fecha local de hace dos días. Un riego posterior no invalida ese antecedente. Los riegos anteriores por cultivo se vinculan a la sección conocida durante la sincronización, conservando sus puntos e historial.
 - La preparación de una sección vacía se inicia explícitamente. Cada nuevo ciclo exige maleza y preparación propias. Un cultivo activo o conservado impide iniciar otro ciclo en esa sección.
-- El flujo conecta preparación, siembra en parcela y cantidad real, señalética, abono, limpieza, ritual de cosecha, cosecha, lotes y secado. Las confirmaciones físicas y la decisión de conservar el cultivo las marca el miembro.
+- El abono se repite cada 20 días locales desde la siembra o última aplicación, con 20 puntos por aplicación. La limpieza avisa tras 7 días sin realizarla. El agradecimiento es opcional: avisa el 14 y 15 y solo se marca el 15; no bloquea cosecha. El ritual al amanecer para sembrar sigue siendo obligatorio.
+- Los avisos de cosecha exigen días de catálogo cumplidos; el aviso de clima cálido requiere 22 °C, cielo despejado y creciente/llena en la fecha actual o anterior. Rocío desde las 08:00 locales sin lluvia y secado desde el día 10 conservan confirmación física manual. La preparación sigue siendo anterior a sembrar y por ciclo de sección libre.
 - La finalización vuelve a comprobar condiciones en el backend. Las rutas antiguas de siembra y cosecha también pasan por el workflow.
-- El perfil actualiza el saldo después de las acciones. La pestaña **Gremio → Ranking de gremios** consulta los puntajes reales, ordenados de mayor a menor y con desempate por ID.
+- El perfil actualiza el saldo después de las acciones; se corrigió `recargarPerfil is not a function` devolviendo `recargar` desde `usePerfil`. La pestaña **Gremio → Ranking de gremios** consulta los puntajes reales, ordenados de mayor a menor y con desempate por ID.
 
 ## Migración y Supabase
 
 **`backend/migrations/20261108_004_secciones_puntos_ranking.sql` está aplicada y verificada en Supabase.**
+
+**005 también está aplicada y verificada.** Permite abono recurrente al retirar esa
+actividad del índice de premio único por cultivo; conserva todos los registros y saldos.
+El ejecutor `scripts/migrate-recurring-fertilizer.js` revisa el índice y solo aplica con `--apply`.
 
 Se agregaron `zona_mapa` y `parcela_mapa` a `zonas_huerto`, e `id_zona` con su relación a `tareas_huerto`. Se sustituyó únicamente la restricción que obligaba a asociar el riego a un cultivo, conservando las filas históricas.
 
@@ -45,9 +50,9 @@ No ejecutar el archivo SQL raíz completo ni volver a aplicar 001–003 en la ba
 
 | Comprobación | Resultado |
 |---|---|
-| `node --test` en backend | 33 pruebas aprobadas; las 4 de PostgreSQL se ejecutaron por separado. |
+| `node --test` en backend | 45 pruebas aprobadas; las 4 de PostgreSQL se ejecutaron por separado. |
 | `node scripts/run-checklist-postgres.js` | 4 pruebas de integración aprobadas contra PostgreSQL temporal. |
-| `node --test` en frontend | 2 pruebas aprobadas. |
+| `node --test` en frontend | 3 pruebas aprobadas, incluidas recarga de perfil y separación de vistas. |
 | ESLint en todos los módulos frontend modificados | Sin errores. |
 | `pnpm exec vite build` | Compilación correcta; permanece la advertencia de bundle mayor a 500 kB. |
 | `git diff --check` | Sin errores de espacios. |
@@ -64,16 +69,25 @@ Las pruebas de extremo a extremo son HTTP con PostgreSQL real aislado y sesión 
 6. Cambios concurrentes de puntos y membresía: los totales siguen coincidiendo con los miembros actuales.
 7. Migración sobre saldos existentes y altas, bajas y cambios de gremio.
 8. Recompensas inmutables; reversión completa de tarea y saldos ante un fallo.
-9. Preparación → espera → siembra → señalética / abono / limpieza → ritual → cosecha → secado y almacenamiento.
+9. Preparación → espera → siembra → señalética / abonos recurrentes / limpieza → cosecha sin ritual obligatorio → secado y almacenamiento.
 10. Cosecha: riego de otra sección rechazado, fecha local correcta aceptada incluso con un riego más reciente, clima y confirmaciones revalidados.
 11. Cultivos conservados, finalización sin premio, nuevo ciclo y catálogo sin días explícitos.
 12. Secado que sigue húmedo al día 15 permanece pendiente; lote individual y grupal respetan sus responsables y participantes.
+13. Riego vacío rechazado sin puntos, aviso diario por fecha local, limpieza semanal y ritual marcable solo el día 15.
+14. Abono bloqueado antes de 20 días, segundo premio válido, reenvíos sin duplicado y dos finalizaciones concurrentes sobre el mismo cultivo.
 
 En Supabase solo se aplicaron el esquema y la conciliación de totales: no se registraron actividades ficticias ni se repartieron premios de prueba. El mapeo de secciones y la vinculación de cultivos existentes se ejecutan al sincronizar el panel desde el juego.
 
-No se realizó una sesión interactiva de navegador con una cuenta real. La interfaz se validó mediante compilación y lint; el recorrido funcional se verificó por HTTP en la base aislada. La frecuencia automática y el límite diario del riego permanecen pendientes de definición, según el alcance solicitado.
+No se realizó una sesión interactiva de navegador con una cuenta real. La interfaz se validó con renderizado React, compilación y lint; el recorrido funcional se verificó por HTTP en la base aislada. La frecuencia del aviso de riego es diaria; no se solicitó limitar la cantidad de acciones por día.
 
 ## Archivos nuevos
+
+- `backend/migrations/20261108_005_abono_recurrente.sql`
+- `backend/scripts/migrate-recurring-fertilizer.js`
+- `backend/src/data/activityReminders.js`
+- `backend/test/activityReminders.test.js`
+- `huertos-ecuador/src/components/PanelActividades/ModalRiego.jsx`
+- `huertos-ecuador/test/activities.test.js`
 
 - `backend/migrations/20261108_004_secciones_puntos_ranking.sql`
 - `backend/scripts/migrate-activities.js`

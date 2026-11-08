@@ -35,13 +35,13 @@ export function useChecklist(huertoId) {
     recargar()
     return result
   }, [huertoId, recargar])
-  const current = snapshot?.huertoId === huertoId && snapshot?.revision === revision ? snapshot : null
+  const current = snapshot?.huertoId === huertoId ? snapshot : null
   return {
     panel: current?.panel || null,
     tareas: current?.panel?.tareas || [],
     cultivos: current?.panel?.cultivos || [],
     recordatorios: current?.panel?.recordatorios || [],
-    cargando: !!huertoId && !current,
+    cargando: !!huertoId && (!current||current.revision!==revision),
     error: huertoId ? current?.error || '' : 'Selecciona un huerto.',
     recargar,
     inscribirse: tareaId => run(() => api.inscribirseEnTarea(huertoId, tareaId)),

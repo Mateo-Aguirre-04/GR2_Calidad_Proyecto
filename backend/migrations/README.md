@@ -8,6 +8,7 @@ El comando previo pnpm db:migrate sigue limitado a last_seen y no se cambió.
 | 20261108_002_solicitudes_checklist.sql | Aplicado y verificado el 2026-11-08 | Comprobantes idempotentes de acciones |
 | 20261108_003_programacion_checklist.sql | Aplicado y verificado el 2026-11-08 | Zonas, ciclos, metadatos de cultivo, lotes, zona horaria y contexto de tareas |
 | 20261108_004_secciones_puntos_ranking.sql | Aplicada y verificada en Supabase el 2026-11-08 | Secciones mapeadas, riego por sección y triggers de puntos y gremios |
+| 20261108_005_abono_recurrente.sql | Aplicada y verificada en Supabase el 2026-11-08 | Permite varias aplicaciones de abono por cultivo, preservando historial y premios |
 
 002 y 003 agregan seis tablas y columnas/índices en tareas_huerto. No borran tablas,
 no cambian puntos ni rellenan cultivos existentes. Las nuevas tablas tienen RLS activo
@@ -48,13 +49,25 @@ El ejecutor rechaza triggers previos desconocidos para impedir una doble acredit
 igualarlo a la suma actual. El backend actualizado requiere 004 antes de reiniciar.
 No ejecutar 001–003 ni el SQL raíz sobre la base compartida.
 
+Para 005:
+
+```powershell
+node scripts/migrate-recurring-fertilizer.js         # Solo lectura
+node scripts/migrate-recurring-fertilizer.js --apply # Transacción; no repite una migración ya instalada
+```
+
+005 modifica únicamente el índice de recompensa por cultivo para permitir abono
+recurrente. Siembra, cosecha y señalética conservan su unicidad. La clave de generación
+evita tareas duplicadas y el servidor bloquea el cultivo al completar un abono para
+validar los 20 días incluso con solicitudes simultáneas. No modifica puntos existentes.
+
 ```powershell
 cd backend
 pnpm test
 node scripts/run-checklist-postgres.js
 ```
 
-El ejecutor crea PostgreSQL temporal en el puerto 55439, prueba las tres migraciones
+El ejecutor crea PostgreSQL temporal en el puerto 55439, prueba las cinco migraciones
 con dependencias ficticias, verifica HTTP y concurrencia, limpia su esquema y detiene
 el servidor. Conserva su carpeta temporal para diagnóstico. No usa DATABASE_URL ni
 escribe en Supabase. Requiere PostgreSQL 18 en Windows; POSTGRES_BIN permite cambiar
