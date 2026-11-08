@@ -146,8 +146,20 @@ export const registro = handle(async (req, res) => {
 })
 
 const plantSQL = `SELECT p.*,t.nombre AS tipo FROM planta p JOIN tipo_planta t USING(id_tipo_planta)`
-const plantResponse = (p) => ({ id:Number(p.id_planta),nombre:p.nombre_comun,nombreCientifico:p.nombre_cientifico,tipo:p.tipo,
-  ciclo:p.ciclo_cultivo,diasCrecimiento:growthDays(p.ciclo_cultivo),resumen:p.ciclo_cultivo,cuidados:{},imagen:'',fases:[] })
+const plantResponse = (p) => ({
+  id: Number(p.id_planta),
+  nombre: p.nombre_comun,
+  nombreCientifico: p.nombre_cientifico,
+  tipo: p.tipo,
+  region: p.region || 'Sierra',
+  ciclo: p.ciclo_cultivo,
+  diasCrecimiento: growthDays(p.ciclo_cultivo),
+  resumen: p.descripcion || p.ciclo_cultivo,
+  cuidados: p.cuidados || {},
+  imagen: p.imagen || '',
+  imagenMuerta: p.imagen_muerta || '',
+  fases: p.fases || []
+})
 export const getPlantas = handle(async (req,res) => res.json((await query(`${plantSQL} ORDER BY p.id_planta`)).rows.map(plantResponse)))
 export const getPlanta = handle(async (req,res) => {
   const { rows } = await query(`${plantSQL} WHERE p.id_planta=$1`,[req.params.id])
@@ -165,7 +177,7 @@ export const getHuerto = handle(async (req,res) => {
     WHERE h.id_huerto=$1`,[id])
   const h=gardens.rows[0]
   if (!h) throw httpError(404,'Huerto no encontrado.')
-  const crops=await query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.ciclo_cultivo FROM huerto_planta hp JOIN planta p USING(id_planta)
+  const crops=await query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.ciclo_cultivo,p.fases,p.imagen_muerta FROM huerto_planta hp JOIN planta p USING(id_planta)
     WHERE hp.id_huerto=$1 ORDER BY hp.fecha_siembra`,[id])
   res.json({ id:Number(h.id_huerto),gremioId:Number(h.id_gremio),nombre:h.nombre_gremio,
     tipo:h.imagen?.replace(/^.*\//,'').replace(/\.png$/,'') || 'surcos',

@@ -27,7 +27,12 @@ export function cropResponse(row) {
   return {
     id: `${row.id_planta}:${row.fecha_exacta || fecha}`,
     plantaId: Number(row.id_planta),
-    planta: { nombre: row.nombre_comun, diasCrecimiento: growthDays(row.ciclo_cultivo), imagenes: [] },
+    planta: {
+      nombre: row.nombre_comun,
+      diasCrecimiento: growthDays(row.ciclo_cultivo),
+      imagenes: Array.isArray(row.fases) ? row.fases.map((f) => f.imagen) : [],
+      imagenMuerta: row.imagen_muerta || (Array.isArray(row.fases) ? row.fases.find(f => f.muerta)?.imagen : '') || '',
+    },
     sembradoEn: fecha,
     x: Number.isFinite(metadata.x) ? metadata.x : 50,
     y: Number.isFinite(metadata.y) ? metadata.y : 50,
