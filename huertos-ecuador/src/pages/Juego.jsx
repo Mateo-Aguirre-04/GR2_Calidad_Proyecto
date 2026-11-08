@@ -1,16 +1,21 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
+import { authenticatedFetch } from '../authSession'
 import { useHuerto } from '../hooks/useHuerto'
 import { usePerfil } from '../hooks/usePerfil'
 import { useClima } from '../hooks/useClima'
 import { useFaseLunar } from '../hooks/useFaseLunar'
 import { useAhora } from '../hooks/useAhora'
 import { useChecklist } from '../hooks/useChecklist'
-import Cultivo from '../components/Cultivo/Cultivo'
+import { fondoHuerto, capacidadParcela, distribucionHuerto } from '../data/parcelasHuerto'
+import { DURACION_COSECHA_MS, listaParaCosechar } from '../data/fasesPlanta'
+import Parcela from '../components/Parcela/Parcela'
+import ModalCantidadSiembra from '../components/ModalCantidadSimebra/ModalCantidadSiembra'
 import BotonLateral from '../components/BotonLateral/BotonLateral'
 import IconoEstado from '../components/IconoEstado/IconoEstado'
 import ModalPerfil from '../components/ModalPerfil/ModalPerfil'
 import ModalSeleccionPlanta from '../components/ModalSeleccionPlanta/ModalSeleccionPlanta'
+import ModalInfoCultivo from '../components/ModalInfoCultivo/ModalInfoCultivo'
 import styles from './css/Juego.module.css'
 
 // accion: 'ruta' navega, 'modal' abre un modal, 'pendiente' aún sin definir.
@@ -25,7 +30,6 @@ const BOTONES = [
 
 const HERRAMIENTAS = [
   { clave: 'riego',   nombre: 'Regar',    etiqueta: 'Regar',    emoji: '🚿', accion: 'pendiente' },
-  { clave: 'siembra', nombre: 'Sembrar',  etiqueta: 'Sembrar',  emoji: '🌰', accion: 'pendiente', pulsar: true },
   { clave: 'cosecha', nombre: 'Cosechar', etiqueta: 'Cosechar', emoji: '🧺', accion: 'pendiente' },
 ]
 
@@ -85,13 +89,17 @@ function Juego() {
   const luna = useFaseLunar()
   const ahora = useAhora()
   const checklist = useChecklist(huerto?.id)
+  const [zona, setZona] = useState(1)
+  const [parcelaElegida, setParcelaElegida] = useState(null)
 
   // UI state
-  const [modal, setModal] = useState(null) // 'perfil' | 'seleccionarPlanta' | null
+  const [modal, setModal] = useState(null) // 'perfil' | 'seleccionarPlanta' | 'cantidad' | 'recordatorios' | null
   const [loadingAccion, setLoadingAccion] = useState(false)
   const [errorAccion, setErrorAccion] = useState('')
-  const [herramientaActiva, setHerramientaActiva] = useState(null) // 'siembra' | 'cosecha'
+  const [herramientaActiva, setHerramientaActiva] = useState(null) // 'riego' | 'cosecha'
   const [plantaSeleccionada, setPlantaSeleccionada] = useState(null) // plant chosen for planting
+  const [cultivoInfo, setCultivoInfo] = useState(null) // cultivo cuya información se muestra
+  const [cosechaAnimada, setCosechaAnimada] = useState(null) // id del cultivo que se está cosechando
 
   // Handler for lateral button selection
   function seleccionar(boton) {
@@ -101,9 +109,6 @@ function Juego() {
       setModal(boton.clave)
     } else if (boton.clave === 'recordatorios') {
       setModal('recordatorios')
-    } else if (boton.clave === 'siembra') {
-      setHerramientaActiva('siembra')
-      setModal('seleccionarPlanta')
     } else if (boton.clave === 'riego') {
       setHerramientaActiva('riego')
     } else if (boton.clave === 'cosecha') {
@@ -112,67 +117,85 @@ function Juego() {
     // pendiente does nothing
   }
 
-  // Callback when a plant is chosen from the catalog modal
+  function elegirParcela(numero) {
+    setParcelaElegida(numero)
+    setModal('seleccionarPlanta')
+  }
+
   function onPlantaElegida(planta) {
     setPlantaSeleccionada(planta)
+    setModal('cantidad')
+  }
+
+  function cerrarSiembra() {
     setModal(null)
+    setParcelaElegida(null)
+    setPlantaSeleccionada(null)
   }
 
-  function sembrarEnHuerto(event) {
-    if (herramientaActiva !== 'siembra' || !plantaSeleccionada || loadingAccion) return
-    const rect = event.currentTarget.getBoundingClientRect()
-    const x = Math.max(0, Math.min(100, (event.clientX - rect.left) / rect.width * 100))
-    const y = Math.max(0, Math.min(100, (event.clientY - rect.top) / rect.height * 100))
-    onPosicionConfirmada({ x, y })
-  }
-
-  // Las posiciones de cultivo son porcentajes dentro del huerto.
-  async function onPosicionConfirmada({ x, y }) {
-    if (!plantaSeleccionada) return
+  // Siembra en la zona y parcela elegidas; la cantidad se limita a lo que cabe en la parcela.
+  async function confirmarSiembra(cantidadPedida) {
     setLoadingAccion(true)
     setErrorAccion('')
     try {
-      const ciclos = checklist.panel?.zonas?.filter(z => z.cicloId && !z.requiereNuevoCiclo) || []
-      if (!ciclos.length) throw new Error('Prepara una zona desde el panel de checklist antes de sembrar.')
-      const destino = ciclos[0]
-      const parteCosecha = window.prompt('¿Qué parte cosecharás? Escribe hojas, flores, frutos, semillas o raices.')
-      if (!parteCosecha) return
-      if (!window.confirm('¿Confirmas que realizarás el ritual al amanecer?')) return
-      await checklist.sembrar({ cicloId: destino.cicloId, plantaId: String(plantaSeleccionada.id), parteCosecha: parteCosecha.toLowerCase(), x, y, confirmaciones: { ritualAmanecer: true }, claveSolicitud: crypto.randomUUID() })
+      const max = capacidadParcela(areaParcela(parcelaElegida), distribucion.maxPlantas, plantaSeleccionada)
+      const cantidad = Math.min(Math.max(1, Math.trunc(Number(cantidadPedida)) || 1), max)
+
+      const resp = await authenticatedFetch(`/api/huertos/${huerto.id}/sembrar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plantaId: plantaSeleccionada.id, zona: zonaActual, parcela: parcelaElegida, cantidad }),
+      })
+      if (!resp.ok) throw new Error((await resp.json()).error || 'No se pudo guardar la siembra.')
+      await resp.json()
       recargar()
     } catch (e) {
       setErrorAccion(e.message)
     } finally {
       setLoadingAccion(false)
-      setModal(null)
-      setHerramientaActiva(null)
-      setPlantaSeleccionada(null)
+      cerrarSiembra()
     }
   }
 
-  // Callback when a mature crop is selected for harvest
-  async function onCultivoSeleccionado(cultivo) {
+  // Herramienta Regar: registra el riego del cultivo en el checklist.
+  async function regarCultivo(cultivo) {
     const separadorFecha = String(cultivo.id).indexOf(':')
     const fechaSiembra = separadorFecha >= 0 ? String(cultivo.id).slice(separadorFecha + 1) : null
-    if (herramientaActiva === 'riego') {
-      setLoadingAccion(true)
-      setErrorAccion('')
-      try {
-        if (!fechaSiembra) throw new Error('No se encontró la fecha exacta del cultivo.')
-        await checklist.registrarRiegos([{ plantaId: String(cultivo.plantaId), fechaSiembra }], crypto.randomUUID())
-        recargar()
-      } catch (e) { setErrorAccion(e.message) }
-      finally { setLoadingAccion(false); setHerramientaActiva(null) }
+    setLoadingAccion(true)
+    setErrorAccion('')
+    try {
+      if (!fechaSiembra) throw new Error('No se encontró la fecha exacta del cultivo.')
+      await checklist.registrarRiegos([{ plantaId: String(cultivo.plantaId), fechaSiembra }], crypto.randomUUID())
+      recargar()
+    } catch (e) {
+      setErrorAccion(e.message)
+    } finally {
+      setLoadingAccion(false)
+      setHerramientaActiva(null)
+    }
+  }
+
+  // Solo se cosecha en la fase 4; el backend vuelve a validarlo.
+  async function onCultivoSeleccionado(cultivo) {
+    if (!listaParaCosechar(cultivo, Date.now())) {
+      setErrorAccion(`${cultivo.planta?.nombre ?? 'La planta'} aún no está en la fase de cosecha.`)
       return
     }
     setLoadingAccion(true)
     setErrorAccion('')
+    setCultivoInfo(null) // cierra el modal para que se vea la animación
     try {
-      const tarea = checklist.tareas.find(t => t.actividad?.codigo === 'cosecha' && t.cultivo?.plantaId === String(cultivo.plantaId) && t.cultivo?.fechaSiembra === fechaSiembra)
-      if (!tarea) throw new Error('No hay una tarea de cosecha disponible para este cultivo.')
-      if (!window.confirm('¿Confirmas que el cultivo está listo y el rocío está seco?')) return
-      const conservarCultivo = window.confirm('¿Deseas conservar la planta para que siga creciendo?')
-      await checklist.completar(tarea.id, { cultivoListo: true, rocioSeco: true, conservarCultivo })
+      const resp = await authenticatedFetch(`/api/huertos/${huerto.id}/cosechar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cultivoId: cultivo.id }),
+      })
+      if (!resp.ok) throw new Error((await resp.json()).error || 'No se pudo guardar la cosecha.')
+      await resp.json()
+      // Animación: la parcela muestra la fase 5 y la planta sale volando. Se recarga al terminar;
+      // el id se queda puesto hasta entonces para que la planta no reaparezca en fase 4.
+      setCosechaAnimada(cultivo.id)
+      await new Promise((resolver) => setTimeout(resolver, DURACION_COSECHA_MS))
       recargar()
     } catch (e) {
       setErrorAccion(e.message)
@@ -194,8 +217,22 @@ function Juego() {
   const listaTareas = checklist.tareas || []
   const herramientas = HERRAMIENTAS.map(h => ({ ...h, cantidad: h.clave === 'riego' ? listaTareas.filter(t => t.actividad?.codigo === 'riego' && t.disponibilidad?.puedeCompletar).length : 0 }))
 
+  const tipo = huerto.tipo ?? 'surcos'
+  const fondo = fondoHuerto(tipo)
+  // El backend envía zonas = [[m² de cada parcela], ...]; si no llega (o es el formato viejo), se calcula aquí.
+  const distribucion = Array.isArray(huerto.parcelas?.zonas?.[0])
+    ? huerto.parcelas
+    : distribucionHuerto(huerto.areaTotal, tipo)
+  const zonas = distribucion.zonas
+  const zonaActual = Math.min(zona, zonas.length)
+  const habilitadas = fondo.parcelas.slice(0, zonas[zonaActual - 1].length)
+  const areaParcela = (numero) => zonas[zonaActual - 1]?.[numero - 1] ?? distribucion.m2PorParcela
+  // Último cultivo no cosechado de cada parcela (los cultivos llegan ordenados por fecha)
+  const cultivoEn = (numero) =>
+    huerto.cultivos.filter((c) => c.zona === zonaActual && c.parcela === numero && !c.cosechado).at(-1)
+
   return (
-    <div className={styles.pantalla} style={{ backgroundImage: `url(/huertos/${huerto.tipo ?? 'surcos'}.png)` }}>
+    <div className={styles.pantalla} style={{ '--fondo': `url(/huertos/${tipo}.png)` }}>
       {errorAccion && <p className={styles.avisoSiembra} role="alert">{errorAccion}</p>}
       {/* Jugador (arriba a la izquierda): abre el perfil */}
       <button type="button" className={styles.jugador} onClick={() => setModal('perfil')} aria-label="Abrir mi perfil">
@@ -229,32 +266,34 @@ function Juego() {
       </div>
 
       {/* Huerto: render each cultivo */}
-      {herramientaActiva === 'siembra' && plantaSeleccionada && (
-        <p className={styles.avisoSiembra} role="status">Elige una posición en el huerto para sembrar {plantaSeleccionada.nombre}.</p>
-      )}
-      <div
-        className={styles.huerto}
-        onClick={sembrarEnHuerto}
-        role={herramientaActiva === 'siembra' && plantaSeleccionada ? 'button' : undefined}
-        tabIndex={herramientaActiva === 'siembra' && plantaSeleccionada ? 0 : undefined}
-        aria-label={herramientaActiva === 'siembra' && plantaSeleccionada ? `Sembrar ${plantaSeleccionada.nombre} en el huerto` : undefined}
-        onKeyDown={(event) => {
-          if ((event.key === 'Enter' || event.key === ' ') && herramientaActiva === 'siembra' && plantaSeleccionada && !loadingAccion) {
-            event.preventDefault()
-            onPosicionConfirmada({ x: 50, y: 50 })
-          }
-        }}
-      >
-        {huerto.cultivos.map((cultivo) => (
-          <Cultivo
-            key={cultivo.id}
-            cultivo={cultivo}
+      <div className={styles.escenario} style={{ '--relacion': fondo.relacion, backgroundImage: `url(/huertos/${tipo}.png)` }}>
+        {habilitadas.map((rect, i) => (
+          <Parcela
+            key={`${zonaActual}-${i}`}
+            numero={i + 1}
+            rect={rect}
+            relacion={fondo.relacion}
+            tierra={fondo.tierra?.[i]}
+            cultivo={cultivoEn(i + 1)}
             ahora={ahora}
-            selectable={herramientaActiva === 'cosecha' || herramientaActiva === 'riego'}
-            onSelect={onCultivoSeleccionado}
+            modo={herramientaActiva}
+            deshabilitada={loadingAccion}
+            cosechando={cosechaAnimada != null && cultivoEn(i + 1)?.id === cosechaAnimada}
+            onSembrar={elegirParcela}
+            onCosechar={onCultivoSeleccionado}
+            onRegar={regarCultivo}
+            onVerInfo={setCultivoInfo}
           />
         ))}
       </div>
+
+      {zonas.length > 1 && (
+        <nav className={styles.zonas} aria-label="Zonas del huerto">
+          <button type="button" onClick={() => setZona(zonaActual - 1)} disabled={zonaActual === 1} aria-label="Zona anterior">◀</button>
+          <span>Zona {zonaActual} de {zonas.length}</span>
+          <button type="button" onClick={() => setZona(zonaActual + 1)} disabled={zonaActual === zonas.length} aria-label="Zona siguiente">▶</button>
+        </nav>
+      )}
 
       {/* Botones laterales */}
       <nav className={styles.lateral} aria-label="Menú del juego">
@@ -279,7 +318,30 @@ function Juego() {
         />
       )}
       {modal === 'seleccionarPlanta' && (
-        <ModalSeleccionPlanta onSeleccionar={onPlantaElegida} onCerrar={() => setModal(null)} />
+        <ModalSeleccionPlanta onSeleccionar={onPlantaElegida} onCerrar={cerrarSiembra} />
+      )}
+      {modal === 'cantidad' && plantaSeleccionada && (
+        <ModalCantidadSiembra
+          planta={plantaSeleccionada}
+          zona={zonaActual}
+          parcela={parcelaElegida}
+          maximo={capacidadParcela(areaParcela(parcelaElegida), distribucion.maxPlantas, plantaSeleccionada)}
+          m2={areaParcela(parcelaElegida)}
+          enviando={loadingAccion}
+          onConfirmar={confirmarSiembra}
+          onCerrar={cerrarSiembra}
+        />
+      )}
+      {cultivoInfo && (
+        <ModalInfoCultivo
+          cultivo={cultivoInfo}
+          zona={cultivoInfo.zona}
+          parcela={cultivoInfo.parcela}
+          ahora={ahora}
+          enviando={loadingAccion}
+          onCosechar={onCultivoSeleccionado}
+          onCerrar={() => setCultivoInfo(null)}
+        />
       )}
       {modal === 'recordatorios' && (
         <div className={styles.recordatoriosOverlay} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setModal(null) }}>

@@ -6,6 +6,8 @@ import { requireUser, requireMember, cropResponse, growthDays, httpError, sendEr
 import { canEditGuildProfile, updateGuildProfile } from '../data/guildProfile.js'
 import { createGuildRecords } from '../data/guildCreation.js'
 import { isValidBirthDate } from '../data/registration.js'
+import { distribucionHuerto, areaDeParcela, capacidadParcela, tipoDesdeImagen } from '../data/parcelas.js'
+import { fasesCrecimiento, listaParaCosechar } from '../data/fases.js'
 import { daysUntilLunarAge, lunarPhase } from '../data/lunarCalendar.js'
 
 // Con Supabase conectado, nunca se usan los controladores de demostración.
@@ -161,30 +163,57 @@ export const getHuerto = handle(async (req,res) => {
   const userId=requireUser(req)
   const id=Number(req.params.id)
   await requireMember({query},userId,id)
-  const gardens=await query(`SELECT h.*,g.latitud,g.longitud,g.nombre_gremio,sd.imagen
+  const gardens=await query(`SELECT h.*,g.latitud,g.longitud,g.nombre_gremio,g.area_total,sd.imagen,sd.num_parcelas
     FROM huerto h JOIN gremio g USING(id_gremio)
     JOIN subdiseño_huerto sd ON sd.id_diseño=h.id_diseño AND sd.id_subdiseño=h.id_subdiseño
     WHERE h.id_huerto=$1`,[id])
   const h=gardens.rows[0]
   if (!h) throw httpError(404,'Huerto no encontrado.')
-  const crops=await query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.ciclo_cultivo,p.fases,p.imagen_muerta FROM huerto_planta hp JOIN planta p USING(id_planta)
+  const crops=await query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.nombre_cientifico,p.ciclo_cultivo,p.fases,p.imagen,p.imagen_muerta
+    FROM huerto_planta hp JOIN planta p USING(id_planta)
     WHERE hp.id_huerto=$1 ORDER BY hp.fecha_siembra`,[id])
+  const tipo=tipoDesdeImagen(h.imagen)
   res.json({ id:Number(h.id_huerto),gremioId:Number(h.id_gremio),nombre:h.nombre_gremio,
-    tipo:h.imagen?.replace(/^.*\//,'').replace(/\.png$/,'') || 'surcos',
-    ubicacion:{lat:Number(h.latitud),lng:Number(h.longitud)},cultivos:crops.rows.map(cropResponse) })
+    tipo,
+    ubicacion:{lat:Number(h.latitud),lng:Number(h.longitud)},
+    areaTotal:Number(h.area_total),
+    parcelas:distribucionHuerto(h.area_total,tipo,h.num_parcelas),
+    cultivos:crops.rows.map(cropResponse) })
 })
 
 export const sembrar = handle(async (req,res) => {
   const userId=requireUser(req)
-  const {plantaId,x,y}=req.body
-  if (![x,y].every((v) => Number.isFinite(v) && v>=0 && v<=100) || !Number.isSafeInteger(Number(plantaId))) throw httpError(400,'Planta o posición inválida.')
+  const plantaId=Number(req.body.plantaId)
+  const zona=Number(req.body.zona)
+  const parcela=Number(req.body.parcela)
+  const cantidad=Number(req.body.cantidad)
+  if (![plantaId,zona,parcela,cantidad].every(Number.isSafeInteger) || zona<1 || parcela<1 || cantidad<1 || cantidad>9999) {
+    throw httpError(400,'Planta, parcela o cantidad inválida.')
+  }
   const crop=await transaction(async (db) => {
     await requireMember(db,userId,req.params.id)
+    const {rows:[h]}=await db.query(`SELECT g.area_total,sd.num_parcelas,sd.imagen
+      FROM huerto h JOIN gremio g USING(id_gremio)
+      JOIN subdiseño_huerto sd ON sd.id_diseño=h.id_diseño AND sd.id_subdiseño=h.id_subdiseño
+      WHERE h.id_huerto=$1`,[req.params.id])
+    if (!h) throw httpError(404,'Huerto no encontrado.')
+    const distribucion=distribucionHuerto(h.area_total,tipoDesdeImagen(h.imagen),h.num_parcelas)
+    const m2=areaDeParcela(distribucion,zona,parcela)
+    if (m2==null) throw httpError(400,'Esa parcela no está habilitada en tu huerto.')
+    const maximo=capacidadParcela(m2,distribucion.maxPlantas)
+    if (cantidad>maximo) throw httpError(400,`En esta parcela caben máximo ${maximo} plantas.`)
     const plant=(await db.query('SELECT * FROM planta WHERE id_planta=$1',[plantaId])).rows[0]
     if (!plant) throw httpError(404,'Planta no encontrada.')
-    const {rows}=await db.query(`INSERT INTO huerto_planta(id_huerto,id_planta,cantidad,id_estado,observaciones)
-      VALUES($1,$2,1,1,$3) RETURNING *,fecha_siembra::text AS fecha_exacta`,[req.params.id,plantaId,JSON.stringify({x,y,cosechado:false})])
-    return cropResponse({...rows[0],...plant})
+    try {
+      const {rows}=await db.query(`INSERT INTO huerto_planta(id_huerto,id_planta,cantidad,id_estado,observaciones,zona,parcela)
+        VALUES($1,$2,$3,1,$4,$5,$6) RETURNING *,fecha_siembra::text AS fecha_exacta`,
+        [req.params.id,plantaId,cantidad,JSON.stringify({cosechado:false}),zona,parcela])
+      return cropResponse({...plant,...rows[0]})
+    } catch (error) {
+      // ux_huerto_planta_parcela_activa: ya hay una planta viva en esa parcela
+      if (error.code==='23505') throw httpError(409,'Esa parcela ya tiene una planta.')
+      throw error
+    }
   })
   res.status(201).json({mensaje:'Siembra guardada en Supabase.',cultivo:crop})
 })
@@ -197,11 +226,16 @@ export const cosechar = handle(async (req,res) => {
   if (delimiter<1 || !Number.isSafeInteger(plantId) || !Number.isFinite(Date.parse(fecha))) throw httpError(400,'Cultivo inválido.')
   const crop=await transaction(async (db) => {
     await requireMember(db,userId,req.params.id)
-    const {rows}=await db.query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.ciclo_cultivo FROM huerto_planta hp JOIN planta p USING(id_planta)
+    const {rows}=await db.query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.nombre_cientifico,p.ciclo_cultivo,p.fases,p.imagen,p.imagen_muerta
+      FROM huerto_planta hp JOIN planta p USING(id_planta)
       WHERE hp.id_huerto=$1 AND hp.id_planta=$2 AND hp.fecha_siembra=$3 FOR UPDATE OF hp`,[req.params.id,plantId,fecha])
     if (!rows.length) throw httpError(404,'Cultivo no encontrado.')
     const current=cropResponse(rows[0])
     if (current.cosechado) throw httpError(409,'Este cultivo ya fue cosechado.')
+    const totalFases=fasesCrecimiento(rows[0].fases).length || 5
+    if (!listaParaCosechar(current.sembradoEn,current.planta.diasCrecimiento,totalFases)) {
+      throw httpError(409,'La planta aún no está en la fase de cosecha.')
+    }
     const metadata=JSON.stringify({x:current.x,y:current.y,cosechado:true})
     await db.query(`UPDATE huerto_planta SET id_estado=$4,observaciones=$5,modified_at=now()
       WHERE id_huerto=$1 AND id_planta=$2 AND fecha_siembra=$3`,[req.params.id,plantId,fecha,Number(process.env.HARVEST_STATE_ID || 6),metadata])
