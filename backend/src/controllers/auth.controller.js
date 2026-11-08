@@ -3,6 +3,7 @@ import { mockData } from '../data/mockStore.js'
 import bcrypt from 'bcryptjs'
 import { startSession, COOKIE_NAME, cookieOptions } from '../config/sessions.js'
 import { touchSharedPresence } from '../data/sharedPresence.js'
+import { isValidBirthDate } from '../data/registration.js'
 
 function publicUser(user) {
   const { contrasena, contrasenia_hash, ...safe } = user
@@ -173,9 +174,10 @@ export async function registro(req, res) {
   try {
     const { nombre, apellido, usuario, contrasena, genero, fechaNacimiento, descripcion } = req.body
 
-    if (!nombre || !usuario || !contrasena) {
-      return res.status(400).json({ error: 'Nombre, nombre de usuario y contraseña son obligatorios.' })
+    if (!nombre || !apellido || !usuario || !contrasena || !fechaNacimiento) {
+      return res.status(400).json({ error: 'Nombre, apellido, fecha de nacimiento, nombre de usuario y contraseña son obligatorios.' })
     }
+    if (!isValidBirthDate(fechaNacimiento)) return res.status(400).json({ error: 'Ingresa una fecha de nacimiento válida.' })
 
     const gen = genero && ['M', 'F', 'NB', 'O'].includes(genero) ? genero : 'O'
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim()
@@ -199,8 +201,7 @@ export async function registro(req, res) {
           VALUES ($1, $2, $3, $4, $5)
           RETURNING ID_usuario
         `
-        const fechaNac = fechaNacimiento || '2000-01-01'
-        const userRes = await query(insertUser, [nombre, apellido || '', hash, fechaNac, gen])
+        const userRes = await query(insertUser, [nombre, apellido, hash, fechaNacimiento, gen])
         const newId = userRes.rows[0].id_usuario
 
         // 4. Insertar en tabla Usuario_General (columnas reales: ID_usuario, Nombre_Usuario, Descripcion, Puntos)
@@ -231,7 +232,7 @@ export async function registro(req, res) {
       usuario,
       nombre: nombreCompleto,
       contrasena: contrasena || '12345678',
-      fechaNacimiento: '2000-01-01',
+      fechaNacimiento,
       genero: gen,
       talento: 'Nuevo agricultor comunitario',
       puntos: 0,

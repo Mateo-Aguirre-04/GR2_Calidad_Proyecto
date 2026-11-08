@@ -77,3 +77,59 @@ test('API: cookies, miembros, acciones reales, dos sesiones, expiración y logou
   await call('/api/auth/logout', { cookie: second.cookie, method: 'POST' })
   assert.equal(member((await call('/api/gremios/1')).data).enLinea, false)
 })
+
+test('API: el creador autenticado queda asociado como Fundador', async (t) => {
+  const app = createApp(await createSessionStore())
+  const server = app.listen(0, '127.0.0.1')
+  await new Promise((resolve) => server.once('listening', resolve))
+  t.after(() => new Promise((resolve) => server.close(resolve)))
+  const base = `http://127.0.0.1:${server.address().port}`
+  async function call(path, { cookie, body, method = body ? 'POST' : 'GET' } = {}) {
+    const res = await fetch(base + path, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+    return { res, data: await res.json(), cookie: res.headers.get('set-cookie')?.split(';')[0] }
+  }
+
+  const usuario = `creador_${Date.now()}`
+  assert.equal((await call('/api/auth/registro', {
+    body: { nombre: 'Usuario', apellido: 'Nuevo', usuario, contrasena: 'password123' },
+  })).res.status, 400)
+  assert.equal((await call('/api/auth/registro', {
+    body: { nombre: 'Usuario', apellido: 'Nuevo', usuario, contrasena: 'password123', fechaNacimiento: '2026-99-99' },
+  })).res.status, 400)
+  const registered = await call('/api/auth/registro', {
+    body: { nombre: 'Usuario', apellido: 'Nuevo', usuario, contrasena: 'password123', fechaNacimiento: '1995-04-12' },
+  })
+  assert.equal(registered.res.status, 201)
+  assert.equal(registered.data.usuario.fechaNacimiento, '1995-04-12')
+  const login = await call('/api/auth/login', { body: { usuario, contrasena: 'password123' } })
+  assert.equal(login.res.status, 200)
+
+  const config = await call('/api/gremios/configuracion', { cookie: login.cookie })
+  assert.equal(config.res.status, 200)
+  assert.equal((await call('/api/gremios', { body: { nombre: 'Sin sesión' } })).res.status, 401)
+
+  const created = await call('/api/gremios', {
+    cookie: login.cookie,
+    body: {
+      nombre: 'Huerto de prueba',
+      descripcion: 'Descripción de prueba',
+      area: 80,
+      suelo: 'Franco',
+      riego: 'Goteo',
+      lat: -1.2,
+      lng: -78.6,
+      usuarioId: 3,
+    },
+  })
+  assert.equal(created.res.status, 201)
+  assert.equal(created.data.gremio.miembrosCount, 1)
+  const detail = await call(`/api/gremios/${created.data.gremio.id}`)
+  const creator = detail.data.miembros.find((item) => item.id === login.data.usuario.id)
+  assert.equal(creator.rolGremio, 'Fundador')
+  assert.equal(detail.data.miembros.some((item) => item.id === 3), false)
+  assert.equal((await call('/api/gremios', { cookie: login.cookie, body: { nombre: 'Otro' } })).res.status, 409)
+})

@@ -1,21 +1,26 @@
 import { useEffect, useState } from 'react'
 import styles from './ModalPlanta.module.css'
 
-import iconoSuelo from '../../assets/iconos/suelo.png'
-import iconoAmbiente from '../../assets/iconos/ambiente.png'
-import iconoAbono from '../../assets/iconos/abono.png'
-import iconoExtras from '../../assets/iconos/extras.png'
+import iconoSueloLocal from '../../assets/iconos/suelo.png'
+import iconoAmbienteLocal from '../../assets/iconos/ambiente.png'
+import iconoAbonoLocal from '../../assets/iconos/abono.png'
+import iconoExtrasLocal from '../../assets/iconos/extras.png'
 
-// Iconos y etiquetas fijos para todas las plantas
+const BUCKET_ICONS_BASE = 'https://aceafqbfposisfmjxgkj.supabase.co/storage/v1/object/public/huertos-assets/iconos'
+
+// Iconos y etiquetas servidos desde el bucket de Supabase con respaldo local en PNG
 const CATEGORIAS = [
-  { clave: 'suelo',    etiqueta: 'Suelo',    icono: iconoSuelo },
-  { clave: 'ambiente', etiqueta: 'Ambiente', icono: iconoAmbiente },
-  { clave: 'abono',    etiqueta: 'Abono',    icono: iconoAbono },
-  { clave: 'extras',   etiqueta: 'Extras',   icono: iconoExtras },
+  { clave: 'suelo',    etiqueta: 'Suelo',    icono: `${BUCKET_ICONS_BASE}/suelo.png?v=4`,    fallback: iconoSueloLocal },
+  { clave: 'ambiente', etiqueta: 'Ambiente', icono: `${BUCKET_ICONS_BASE}/ambiente.png?v=4`, fallback: iconoAmbienteLocal },
+  { clave: 'abono',    etiqueta: 'Abono',    icono: `${BUCKET_ICONS_BASE}/abono.png?v=4`,    fallback: iconoAbonoLocal },
+  { clave: 'extras',   etiqueta: 'Extras',   icono: `${BUCKET_ICONS_BASE}/extras.png?v=4`,   fallback: iconoExtrasLocal },
 ]
 
 function ModalPlanta({ planta, onCerrar }) {
-  const fases = planta.fases ?? []
+  // En el modal del catálogo solo se muestran las fases activas hasta Cosecha (marchita queda oculta)
+  const fases = (planta.fases ?? []).filter(
+    (f) => !f.muerta && f.nombre?.toLowerCase() !== 'marchita'
+  )
   const cuidados = planta.cuidados ?? {}
   const [pestana, setPestana] = useState('fases') // 'fases' | 'cuidados'
 
@@ -97,10 +102,19 @@ function ModalPlanta({ planta, onCerrar }) {
                 <p className={styles.vacio}>Sin cuidados registrados.</p>
               ) : (
                 <ul className={styles.listaCuidados}>
-                  {categorias.map(({ clave, etiqueta, icono, textos }) => (
+                  {categorias.map(({ clave, etiqueta, icono, fallback, textos }) => (
                     <li key={clave} className={styles.fila}>
                       <div className={styles.iconoCuidado}>
-                        <img src={icono} alt="" loading="lazy" />
+                        <img
+                          src={icono}
+                          alt=""
+                          loading="lazy"
+                          onError={(e) => {
+                            if (fallback && e.currentTarget.src !== fallback) {
+                              e.currentTarget.src = fallback
+                            }
+                          }}
+                        />
                       </div>
                       <div className={styles.info}>
                         <span className={styles.etiqueta}>{etiqueta}</span>

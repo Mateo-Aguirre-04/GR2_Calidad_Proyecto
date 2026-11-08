@@ -5,6 +5,27 @@ import Header from '../components/Header/Header'
 import ModalPlanta from '../components/ModalPlanta/ModalPlanta'
 import styles from './css/Catalogo.module.css'
 
+const REGIONES_ECUADOR = ['Costa', 'Sierra', 'Amazonía']
+
+function coincideRegion(regionPlanta, regionFiltro) {
+  if (!regionFiltro) return true
+  if (!regionPlanta) return false
+  const r = regionPlanta.toLowerCase()
+  const f = regionFiltro.toLowerCase()
+
+  if (f === 'costa') {
+    return r.includes('costa')
+  }
+  if (f === 'sierra') {
+    // La Sierra abarca páramo y valles interandinos
+    return r.includes('sierra') || r.includes('páramo') || r.includes('paramo') || r.includes('valles')
+  }
+  if (f.startsWith('amaz')) {
+    return r.includes('amaz')
+  }
+  return r.includes(f)
+}
+
 function Catalogo() {
   const { plantas, cargando, error } = usePlantas()
   const [busqueda, setBusqueda] = useState('')
@@ -16,16 +37,16 @@ function Catalogo() {
     setPlantaAbierta(planta)
   }
 
-  // Las opciones de los selects salen de los datos
+  // Las opciones de tipos salen dinámicamente; las regiones son las 3 zonas naturales
   const tipos = useMemo(() => [...new Set(plantas.map((p) => p.tipo))].sort(), [plantas])
-  const regiones = useMemo(() => [...new Set(plantas.map((p) => p.region))].sort(), [plantas])
+  const regiones = REGIONES_ECUADOR
 
   const visibles = useMemo(() => {
     const texto = busqueda.trim().toLowerCase()
     return plantas.filter((p) =>
       (!texto || p.nombre.toLowerCase().includes(texto)) &&
       (!tipo || p.tipo === tipo) &&
-      (!region || p.region === region)
+      coincideRegion(p.region, region)
     )
   }, [plantas, busqueda, tipo, region])
 

@@ -3,7 +3,9 @@ import { randomInt } from 'node:crypto'
 import { query, transaction, isDbConnected } from '../config/db.js'
 import { presenceConfig } from '../config/presence.js'
 import { requireUser, requireMember, cropResponse, growthDays, httpError, sendError } from '../data/postgres.js'
-import { canEditGuildProfile, guildDescription, updateGuildProfile } from '../data/guildProfile.js'
+import { canEditGuildProfile, updateGuildProfile } from '../data/guildProfile.js'
+import { createGuildRecords } from '../data/guildCreation.js'
+import { isValidBirthDate } from '../data/registration.js'
 
 // Con Supabase conectado, nunca se usan los controladores de demostración.
 export const realOrDemo = (real, demo) => (req, res, next) => isDbConnected() ? real(req, res, next) : demo(req, res, next)
@@ -30,6 +32,16 @@ export const getConfiguracion = handle(async (req,res) => {
   ])
   res.json({suelos:suelos.rows.map((r)=>r.nombre),riegos:riegos.rows.map((r)=>r.nombre)})
 })
+
+export const getConfiguracionDemo = (req, res) => {
+  if (req.session?.source !== 'mock' || !req.session.usuarioId) {
+    return res.status(401).json({ error: 'Tu sesión terminó. Inicia sesión nuevamente.' })
+  }
+  res.json({
+    suelos: ['Arcilloso', 'Arenoso', 'Franco', 'Calcáreo'],
+    riegos: ['Goteo', 'Aspersión', 'Manual', 'Surcos'],
+  })
+}
 
 export const getGremio = handle(async (req, res) => {
   const userId = requireUser(req)
@@ -101,30 +113,7 @@ export const unirse = handle(async (req, res) => {
 
 export const crearGremio = handle(async (req, res) => {
   const userId = requireUser(req)
-  const { nombre, area, lat, lng } = req.body
-  const descripcion = guildDescription(req.body.descripcion, true)
-  if (typeof nombre !== 'string' || !nombre.trim() || !Number.isFinite(Number(area)) || Number(area)<=0) throw httpError(400, 'Nombre y área positiva son obligatorios.')
-  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng)) || Math.abs(Number(lat))>90 || Math.abs(Number(lng))>180) throw httpError(400, 'Coordenadas inválidas.')
-  const result = await transaction(async (db) => {
-    const catalogs = await db.query(`SELECT c.id_cerca,c.id_subcerca,d.id_diseño,d.id_subdiseño,a.id_abono,s.id_suelo,r.id_riego
-      FROM subcerca_seguridad c CROSS JOIN subdiseño_huerto d CROSS JOIN tipo_abono a CROSS JOIN tipo_suelo s CROSS JOIN tipo_riego r
-      ORDER BY c.id_cerca,c.id_subcerca,d.id_diseño,d.id_subdiseño,a.id_abono,s.id_suelo,r.id_riego LIMIT 1`)
-    if (!catalogs.rows.length) throw httpError(409, 'Faltan catálogos de configuración del huerto en la base.')
-    const c = catalogs.rows[0]
-    for (const [field, table, key] of [['suelo','tipo_suelo','id_suelo'],['riego','tipo_riego','id_riego']]) {
-      if (!req.body[field]) throw httpError(400, `Selecciona un tipo de ${field}.`)
-      const selected=await db.query(`SELECT ${key} FROM ${table} WHERE nombre=$1 LIMIT 1`,[req.body[field]])
-      if (!selected.rows.length) throw httpError(400, `El tipo de ${field} no existe en la base.`)
-      c[key]=selected.rows[0][key]
-    }
-    const g = (await db.query(`INSERT INTO gremio(nombre_gremio,area_total,latitud,longitud,descripcion,anuncios)
-      VALUES($1,$2,$3,$4,$5,'') RETURNING id_gremio`, [nombre.trim(), Number(area), Number(lat), Number(lng), descripcion])).rows[0]
-    await db.query(`INSERT INTO miembro_gremio(id_usuario,id_gremio,rol) VALUES($1,$2,'Fundador')`, [userId,g.id_gremio])
-    const garden = (await db.query(`INSERT INTO huerto(id_gremio,id_cerca,id_subcerca,id_abono,id_suelo,id_riego,id_diseño,id_subdiseño)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id_huerto AS id`, [g.id_gremio,c.id_cerca,c.id_subcerca,c.id_abono,c.id_suelo,c.id_riego,c.id_diseño,c.id_subdiseño])).rows[0]
-    const codigo = await invitation(db,g.id_gremio,userId)
-    return { id:Number(g.id_gremio),nombre:nombre.trim(),descripcion,anuncios:'',codigo,huerto:garden,ubicacion:{lat:Number(lat),lng:Number(lng)} }
-  })
+  const result = await transaction((db) => createGuildRecords(db, userId, req.body))
   res.status(201).json({ mensaje:'Gremio creado.', gremio:result })
 })
 
@@ -132,7 +121,7 @@ export const registro = handle(async (req, res) => {
   const { nombre, apellido, usuario, contrasena, genero, descripcion = '' } = req.body
   if (![nombre,apellido,usuario,contrasena].every((v) => typeof v === 'string' && v.trim()) || contrasena.length<8) throw httpError(400, 'Completa los datos y usa una contraseña de al menos 8 caracteres.')
   if (!['M','F','NB','O'].includes(genero)) throw httpError(400, 'Género inválido.')
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(req.body.fechaNacimiento || '') || !Number.isFinite(Date.parse(req.body.fechaNacimiento)) || Date.parse(req.body.fechaNacimiento)>Date.now()) throw httpError(400,'Ingresa una fecha de nacimiento válida.')
+  if (!isValidBirthDate(req.body.fechaNacimiento)) throw httpError(400,'Ingresa una fecha de nacimiento válida.')
   const hash = await bcrypt.hash(contrasena,12)
   const user = await transaction(async (db) => {
     const exists = await db.query('SELECT 1 FROM usuario_general WHERE lower(nombre_usuario)=lower($1)', [usuario.trim()])
@@ -146,8 +135,20 @@ export const registro = handle(async (req, res) => {
 })
 
 const plantSQL = `SELECT p.*,t.nombre AS tipo FROM planta p JOIN tipo_planta t USING(id_tipo_planta)`
-const plantResponse = (p) => ({ id:Number(p.id_planta),nombre:p.nombre_comun,nombreCientifico:p.nombre_cientifico,tipo:p.tipo,
-  ciclo:p.ciclo_cultivo,diasCrecimiento:growthDays(p.ciclo_cultivo),resumen:p.ciclo_cultivo,cuidados:{},imagen:'',fases:[] })
+const plantResponse = (p) => ({
+  id: Number(p.id_planta),
+  nombre: p.nombre_comun,
+  nombreCientifico: p.nombre_cientifico,
+  tipo: p.tipo,
+  region: p.region || 'Sierra',
+  ciclo: p.ciclo_cultivo,
+  diasCrecimiento: growthDays(p.ciclo_cultivo),
+  resumen: p.descripcion || p.ciclo_cultivo,
+  cuidados: p.cuidados || {},
+  imagen: p.imagen || '',
+  imagenMuerta: p.imagen_muerta || '',
+  fases: p.fases || []
+})
 export const getPlantas = handle(async (req,res) => res.json((await query(`${plantSQL} ORDER BY p.id_planta`)).rows.map(plantResponse)))
 export const getPlanta = handle(async (req,res) => {
   const { rows } = await query(`${plantSQL} WHERE p.id_planta=$1`,[req.params.id])
@@ -165,7 +166,7 @@ export const getHuerto = handle(async (req,res) => {
     WHERE h.id_huerto=$1`,[id])
   const h=gardens.rows[0]
   if (!h) throw httpError(404,'Huerto no encontrado.')
-  const crops=await query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.ciclo_cultivo FROM huerto_planta hp JOIN planta p USING(id_planta)
+  const crops=await query(`SELECT hp.*,hp.fecha_siembra::text AS fecha_exacta,p.nombre_comun,p.ciclo_cultivo,p.fases,p.imagen_muerta FROM huerto_planta hp JOIN planta p USING(id_planta)
     WHERE hp.id_huerto=$1 ORDER BY hp.fecha_siembra`,[id])
   res.json({ id:Number(h.id_huerto),gremioId:Number(h.id_gremio),nombre:h.nombre_gremio,
     tipo:h.imagen?.replace(/^.*\//,'').replace(/\.png$/,'') || 'surcos',
