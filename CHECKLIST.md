@@ -25,7 +25,11 @@ errores para mostrarlos en la interfaz. El adaptador está en `src/services/chec
 Usar useChecklist para guardar operación y recompensa juntas. Las rutas anteriores
 `/api/huertos/:id/sembrar` y `/cosechar` también pasan por el workflow y sus reglas;
 cosechar exige tareaId y confirmaciones. La pantalla ya usa el checklist para ambas acciones.
-Regar abre una ventana exclusiva con las secciones que tienen plantas activas.
+Los botones Regar y Cosechar activan un cursor con el mismo icono del botón; pulsarlos
+de nuevo cancela el modo. Al elegir una parcela con plantas, Regar registra el riego
+de su sección. Cosechar abre sus confirmaciones y decisión de conservar la planta,
+y solo entonces completa la tarea si el servidor la permite. El icono compartido se
+configura en `src/data/herramientasHuerto.js`, como emoji o imagen.
 Recordatorios abre los avisos y permite pasar a la pestaña Actividades; Gremio incluye ranking.
 usePerfil devuelve recargar para actualizar los puntos después de una actividad.
 

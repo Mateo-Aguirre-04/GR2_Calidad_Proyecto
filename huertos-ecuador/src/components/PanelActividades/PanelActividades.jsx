@@ -1,21 +1,23 @@
 import { useState } from 'react'
+import { cultivosDelChecklist } from '../../data/cultivosChecklist'
 import styles from './PanelActividades.module.css'
 
 const TEXTOS={ritualAmanecer:'Realicé el ritual al amanecer',cultivoListo:'El cultivo está listo',rocioSeco:'El rocío está seco',
   seco:'El lote está seco',empacado:'Está empacado',etiquetado:'Está etiquetado',almacenado:'Está almacenado'}
 const PARTES=['hojas','flores','frutos','semillas','raices']
 
-function Tarea({tarea,checklist,ejecutar,ocupado,nombreCultivo}) {
+function Tarea({tarea,checklist,ejecutar,ocupado,nombreCultivo,onCosechar}) {
   const [confirmaciones,setConfirmaciones]=useState({})
   const state=tarea.disponibilidad
   const requeridas=state?.confirmacionesRequeridas||[]
   const lista=requeridas.every(c=>confirmaciones[c]===true)
     && (!state?.decisionesRequeridas?.includes('conservarCultivo')||typeof confirmaciones.conservarCultivo==='boolean')
   const bloqueos=state?.motivos||[]
+  const esCosecha=tarea.actividad.codigo==='cosecha'
   return <article className={styles.tarea}>
     <strong>{tarea.actividad.nombre} · {tarea.actividad.puntos} puntos</strong>
     {tarea.actividad.codigo==='ritual_agradecimiento'&&<p>Actividad opcional del día 15. No es un requisito para cosechar.</p>}
-    <p>{tarea.zona?.nombre || 'Jornada del huerto'}{nombreCultivo&&` · ${nombreCultivo}`}
+    <p>{tarea.zona?.nombre || (tarea.cultivo?'Ubicación pendiente':'Jornada del huerto')}{nombreCultivo&&` · ${nombreCultivo}`}
       {tarea.programadaPara && ` · ${new Date(tarea.programadaPara).toLocaleString('es-EC')}`}</p>
     {tarea.completado ? <p>Completada</p> : <>
       {state?.motivos?.map(m=><p key={m}>{m}</p>)}
@@ -26,21 +28,21 @@ function Tarea({tarea,checklist,ejecutar,ocupado,nombreCultivo}) {
           : `Inscripción confirmada. La tarea seguirá pendiente: ${bloqueos.join(' ')||'espera a que se actualice su disponibilidad.'}`}
       </p>}
       {!state&&<p role="status">No se pudo consultar la disponibilidad. Actualiza las actividades para revisar los requisitos.</p>}
-      {requeridas.map(c=><label key={c}><input type="checkbox" checked={confirmaciones[c]===true} disabled={ocupado}
+      {!esCosecha&&requeridas.map(c=><label key={c}><input type="checkbox" checked={confirmaciones[c]===true} disabled={ocupado}
         onChange={e=>setConfirmaciones({...confirmaciones,[c]:e.target.checked})}/>{TEXTOS[c]||c}</label>)}
-      {state?.decisionesRequeridas?.includes('conservarCultivo') && <label>Después de cosechar
+      {!esCosecha&&state?.decisionesRequeridas?.includes('conservarCultivo') && <label>Después de cosechar
         <select value={String(confirmaciones.conservarCultivo??'')} disabled={ocupado}
           onChange={e=>setConfirmaciones({...confirmaciones,conservarCultivo:e.target.value===''?undefined:e.target.value==='true'})}>
           <option value="">Elige una opción</option><option value="true">Conservar la planta</option><option value="false">Finalizar el cultivo y liberar la sección</option>
         </select></label>}
-      <button title={!state?.puedeCompletar?bloqueos.join(' '):undefined}
+      {esCosecha?<button disabled={ocupado} onClick={onCosechar}>Usar herramienta Cosechar en el huerto</button>:<button title={!state?.puedeCompletar?bloqueos.join(' '):undefined}
         disabled={ocupado||!state?.puedeCompletar||!lista||(tarea.modalidad==='grupal'&&!tarea.yaInscrito)}
-        onClick={()=>ejecutar(()=>checklist.completar(tarea.id,confirmaciones))}>Completar actividad</button>
+        onClick={()=>ejecutar(()=>checklist.completar(tarea.id,confirmaciones))}>Completar actividad</button>}
     </>}
   </article>
 }
 
-export default function PanelActividades({checklist,ejecutar,conClave,ocupado,seleccionInicial,onCerrar,error,mensaje,cultivosVista=[],vistaInicial='recordatorios',onRegar}) {
+export default function PanelActividades({checklist,ejecutar,conClave,ocupado,seleccionInicial,onCerrar,error,mensaje,cultivosVista=[],vistaInicial='recordatorios',onRegar,onCosechar}) {
   const [vista,setVista]=useState(vistaInicial)
   const [seccionId,setSeccionId]=useState(seleccionInicial||'')
   const [actividad,setActividad]=useState('riego')
@@ -49,12 +51,18 @@ export default function PanelActividades({checklist,ejecutar,conClave,ocupado,se
   const [historial,setHistorial]=useState(false)
   const sections=checklist.panel?.zonas||[]
   const section=sections.find(s=>s.id===seccionId)
-  const crops=checklist.cultivos.filter(c=>c.activo)
-  const ocupadas=new Set(crops.map(c=>c.zonaId).filter(Boolean))
+  const crops=cultivosDelChecklist(checklist).filter(c=>c.activo)
+  const cultivosActivos=new Set(crops.map(c=>`${c.plantaId}:${c.fechaSiembra}`))
+  const ocupadas=new Set(checklist.cultivos.filter(c=>c.activo).map(c=>c.zonaId).filter(Boolean))
   const nombres=Object.fromEntries(cultivosVista.map(c=>[c.id,c.planta?.nombre||'Cultivo']))
   const selectedCrop=crops.find(c=>`${c.plantaId}:${c.fechaSiembra}`===cultivoId)
-  const tasks=checklist.tareas.filter(t=>(historial||!t.completado)&&(!seccionId||!t.zona||t.zona.id===seccionId))
-  const recordatorios=checklist.recordatorios.filter(r=>r.recordatorioActivo||r.anticipado).filter(r=>!seccionId||!r.zonaId||r.zonaId===seccionId)
+  const tasks=checklist.tareas.filter(t=>(!t.cultivo||cultivosActivos.has(`${t.cultivo.plantaId}:${t.cultivo.fechaSiembra}`))
+    &&(historial||!t.completado)
+    &&(!seccionId||!t.zona||t.zona.id===seccionId))
+  const recordatorios=checklist.recordatorios.filter(r=>(r.recordatorioActivo||r.anticipado)
+    &&(!r.cultivo||cultivosActivos.has(`${r.cultivo.plantaId}:${r.cultivo.fechaSiembra}`))
+    &&(!['riego','riego_diario','riego_semanal'].includes(r.tipo)||crops.some(c=>c.zonaId===r.zonaId))
+    &&(!seccionId||!r.zonaId||r.zonaId===seccionId))
   async function programar(e) {
     e.preventDefault()
     const body={actividad,programadaPara:new Date(fecha).toISOString(),
@@ -64,7 +72,7 @@ export default function PanelActividades({checklist,ejecutar,conClave,ocupado,se
   return <div className={styles.overlay}><section className={styles.panel} role="dialog" aria-modal="true" aria-labelledby="actividades-titulo" aria-busy={ocupado}>
     <button className={styles.cerrar} disabled={ocupado} onClick={onCerrar} aria-label="Cerrar actividades">×</button>
     <h2 id="actividades-titulo">Actividades y recordatorios</h2>
-    {checklist.panel?.contexto?.ignorarRestriccionesTemporales&&<p role="status" className={styles.modoPrueba}>Modo de prueba: se omiten las ventanas de fechas, fases lunares, clima y plazos. Siguen vigentes los requisitos del cultivo, la sección y las confirmaciones.</p>}
+    {checklist.panel?.contexto?.ignorarRestriccionesTemporales&&<p role="status" className={styles.modoPrueba}>Modo de prueba: se omiten las ventanas de fechas, fases lunares, clima y plazos. Por eso se adelantan avisos y actividades. Siguen vigentes los requisitos del cultivo, la sección y las confirmaciones.</p>}
     {error&&<p role="alert">{error}</p>}{mensaje&&<p role="status">{mensaje}</p>}
     {checklist.error&&<p role="alert">{checklist.error}<button onClick={checklist.recargar}>Reintentar consulta</button></p>}
     {checklist.cargando&&<p role="status">Actualizando actividades…</p>}
@@ -100,7 +108,9 @@ export default function PanelActividades({checklist,ejecutar,conClave,ocupado,se
     </form></details>
     <details><summary>Configurar cultivos existentes</summary>{crops.map(c=><ConfigurarCultivo key={`${c.plantaId}:${c.fechaSiembra}`} cultivo={c} checklist={checklist} ejecutar={ejecutar} ocupado={ocupado} sections={sections} nombre={nombres[`${c.plantaId}:${c.fechaSiembra}`]}/>)}</details>
     <h3>Tareas</h3><label><input type="checkbox" checked={historial} onChange={e=>setHistorial(e.target.checked)}/>Mostrar también las completadas</label>
-    {tasks.map(t=><Tarea key={t.id} tarea={t} checklist={checklist} ejecutar={ejecutar} ocupado={ocupado} nombreCultivo={nombres[`${t.cultivo?.plantaId}:${t.cultivo?.fechaSiembra}`]}/>)}
+    {tasks.map(t=><Tarea key={t.id} tarea={t} checklist={checklist} ejecutar={ejecutar} ocupado={ocupado}
+      nombreCultivo={nombres[`${t.cultivo?.plantaId}:${t.cultivo?.fechaSiembra}`]}
+      onCosechar={()=>onCosechar?.(t)}/>)}
     <h3>Lotes de cosecha</h3>{checklist.panel?.lotes?.map(l=><Lote key={l.id} lote={l} checklist={checklist} ejecutar={ejecutar} ocupado={ocupado}/>)}
     </>}
   </section></div>

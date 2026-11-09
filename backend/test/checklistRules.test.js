@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { SearchMoonQuarter, NextMoonQuarter } from 'astronomy-engine'
-import { localDate, localMinutes, daysBetween, lunarWindow, catalogDays, sunny, harvestReminder } from '../src/data/checklistEnvironment.js'
+import { localDate, localMinutes, daysBetween, lunarWindow, catalogDays, sunny, harvestReminder, loadEnvironment, weatherAt } from '../src/data/checklistEnvironment.js'
 import { sowingReasons, availability } from '../src/data/checklistRules.js'
 
 const zone='America/Guayaquil'
@@ -11,6 +11,36 @@ function phase(quarter) {
   return localDate(event.time.date,zone)
 }
 const at=(date,hour=10)=>new Date(`${date}T${String(hour+5).padStart(2,'0')}:00:00Z`)
+test('modo de prueba carga el contexto sin esperar el servicio externo de clima',async()=>{
+  const previous=process.env.CHECKLIST_IGNORE_TIME_RESTRICTIONS
+  const previousNodeEnv=process.env.NODE_ENV
+  const previousFetch=globalThis.fetch
+  process.env.CHECKLIST_IGNORE_TIME_RESTRICTIONS='true'
+  process.env.NODE_ENV='development'
+  globalThis.fetch=()=>{throw new Error('No debe consultar Open-Meteo')}
+  try {
+    const db={query:async()=>({rows:[{latitud:0,longitud:0,zona_horaria:zone}]})}
+    const env=await loadEnvironment(db,'5','42')
+    assert.equal(env.zonaHoraria,zone)
+    assert.equal(env.clima,null)
+  } finally {
+    if(previous===undefined)delete process.env.CHECKLIST_IGNORE_TIME_RESTRICTIONS
+    else process.env.CHECKLIST_IGNORE_TIME_RESTRICTIONS=previous
+    if(previousNodeEnv===undefined)delete process.env.NODE_ENV
+    else process.env.NODE_ENV=previousNodeEnv
+    globalThis.fetch=previousFetch
+  }
+})
+test('un fallo del clima no bloquea cada consulta siguiente durante la caída',async()=>{
+  const previousFetch=globalThis.fetch
+  let attempts=0
+  globalThis.fetch=async()=>{attempts++;throw new Error('Servicio no disponible')}
+  try {
+    await assert.rejects(weatherAt(99,99))
+    await assert.rejects(weatherAt(99,99))
+    assert.equal(attempts,1)
+  } finally {globalThis.fetch=previousFetch}
+})
 test('usa el día y la hora local del huerto; no la fecha UTC',()=>{
   assert.equal(localDate('2026-11-09T01:00Z',zone),'2026-11-08')
   assert.equal(localMinutes('2026-11-09T01:00Z',zone),1200)

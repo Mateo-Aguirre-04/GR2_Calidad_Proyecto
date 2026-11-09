@@ -1,4 +1,4 @@
-import { imagenCosecha, imagenCultivo, listaParaCosechar, usarRespaldo } from '../../data/fasesPlanta'
+import { imagenCosecha, imagenCultivo, usarRespaldo } from '../../data/fasesPlanta'
 import styles from './Parcela.module.css'
 
 // Máximo de imágenes dibujadas por parcela (el total real se muestra en ×N).
@@ -30,12 +30,10 @@ function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, des
   // Al cosechar sale la fase 5; en el terreno nunca pasa de la fase 4.
   const animando = ocupada && cosechando
   const imagen = !ocupada ? '' : animando ? imagenCosecha(cultivo.planta) : imagenCultivo(cultivo, ahora)
-  const lista = ocupada && listaParaCosechar(cultivo, ahora)
-
-  const cosechar = lista && modo === 'cosecha'
+  const cosechar = ocupada && modo === 'cosecha'
   const regar = ocupada && modo === 'riego' && Boolean(onRegar)
-  // Ocupada: cosecha si está lista y la herramienta está activa, riega con la herramienta Regar;
-  // si no, muestra su información. Libre o muerta: se puede sembrar encima.
+  // La herramienta selecciona una parcela ocupada. El servidor decide si puede cosecharse.
+  // Sin herramienta, la parcela ocupada muestra información y la libre permite sembrar.
   const accion = cosechar
     ? () => onCosechar(cultivo)
     : regar
@@ -46,7 +44,7 @@ function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, des
 
   const etiqueta = ocupada
     ? `Parcela ${numero}: ${cultivo.planta?.nombre} (${cultivo.cantidad} plantas)${cosechar ? '. Cosechar' : regar ? '. Regar' : '. Ver información'}`
-    : `Parcela ${numero}: libre. Sembrar`
+    : `Parcela ${numero}: libre. ${modo?'Sin plantas para esta herramienta':'Sembrar'}`
 
   // Una imagen por planta, repartidas en cuadrícula SOBRE la tierra. Medidas en "% del ancho
   // de la imagen" para que el sprite sea cuadrado en pantalla.
@@ -77,7 +75,7 @@ function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, des
       className={`${styles.parcela} ${ocupada ? styles.ocupada : styles.libre} ${cosechar ? styles.cosechable : ''} ${regar ? styles.regable : ''}`}
       style={{ left: `${x}%`, top: `${y}%`, width: `${ancho}%`, height: `${alto}%`, overflow: 'visible' }}
       onClick={accion}
-      disabled={deshabilitada}
+      disabled={deshabilitada||(Boolean(modo)&&!ocupada)}
       aria-label={etiqueta}
       title={etiqueta}
     >

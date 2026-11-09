@@ -35,8 +35,28 @@ export async function validatePlanting(db,garden,cycleId,body) {
 
 // El mapeo de pantalla es la fuente de secciones; no se inventan otras zonas.
 export async function synchronizeSections(db,garden) {
-  await db.query('SELECT id_huerto FROM huerto WHERE id_huerto=$1 FOR NO KEY UPDATE',[garden])
   const layout=await gardenLayout(db,garden)
+  const expectedZones=[],expectedParcels=[]
+  for(let z=0;z<layout.zonas.length;z++) for(let p=0;p<layout.zonas[z].length;p++) {
+    expectedZones.push(z+1)
+    expectedParcels.push(p+1)
+  }
+  const state=(await db.query(`SELECT
+    NOT EXISTS(SELECT 1 FROM unnest($2::int[],$3::int[]) AS expected(zona,parcela)
+      WHERE NOT EXISTS(SELECT 1 FROM zonas_huerto z WHERE z.id_huerto=$1
+        AND z.zona_mapa=expected.zona AND z.parcela_mapa=expected.parcela)) AS fully_mapped,
+    EXISTS(SELECT 1 FROM huerto_planta hp JOIN unnest($2::int[],$3::int[]) AS expected(zona,parcela)
+      ON expected.zona=hp.zona AND expected.parcela=hp.parcela
+      LEFT JOIN cultivos_checklist cc
+      USING(id_huerto,id_planta,fecha_siembra)
+      WHERE hp.id_huerto=$1 AND cc.id_ciclo IS NULL) AS missing_crop,
+    EXISTS(SELECT 1 FROM tareas_huerto t JOIN huerto_planta hp
+      ON (t.id_huerto,t.id_planta,t.fecha_siembra)=(hp.id_huerto,hp.id_planta,hp.fecha_siembra)
+      JOIN unnest($2::int[],$3::int[]) AS expected(zona,parcela)
+        ON expected.zona=hp.zona AND expected.parcela=hp.parcela
+      WHERE t.id_huerto=$1 AND t.codigo_actividad='riego' AND t.id_zona IS NULL) AS missing_water`,[garden,expectedZones,expectedParcels])).rows[0]
+  if(state.fully_mapped&&!state.missing_crop&&!state.missing_water)return
+  await db.query('SELECT id_huerto FROM huerto WHERE id_huerto=$1 FOR NO KEY UPDATE',[garden])
   for(let z=0;z<layout.zonas.length;z++) for(let p=0;p<layout.zonas[z].length;p++) {
     await db.query(`UPDATE zonas_huerto old SET zona_mapa=$2,parcela_mapa=$3
       WHERE old.id_zona=(SELECT min(c.id_zona) FROM ciclos_zona c

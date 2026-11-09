@@ -54,7 +54,7 @@ function ModalInfoCultivo({ cultivo, zona, parcela, ahora, enviando, onCosechar,
         {disponibilidadCosecha?.motivos?.map(m=><p key={m}>{m}</p>)}
 
         <button className={styles.cosechar} type="button" disabled={enviando} onClick={() => onCosechar(cultivo)}>
-          {enviando ? 'Guardando…' : 'Revisar actividad de cosecha'}
+          {enviando ? 'Guardando…' : 'Activar herramienta Cosechar'}
         </button>
       </section>
     </div>

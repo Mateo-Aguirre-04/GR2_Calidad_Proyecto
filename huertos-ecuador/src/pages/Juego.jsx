@@ -7,16 +7,19 @@ import { useFaseLunar } from '../hooks/useFaseLunar'
 import { useAhora } from '../hooks/useAhora'
 import { useChecklist } from '../hooks/useChecklist'
 import { fondoHuerto, capacidadParcela, distribucionHuerto } from '../data/parcelasHuerto'
+import { cultivosDelChecklist } from '../data/cultivosChecklist'
+import { HERRAMIENTAS_HUERTO } from '../data/herramientasHuerto'
 import { DURACION_COSECHA_MS } from '../data/fasesPlanta'
 import Parcela from '../components/Parcela/Parcela'
 import ModalCantidadSiembra from '../components/ModalCantidadSimebra/ModalCantidadSiembra'
 import BotonLateral from '../components/BotonLateral/BotonLateral'
+import IconoHerramienta from '../components/BotonLateral/IconoHerramienta'
 import IconoEstado from '../components/IconoEstado/IconoEstado'
 import ModalPerfil from '../components/ModalPerfil/ModalPerfil'
 import ModalSeleccionPlanta from '../components/ModalSeleccionPlanta/ModalSeleccionPlanta'
 import ModalInfoCultivo from '../components/ModalInfoCultivo/ModalInfoCultivo'
+import ModalCosechaHerramienta from '../components/ModalCosechaHerramienta/ModalCosechaHerramienta'
 import PanelActividades from '../components/PanelActividades/PanelActividades'
-import ModalRiego from '../components/PanelActividades/ModalRiego'
 import styles from './css/Juego.module.css'
 
 // accion: 'ruta' navega, 'modal' abre un modal, 'pendiente' aún sin definir.
@@ -27,11 +30,6 @@ const BOTONES = [
   { clave: 'gremio',        nombre: 'Gremio',        etiqueta: 'Gremio',        emoji: '🛡️', descripcion: 'Mira a tu gremio y su ranking.',               accion: 'ruta', destino: '/gremio' },
   { clave: 'catalogo',      nombre: 'Catálogo',      etiqueta: 'Catálogo',      emoji: '📖', descripcion: 'Consulta las plantas disponibles.',            accion: 'ruta', destino: '/catalogo-plantas' },
   { clave: 'recordatorios', nombre: 'Recordatorios', etiqueta: 'Recordatorios', emoji: '🔔', descripcion: 'Revisa tus tareas pendientes.',                accion: 'pendiente' },
-]
-
-const HERRAMIENTAS = [
-  { clave: 'riego',   nombre: 'Regar',    etiqueta: 'Regar',    emoji: '🚿', accion: 'pendiente' },
-  { clave: 'cosecha', nombre: 'Cosechar', etiqueta: 'Cosechar', emoji: '🧺', accion: 'pendiente' },
 ]
 
 const MEDALLAS = { Novato: '🌱', Aprendiz: '🥉', Oficial: '🥈', Maestro: '🥇' }
@@ -55,6 +53,8 @@ function Juego() {
   const [loadingAccion, setLoadingAccion] = useState(false)
   const [errorAccion, setErrorAccion] = useState('')
   const [herramientaActiva, setHerramientaActiva] = useState(null) // 'riego' | 'cosecha'
+  const [cultivoParaCosecha,setCultivoParaCosecha]=useState(null)
+  const cursorHerramienta=useRef(null)
   const [plantaSeleccionada, setPlantaSeleccionada] = useState(null) // plant chosen for planting
   const [cultivoInfo, setCultivoInfo] = useState(null) // cultivo cuya información se muestra
   const [cosechaAnimada,setCosechaAnimada] = useState(null)
@@ -79,7 +79,7 @@ function Juego() {
       const cosecha=checklist.tareas.find(t=>t.id===receipt.id&&t.actividad.codigo==='cosecha')
       if(cosecha) {
         setModal(null)
-        setHerramientaActiva(null)
+        setCultivoParaCosecha(null)
         setCosechaAnimada(`${cosecha.cultivo.plantaId}:${cosecha.cultivo.fechaSiembra}`)
         await new Promise(resolve=>setTimeout(resolve,DURACION_COSECHA_MS))
         setCosechaAnimada(null)
@@ -114,10 +114,15 @@ function Juego() {
       setVistaPanel('recordatorios')
       setModal('recordatorios')
     } else if (boton.clave === 'riego') {
-      setModal('riego')
-      setHerramientaActiva(null)
+      setModal(null)
+      setCultivoInfo(null)
+      setCultivoParaCosecha(null)
+      setHerramientaActiva(actual=>actual==='riego'?null:'riego')
     } else if (boton.clave === 'cosecha') {
-      setHerramientaActiva('cosecha')
+      setModal(null)
+      setCultivoInfo(null)
+      setCultivoParaCosecha(null)
+      setHerramientaActiva(actual=>actual==='cosecha'?null:'cosecha')
     }
     // pendiente does nothing
   }
@@ -147,14 +152,29 @@ function Juego() {
     if(result) cerrarSiembra()
   }
 
+  async function regarParcela(cultivo) {
+    if(enCurso.current)return
+    const section=checklist.panel?.zonas?.find(s=>s.zona===cultivo.zona&&s.parcela===cultivo.parcela)
+    if(!section) {setErrorAccion('Todavía no se cargó la sección de esta parcela. Espera a que terminen de cargar las actividades.');return}
+    await conClave('riego',{zonaId:section.id},b=>checklist.registrarRiegos(b.zonaId,b.claveSolicitud))
+  }
+
   function onCultivoSeleccionado(cultivo) {
     if(enCurso.current) return
-    const section=checklist.panel?.zonas?.find(s=>s.zona===cultivo.zona&&s.parcela===cultivo.parcela)
     setCultivoInfo(null)
-    setSeccionPanel(section?.id||'')
-    setVistaPanel('tareas')
-    setModal('recordatorios')
-    setHerramientaActiva(null)
+    setErrorAccion('')
+    setCultivoParaCosecha(cultivo)
+  }
+
+  function moverCursor(event) {
+    const cursor=cursorHerramienta.current
+    if(!cursor)return
+    if(event.pointerType==='touch') {cursor.style.display='none';return}
+    cursor.style.display='block'
+    cursor.style.transform=`translate3d(${event.clientX}px,${event.clientY}px,0) translate(-25%,-25%)`
+  }
+  function ocultarCursor() {
+    if(cursorHerramienta.current)cursorHerramienta.current.style.display='none'
   }
 
   if (!usuarioActual) return <Navigate to="/" replace />
@@ -164,8 +184,20 @@ function Juego() {
     return <p className={styles.cargando} role="status">Cargando huerto...</p>
   }
 
-  const riegosPendientes = new Set(checklist.recordatorios.filter(r=>['riego','riego_diario','riego_semanal'].includes(r.tipo)&&r.recordatorioActivo).map(r=>r.zonaId)).size
-  const herramientas = HERRAMIENTAS.map(h => ({ ...h, cantidad: h.clave === 'riego' ? riegosPendientes : 0 }))
+  const seccionesDelChecklist=new Set(cultivosDelChecklist(checklist).filter(c=>c.activo).map(c=>c.zonaId))
+  const riegosPendientes = new Set(checklist.recordatorios.filter(r=>['riego','riego_diario','riego_semanal'].includes(r.tipo)
+    &&r.recordatorioActivo&&seccionesDelChecklist.has(r.zonaId)).map(r=>r.zonaId)).size
+  const herramientas = HERRAMIENTAS_HUERTO.map(h => {
+    const activa=h.clave===herramientaActiva
+    return {...h,activo:activa,cantidad:h.clave==='riego'?riegosPendientes:0,
+      nombre:activa?`Cancelar ${h.clave==='riego'?'riego':'cosecha'}`:h.nombre,
+      etiqueta:activa?`Cancelar ${h.clave==='riego'?'riego':'cosecha'}`:h.etiqueta,
+      descripcion:activa?'Pulsa otra vez para volver al cursor normal.':h.descripcion}
+  })
+  const iconoActivo=HERRAMIENTAS_HUERTO.find(h=>h.clave===herramientaActiva)?.icono
+  const mostrarCursor=!!iconoActivo&&!modal&&!cultivoInfo&&!cultivoParaCosecha
+  const tareaCosecha=cultivoParaCosecha&&checklist.tareas.find(t=>t.actividad.codigo==='cosecha'&&!t.completado
+    &&`${t.cultivo?.plantaId}:${t.cultivo?.fechaSiembra}`===cultivoParaCosecha.id)
 
   const tipo = huerto.tipo ?? 'surcos'
   const fondo = fondoHuerto(tipo)
@@ -182,7 +214,9 @@ function Juego() {
     huerto.cultivos.filter((c) => c.zona === zonaActual && c.parcela === numero && !c.cosechado).at(-1)
 
   return (
-    <div className={styles.pantalla} style={{ '--fondo': `url(/huertos/${tipo}.png)` }}>
+    <div className={`${styles.pantalla} ${mostrarCursor?styles.modoHerramienta:''}`}
+      style={{ '--fondo': `url(/huertos/${tipo}.png)` }}
+      onPointerMove={moverCursor} onPointerLeave={ocultarCursor}>
       {mensajeAccion && <p className={styles.avisoSiembra} role="status">{mensajeAccion}</p>}
       {errorAccion && <p className={styles.avisoSiembra} role="alert">{errorAccion}</p>}
       {/* Jugador (arriba a la izquierda): abre el perfil */}
@@ -217,7 +251,8 @@ function Juego() {
       </div>
 
       {/* Huerto: render each cultivo */}
-      <div className={styles.escenario} style={{ '--relacion': fondo.relacion, backgroundImage: `url(/huertos/${tipo}.png)` }}>
+      <div className={styles.escenario}
+        style={{ '--relacion': fondo.relacion, backgroundImage: `url(/huertos/${tipo}.png)` }}>
         {habilitadas.map((rect, i) => (
           <Parcela
             key={`${zonaActual}-${i}`}
@@ -231,11 +266,15 @@ function Juego() {
             deshabilitada={loadingAccion}
             cosechando={cosechaAnimada != null && cultivoEn(i + 1)?.id === cosechaAnimada}
             onSembrar={elegirParcela}
+            onRegar={regarParcela}
             onCosechar={onCultivoSeleccionado}
             onVerInfo={setCultivoInfo}
           />
         ))}
       </div>
+      {mostrarCursor&&<span ref={cursorHerramienta} className={styles.cursorHerramienta} aria-hidden="true">
+        <IconoHerramienta icono={iconoActivo}/>
+      </span>}
 
       {zonas.length > 1 && (
         <nav className={styles.zonas} aria-label="Zonas del huerto">
@@ -254,7 +293,7 @@ function Juego() {
         </div>
         <div className={styles.herramientas}>
           {herramientas.map((b) => (
-            <BotonLateral key={b.clave} boton={b} onSeleccionar={seleccionar} tooltipArriba />
+            <BotonLateral key={b.clave} boton={b} onSeleccionar={seleccionar} tooltipArriba activo={b.activo} />
           ))}
         </div>
       </nav>
@@ -290,18 +329,22 @@ function Juego() {
           parcela={cultivoInfo.parcela}
           ahora={ahora}
           enviando={loadingAccion}
-          onCosechar={onCultivoSeleccionado}
+          onCosechar={cultivo=>{setCultivoInfo(null);setHerramientaActiva('cosecha');setMensajeAccion(`Selecciona la parcela de ${cultivo.planta?.nombre||'este cultivo'} con la herramienta Cosechar.`)}}
           disponibilidadCosecha={checklist.tareas.find(t=>t.actividad.codigo==='cosecha'&&`${t.cultivo?.plantaId}:${t.cultivo?.fechaSiembra}`===cultivoInfo.id)?.disponibilidad}
           onCerrar={() => setCultivoInfo(null)}
         />
       )}
       {modal === 'recordatorios' && <PanelActividades checklist={checklist} ejecutar={ejecutar} conClave={conClave}
-        vistaInicial={vistaPanel} onRegar={()=>setModal('riego')}
+        vistaInicial={vistaPanel} onRegar={()=>{setModal(null);setHerramientaActiva('riego')}}
+        onCosechar={t=>{const section=checklist.panel?.zonas?.find(s=>s.id===t.zona?.id);if(section?.zona)setZona(section.zona);setModal(null);setHerramientaActiva('cosecha')}}
         cultivosVista={huerto.cultivos}
         ocupado={loadingAccion} seleccionInicial={seccionPanel} error={errorAccion} mensaje={mensajeAccion}
         onCerrar={()=>setModal(null)}/>}
-      {modal === 'riego' && <ModalRiego checklist={checklist} conClave={conClave} ocupado={loadingAccion}
-        cultivosVista={huerto.cultivos} error={errorAccion} mensaje={mensajeAccion} onCerrar={()=>setModal(null)}/>}
+      {cultivoParaCosecha&&<ModalCosechaHerramienta key={cultivoParaCosecha.id}
+        cultivo={cultivoParaCosecha} tarea={tareaCosecha} cargando={checklist.cargando}
+        ocupado={loadingAccion} error={errorAccion}
+        onConfirmar={confirmaciones=>ejecutar(()=>checklist.completar(tareaCosecha.id,confirmaciones))}
+        onCerrar={()=>setCultivoParaCosecha(null)}/>}
 
     </div>
   )

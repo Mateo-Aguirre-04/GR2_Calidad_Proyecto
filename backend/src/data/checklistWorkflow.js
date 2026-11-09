@@ -67,22 +67,45 @@ export async function synchronize(db,user,garden,env) {
     AND NOT (EXISTS(SELECT 1 FROM cultivos_checklist cc WHERE cc.id_ciclo=c.id_ciclo)
       AND NOT EXISTS(SELECT 1 FROM tareas_huerto s WHERE s.id_ciclo=c.id_ciclo AND s.codigo_actividad='siembra'))
     ORDER BY c.id_ciclo`,[garden,HARVEST()])).rows
+  const cycleTasks=(await db.query(`SELECT id_ciclo::text AS "cicloId",codigo_actividad AS code,completada_en AS completed
+    FROM tareas_huerto WHERE id_huerto=$1 AND id_ciclo IS NOT NULL
+    AND codigo_actividad IN ('retiro_maleza','preparacion_tierra')`,[garden])).rows
+  const cycleTaskByKey=new Map(cycleTasks.map(t=>[`${t.code}:${t.cicloId}`,t]))
   for(const cycle of cycles) {
-    await createTask(db,garden,'retiro_maleza',`maleza:${cycle.id}`,{cicloId:cycle.id,programadaPara:env.ahora})
-    const weed=(await db.query(`SELECT completada_en FROM tareas_huerto WHERE id_ciclo=$1 AND codigo_actividad='retiro_maleza'`,[cycle.id])).rows[0]
-    if(weed?.completada_en) await createTask(db,garden,'preparacion_tierra',`preparacion:${cycle.id}`,
-      {cicloId:cycle.id,modalidad:'grupal',programadaPara:weed.completada_en})
+    let weed=cycleTaskByKey.get(`retiro_maleza:${cycle.id}`)
+    if(!weed) {
+      await createTask(db,garden,'retiro_maleza',`maleza:${cycle.id}`,{cicloId:cycle.id,programadaPara:env.ahora})
+      weed={completed:null}
+    }
+    if(weed.completed&&!cycleTaskByKey.has(`preparacion_tierra:${cycle.id}`))
+      await createTask(db,garden,'preparacion_tierra',`preparacion:${cycle.id}`,
+        {cicloId:cycle.id,modalidad:'grupal',programadaPara:weed.completed})
   }
   const crops=(await db.query(`SELECT hp.id_planta::text AS "plantaId",hp.fecha_siembra::text AS "fechaSiembra",p.ciclo_cultivo,
     cc.id_ciclo::text AS "cicloId" FROM huerto_planta hp JOIN planta p USING(id_planta)
     LEFT JOIN cultivos_checklist cc USING(id_huerto,id_planta,fecha_siembra)
     WHERE hp.id_huerto=$1 AND hp.id_estado<>$2 ORDER BY hp.id_planta,hp.fecha_siembra`,[garden,HARVEST()])).rows
+  const cropTasks=(await db.query(`SELECT codigo_actividad AS code,id_planta::text AS "plantaId",
+    fecha_siembra::text AS "fechaSiembra" FROM tareas_huerto WHERE id_huerto=$1
+    AND codigo_actividad IN ('senaletica','cosecha')`,[garden])).rows
+  const cropTaskKeys=new Set(cropTasks.map(t=>`${t.code}:${cropKey(t)}`))
+  const fertilizers=(await db.query(`SELECT DISTINCT ON (id_planta,fecha_siembra)
+    id_planta::text AS "plantaId",fecha_siembra::text AS "fechaSiembra",completada_en AS completed
+    FROM tareas_huerto WHERE id_huerto=$1 AND codigo_actividad='abono_organico'
+    ORDER BY id_planta,fecha_siembra,completada_en DESC NULLS FIRST,id_tarea DESC`,[garden])).rows
+  const fertilizerByCrop=new Map(fertilizers.map(t=>[cropKey(t),t]))
   for(const crop of crops) {
-    await createTask(db,garden,'senaletica',`senaletica:${cropKey(crop)}`,{...crop,programadaPara:crop.fechaSiembra})
+    if(!cropTaskKeys.has(`senaletica:${cropKey(crop)}`))
+      await createTask(db,garden,'senaletica',`senaletica:${cropKey(crop)}`,{...crop,programadaPara:crop.fechaSiembra})
     const days=catalogDays(crop.ciclo_cultivo)
-    await createTask(db,garden,'cosecha',`cosecha:${cropKey(crop)}`,{...crop,
-      programadaPara:days?new Date(new Date(crop.fechaSiembra).getTime()+days*DAY):null})
-    await fertilizerTask(db,garden,crop,env)
+    if(!cropTaskKeys.has(`cosecha:${cropKey(crop)}`))
+      await createTask(db,garden,'cosecha',`cosecha:${cropKey(crop)}`,{...crop,
+        programadaPara:days?new Date(new Date(crop.fechaSiembra).getTime()+days*DAY):null})
+    const fertilizer=fertilizerByCrop.get(cropKey(crop))
+    if(!(fertilizer&&!fertilizer.completed)
+      &&(ignoreTemporalRestrictions(env)||(env.zonaHoraria
+        &&daysBetween(fertilizer?.completed||crop.fechaSiembra,env.ahora,env.zonaHoraria)>=20)))
+      await fertilizerTask(db,garden,crop,env)
   }
   if(env.zonaHoraria||ignoreTemporalRestrictions(env)) {
     const cleaning=(await db.query(`SELECT max(completada_en) AS ultima,

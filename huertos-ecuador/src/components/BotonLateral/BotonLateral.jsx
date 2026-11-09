@@ -1,19 +1,21 @@
+import IconoHerramienta from './IconoHerramienta'
 import styles from './BotonLateral.module.css'
 
-function BotonLateral({ boton, onSeleccionar, tooltipArriba = false }) {
-  const { clave, etiqueta, descripcion, emoji, nombre, cantidad, pulsar } = boton
+function BotonLateral({ boton, onSeleccionar, tooltipArriba = false, activo }) {
+  const { clave, etiqueta, descripcion, emoji, icono, nombre, cantidad, pulsar } = boton
   const idTooltip = `tooltip-${clave}`
 
   return (
     <div className={styles.contenedor}>
       <button
         type="button"
-        className={`${styles.boton} ${cantidad || pulsar ? styles.aviso : ''}`}
+        className={`${styles.boton} ${cantidad || pulsar ? styles.aviso : ''} ${activo ? styles.activo : ''}`}
         onClick={() => onSeleccionar(boton)}
         aria-label={cantidad ? `${nombre} (${cantidad} pendientes)` : nombre}
+        aria-pressed={activo}
         aria-describedby={idTooltip}
       >
-        <span aria-hidden="true">{emoji}</span>
+        <span aria-hidden="true">{icono?<IconoHerramienta icono={icono}/>:emoji}</span>
         {cantidad > 0 && <span className={styles.contador} aria-hidden="true">{cantidad}</span>}
       </button>
 

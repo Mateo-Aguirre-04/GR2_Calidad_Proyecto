@@ -25,6 +25,8 @@
   background-size: 100% 100%;
   image-rendering: pixelated;
 }
+.modoHerramienta,.modoHerramienta * { cursor: none !important; }
+.cursorHerramienta { position: fixed; left: 0; top: 0; z-index: 40; display: none; pointer-events: none; font-size: 32px; line-height: 1; filter: drop-shadow(0 2px 1px #222); }
 
 .zonas {
   position: absolute;

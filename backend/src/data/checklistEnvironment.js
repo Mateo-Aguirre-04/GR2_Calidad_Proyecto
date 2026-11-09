@@ -83,10 +83,12 @@ export function harvestReminder(task,env,waterDates=[]) {
 }
 
 const weatherCache = new Map()
+const weatherFailures = new Map()
 export async function weatherAt(lat, lon) {
   const key = `${lat},${lon}`
   const cached = weatherCache.get(key)
   if (cached && cached.until > Date.now()) return cached.promise
+  if ((weatherFailures.get(key)||0)>Date.now()) throw new Error('CLIMA_NO_DISPONIBLE')
   const promise = (async () => {
     const url = new URL('https://api.open-meteo.com/v1/forecast')
     url.search = new URLSearchParams({ latitude: String(lat), longitude: String(lon),
@@ -103,7 +105,16 @@ export async function weatherAt(lat, lon) {
   })()
   if (weatherCache.size > 100) weatherCache.delete(weatherCache.keys().next().value)
   weatherCache.set(key, { until: Date.now() + 5 * 60000, promise })
-  try { return await promise } catch (error) { weatherCache.delete(key); throw error }
+  try {
+    const result=await promise
+    weatherFailures.delete(key)
+    return result
+  } catch (error) {
+    weatherCache.delete(key)
+    weatherFailures.set(key,Date.now()+30_000)
+    if(weatherFailures.size>100)weatherFailures.delete(weatherFailures.keys().next().value)
+    throw error
+  }
 }
 
 export function sunny(env) {
@@ -117,7 +128,9 @@ export async function loadEnvironment(db, user, garden) {
   const row = (await db.query(`SELECT g.latitud,g.longitud,c.zona_horaria FROM huerto h
     JOIN gremio g USING(id_gremio) LEFT JOIN checklist_configuracion c USING(id_huerto) WHERE h.id_huerto=$1`, [garden])).rows[0]
   let clima = null
-  try { clima = await weatherAt(Number(row.latitud),Number(row.longitud)) } catch { /* No se inventa clima soleado. */ }
+  if(!ignoreTemporalRestrictions()) {
+    try { clima = await weatherAt(Number(row.latitud),Number(row.longitud)) } catch { /* No se inventa clima soleado. */ }
+  }
   const zone = row.zona_horaria || clima?.zonaHoraria || null
   return { ahora: new Date(), zonaHoraria: zone, clima, amanecer: clima?.amanecer || null }
 }

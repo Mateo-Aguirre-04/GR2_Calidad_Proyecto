@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { cultivosDelChecklist } from '../../data/cultivosChecklist'
 import styles from './PanelActividades.module.css'
 
 export default function ModalRiego({checklist,conClave,ocupado,onCerrar,error,mensaje,cultivosVista=[]}) {
   const [seleccion,setSeleccion]=useState('')
-  const cultivos=checklist.cultivos.filter(c=>c.activo)
+  const cultivos=cultivosDelChecklist(checklist).filter(c=>c.activo)
   const secciones=(checklist.panel?.zonas||[]).filter(s=>cultivos.some(c=>c.zonaId===s.id))
   const seccion=secciones.find(s=>s.id===seleccion)
   const nombres=new Map(cultivosVista.map(c=>[c.id,c.planta?.nombre||'Cultivo']))
