@@ -9,7 +9,18 @@
 .panel button:disabled { opacity: .55; cursor: default; }
 .cerrar { position: absolute; top: 12px; right: 12px; }
 .tarea { padding: 15px; margin: 12px 0; background: white; border: 1px solid #cfe0cc; border-radius: 10px; }
+.tarea summary { cursor: pointer; }
+.tareaResumen { display: flex; align-items: center; justify-content: space-between; gap: 12px; list-style: none; }
+.tareaResumen::-webkit-details-marker { display: none; }
+.tareaResumen > span:first-child { display: grid; gap: 4px; }
+.tareaResumen small { color: #687d6b; font-size: 12px; }
+.tareaEstado { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #e6f2e2; color: #365c3d; font-size: 12px; font-weight: 700; }
+.tareaDetalle { padding-top: 10px; }
+.requisito { margin: 8px 0; padding: 9px 11px; border-radius: 8px; background: #f2f7ef; color: #536858; }
 .acciones { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.vistas { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
 .panel button[aria-pressed=true] { background: #356340; color: white; }
+.modoPrueba { padding: 10px 12px; border: 1px solid #d3b662; border-radius: 8px; background: #fff8d8; color: #554716; }
 .recordatorio { margin: 15px 0; }
+.estadoInscripcion { padding: 9px 11px; border-left: 3px solid #5b8a60; background: #edf5e9; color: #315639; }
 .panel details { margin: 16px 0; padding: 12px; border: 1px solid #cfe0cc; border-radius: 10px; }

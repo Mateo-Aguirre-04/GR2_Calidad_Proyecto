@@ -84,3 +84,18 @@ test('ritual opcional solo permite marcar la tarea de ese mes el día 15 local, 
     assert.deepEqual(state.confirmacionesRequeridas,[])
   }
 })
+
+test('modo de prueba omite fechas y luna, pero conserva sección y riego para cosecha',async()=>{
+  const now=new Date('2026-11-08T15:00:00Z')
+  const task={codigo_actividad:'cosecha',id_planta:'9',id_estado:5,id_zona:'1',fecha_exacta:now,
+    ciclo_cultivo:'30 días',parte_cosecha:'hojas',regada_dos_dias:false,regada_seccion:true,
+    programada_para:new Date(+now+30*86400000)}
+  const state=await availability({},task,{ahora:now,zonaHoraria:zone,ignorarRestriccionesTemporales:true,clima:null})
+  assert.equal(state.puedeCompletar,true)
+  const missingWater=await availability({}, {...task,regada_seccion:false},
+    {ahora:now,zonaHoraria:zone,ignorarRestriccionesTemporales:true,clima:null})
+  assert.ok(missingWater.motivos.some(reason=>reason.includes('riego de la sección')))
+  const missingSection=await availability({}, {...task,id_zona:null,regada_seccion:false},
+    {ahora:now,zonaHoraria:zone,ignorarRestriccionesTemporales:true,clima:null})
+  assert.ok(missingSection.motivos.some(reason=>reason.includes('vincular el cultivo')))
+})

@@ -2,6 +2,10 @@ import { SearchMoonQuarter, NextMoonQuarter } from 'astronomy-engine'
 import { requireMember } from './postgres.js'
 
 const DAY = 86400000
+export function ignoreTemporalRestrictions(env={}) {
+  return env.ignorarRestriccionesTemporales===true
+    || (process.env.CHECKLIST_IGNORE_TIME_RESTRICTIONS==='true'&&process.env.NODE_ENV!=='production')
+}
 export function localDate(value, zone) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(value))
   const get = key => parts.find(p => p.type === key).value

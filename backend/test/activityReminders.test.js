@@ -99,6 +99,19 @@ test('señalética desaparece al completar o finalizar el cultivo; sin zona hora
   assert.deepEqual(reminders([sign],{...environment(),zonaHoraria:null}),[])
 })
 
+test('modo de prueba muestra recordatorios lunares, de plazo y cosecha sin cumplir la fecha',()=>{
+  const env={...environment(),ignorarRestriccionesTemporales:true,clima:null}
+  const futureWeed={id:'22',codigo_actividad:'retiro_maleza',id_zona:'1',programada_para:'2030-01-01T00:00:00Z',ciclo_vigente:true,seccion_ocupada:false}
+  assert.equal(has(reminders([futureWeed],env),'retiro_maleza'),true)
+  const youngHarvest={...harvest,fecha_exacta:date,regada_dos_dias:false}
+  const list=reminders([youngHarvest,{...harvest,codigo_actividad:'senaletica',id:'23'},
+    {codigo_actividad:'riego',id_zona:'1',completada_en:'2026-11-01T15:00:00Z'}],env)
+  assert.equal(has(list,'cosecha_lunar'),true)
+  assert.equal(has(list,'cosecha_rocio'),true)
+  assert.equal(has(list,'riego_previo_cosecha'),true)
+  assert.equal(has(list,'senaletica'),true)
+})
+
 test('clima cálido: cultivo maduro, luna de la noche y umbral de 22 °C con cielo despejado',()=>{
   const env=environment(phase(2))
   assert.equal(has(reminders([harvest],env),'cosecha_clima'),true)

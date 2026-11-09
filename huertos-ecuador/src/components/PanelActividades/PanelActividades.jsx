@@ -11,6 +11,7 @@ function Tarea({tarea,checklist,ejecutar,ocupado,nombreCultivo}) {
   const requeridas=state?.confirmacionesRequeridas||[]
   const lista=requeridas.every(c=>confirmaciones[c]===true)
     && (!state?.decisionesRequeridas?.includes('conservarCultivo')||typeof confirmaciones.conservarCultivo==='boolean')
+  const bloqueos=state?.motivos||[]
   return <article className={styles.tarea}>
     <strong>{tarea.actividad.nombre} · {tarea.actividad.puntos} puntos</strong>
     {tarea.actividad.codigo==='ritual_agradecimiento'&&<p>Actividad opcional del día 15. No es un requisito para cosechar.</p>}
@@ -19,6 +20,12 @@ function Tarea({tarea,checklist,ejecutar,ocupado,nombreCultivo}) {
     {tarea.completado ? <p>Completada</p> : <>
       {state?.motivos?.map(m=><p key={m}>{m}</p>)}
       {tarea.modalidad==='grupal'&&!tarea.yaInscrito && <button disabled={ocupado} onClick={()=>ejecutar(()=>checklist.inscribirse(tarea.id))}>Inscribirme en la jornada</button>}
+      {tarea.modalidad==='grupal'&&tarea.yaInscrito&&<p role="status" className={styles.estadoInscripcion}>
+        {state?.puedeCompletar
+          ? (lista?'Inscripción confirmada. Ya puedes completar la actividad.':'Inscripción confirmada. Completa las confirmaciones para habilitar el botón.')
+          : `Inscripción confirmada. La tarea seguirá pendiente: ${bloqueos.join(' ')||'espera a que se actualice su disponibilidad.'}`}
+      </p>}
+      {!state&&<p role="status">No se pudo consultar la disponibilidad. Actualiza las actividades para revisar los requisitos.</p>}
       {requeridas.map(c=><label key={c}><input type="checkbox" checked={confirmaciones[c]===true} disabled={ocupado}
         onChange={e=>setConfirmaciones({...confirmaciones,[c]:e.target.checked})}/>{TEXTOS[c]||c}</label>)}
       {state?.decisionesRequeridas?.includes('conservarCultivo') && <label>Después de cosechar
@@ -26,7 +33,8 @@ function Tarea({tarea,checklist,ejecutar,ocupado,nombreCultivo}) {
           onChange={e=>setConfirmaciones({...confirmaciones,conservarCultivo:e.target.value===''?undefined:e.target.value==='true'})}>
           <option value="">Elige una opción</option><option value="true">Conservar la planta</option><option value="false">Finalizar el cultivo y liberar la sección</option>
         </select></label>}
-      <button disabled={ocupado||!state?.puedeCompletar||!lista||(tarea.modalidad==='grupal'&&!tarea.yaInscrito)}
+      <button title={!state?.puedeCompletar?bloqueos.join(' '):undefined}
+        disabled={ocupado||!state?.puedeCompletar||!lista||(tarea.modalidad==='grupal'&&!tarea.yaInscrito)}
         onClick={()=>ejecutar(()=>checklist.completar(tarea.id,confirmaciones))}>Completar actividad</button>
     </>}
   </article>
@@ -56,6 +64,7 @@ export default function PanelActividades({checklist,ejecutar,conClave,ocupado,se
   return <div className={styles.overlay}><section className={styles.panel} role="dialog" aria-modal="true" aria-labelledby="actividades-titulo" aria-busy={ocupado}>
     <button className={styles.cerrar} disabled={ocupado} onClick={onCerrar} aria-label="Cerrar actividades">×</button>
     <h2 id="actividades-titulo">Actividades y recordatorios</h2>
+    {checklist.panel?.contexto?.ignorarRestriccionesTemporales&&<p role="status" className={styles.modoPrueba}>Modo de prueba: se omiten las ventanas de fechas, fases lunares, clima y plazos. Siguen vigentes los requisitos del cultivo, la sección y las confirmaciones.</p>}
     {error&&<p role="alert">{error}</p>}{mensaje&&<p role="status">{mensaje}</p>}
     {checklist.error&&<p role="alert">{checklist.error}<button onClick={checklist.recargar}>Reintentar consulta</button></p>}
     {checklist.cargando&&<p role="status">Actualizando actividades…</p>}

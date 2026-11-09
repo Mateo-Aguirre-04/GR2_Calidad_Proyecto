@@ -4,7 +4,7 @@ import { completeTask } from './taskCompletion.js'
 import { readChecklist } from './checklist.js'
 import { requestOnce, requestKey } from './checklistRequests.js'
 import { wateringInput } from './watering.js'
-import { loadEnvironment, catalogDays, localDate, lunarWindow, daysBetween } from './checklistEnvironment.js'
+import { loadEnvironment, catalogDays, ignoreTemporalRestrictions, localDate, lunarWindow, daysBetween } from './checklistEnvironment.js'
 import { activityReminders } from './activityReminders.js'
 import { taskDetails, availability, assertAvailable, sowingReasons } from './checklistRules.js'
 import { synchronizeSections, mappedSection, validatePlanting, gardenLayout } from './sections.js'
@@ -46,9 +46,9 @@ async function fertilizerTask(db,garden,crop,env,requestedDate=null) {
     ORDER BY completada_en DESC NULLS FIRST,id_tarea DESC LIMIT 1`,[garden,crop.plantaId,crop.fechaSiembra])).rows[0]
   if(previous&&!previous.completada_en)return previous.id
   const since=previous?.completada_en||crop.fechaSiembra
-  if(!requestedDate&&(!env.zonaHoraria||daysBetween(since,env.ahora,env.zonaHoraria)<20))return null
+  if(!ignoreTemporalRestrictions(env)&&!requestedDate&&(!env.zonaHoraria||daysBetween(since,env.ahora,env.zonaHoraria)<20))return null
   const earliest=new Date(new Date(since).getTime()+20*DAY)
-  const date=requestedDate&&new Date(requestedDate)>earliest?requestedDate:earliest
+  const date=ignoreTemporalRestrictions(env)?(requestedDate||env.ahora):requestedDate&&new Date(requestedDate)>earliest?requestedDate:earliest
   return createTask(db,garden,'abono_organico',`abono:${cropKey(crop)}:${previous?.id||'inicial'}`,
     {...crop,programadaPara:date})
 }
@@ -84,22 +84,25 @@ export async function synchronize(db,user,garden,env) {
       programadaPara:days?new Date(new Date(crop.fechaSiembra).getTime()+days*DAY):null})
     await fertilizerTask(db,garden,crop,env)
   }
-  if(env.zonaHoraria) {
+  if(env.zonaHoraria||ignoreTemporalRestrictions(env)) {
     const cleaning=(await db.query(`SELECT max(completada_en) AS ultima,
       bool_or(completada_en IS NULL) AS pendiente FROM tareas_huerto
       WHERE id_huerto=$1 AND codigo_actividad='limpieza_huerto'`,[garden])).rows[0]
     const created=(await db.query(`SELECT COALESCE(to_jsonb(h)->>'creado_en',to_jsonb(h)->>'created_at',
       to_jsonb(g)->>'created_at') AS fecha FROM huerto h JOIN gremio g USING(id_gremio) WHERE h.id_huerto=$1`,[garden])).rows[0]?.fecha
     const since=cleaning.ultima||created
-    if(since&&!cleaning.pendiente&&daysBetween(since,env.ahora,env.zonaHoraria)>=7) {
+    if(since&&!cleaning.pendiente&&(ignoreTemporalRestrictions(env)||daysBetween(since,env.ahora,env.zonaHoraria)>=7)) {
       await createTask(db,garden,'limpieza_huerto',`limpieza_periodica:${new Date(since).toISOString()}`,
         {modalidad:'grupal',programadaPara:env.ahora})
     }
   }
-  if(env.zonaHoraria) {
-    const date=localDate(env.ahora,env.zonaHoraria)
-    if(['14','15'].includes(date.slice(-2)))await createTask(db,garden,'ritual_agradecimiento',`ritual:${date.slice(0,8)}15`,
-      {modalidad:'grupal',programadaPara:new Date(new Date(env.ahora).getTime()+(15-Number(date.slice(-2)))*DAY)})
+  if(env.zonaHoraria||ignoreTemporalRestrictions(env)) {
+    const date=localDate(env.ahora,env.zonaHoraria||'UTC')
+    if(ignoreTemporalRestrictions(env)||['14','15'].includes(date.slice(-2))) {
+      const keyDate=ignoreTemporalRestrictions(env)?`${date.slice(0,8)}15`:date.slice(0,8)+'15'
+      await createTask(db,garden,'ritual_agradecimiento',`ritual:${keyDate}`,
+        {modalidad:'grupal',programadaPara:ignoreTemporalRestrictions(env)?env.ahora:new Date(new Date(env.ahora).getTime()+(15-Number(date.slice(-2)))*DAY)})
+    }
   }
 }
 
@@ -112,7 +115,7 @@ export async function panel(db,user,garden,env) {
     const raw=byId.get(task.id)
     const state=await availability(db,raw,env)
     enriched.push({...task,disponibilidad:state,
-      recordatorioActivo:!task.completado&&(!task.programadaPara||(env.zonaHoraria
+      recordatorioActivo:!task.completado&&(ignoreTemporalRestrictions(env)||!task.programadaPara||(env.zonaHoraria
         ?localDate(task.programadaPara,env.zonaHoraria)<=localDate(env.ahora,env.zonaHoraria)
         :new Date(task.programadaPara)<=new Date(env.ahora))),
       cultivo:task.cultivo?{...task.cultivo,parteCosecha:raw.parte_cosecha}:null,
@@ -142,6 +145,7 @@ export async function panel(db,user,garden,env) {
   const reminders=activityReminders({details,zones,crops,env,tipoHuerto:layout.tipo})
   return {tareas:enriched,zonas:zones,lotes:lots,cultivos:crops,recordatorios:reminders,
     contexto:{ahora:env.ahora,zonaHoraria:env.zonaHoraria,clima:env.clima,climaVerificado:!!env.clima,amanecer:env.amanecer,
+      ignorarRestriccionesTemporales:ignoreTemporalRestrictions(env),
       ventanasLunares:env.zonaHoraria?{nueva:lunarWindow(env.ahora,env.zonaHoraria,[0]),
         crecienteOLlena:lunarWindow(env.ahora,env.zonaHoraria,[1,2]),menguante:lunarWindow(env.ahora,env.zonaHoraria,[3])}:null}}
 }

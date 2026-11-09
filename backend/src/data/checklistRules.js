@@ -1,4 +1,4 @@
-import { catalogDays, daysBetween, localDate, localMinutes, lunarWindow, sunny } from './checklistEnvironment.js'
+import { catalogDays, daysBetween, ignoreTemporalRestrictions, localDate, localMinutes, lunarWindow, sunny } from './checklistEnvironment.js'
 import { httpError } from './postgres.js'
 
 export const confirmations = {
@@ -13,6 +13,8 @@ export async function taskDetails(db,garden,id=null,env={}) {
       NOT EXISTS(SELECT 1 FROM ciclos_zona newer WHERE newer.id_zona=c.id_zona AND newer.id_ciclo>c.id_ciclo) AS ciclo_vigente,
       EXISTS(SELECT 1 FROM huerto_planta occupied WHERE occupied.id_huerto=t.id_huerto
         AND occupied.zona=z.zona_mapa AND occupied.parcela=z.parcela_mapa AND occupied.id_estado<>$5) AS seccion_ocupada,
+      EXISTS(SELECT 1 FROM tareas_huerto r WHERE r.id_huerto=t.id_huerto AND r.id_zona=z.id_zona
+        AND r.codigo_actividad='riego' AND r.completada_en IS NOT NULL) AS regada_seccion,
       l.secado_iniciado_en,prep.completada_en AS preparada_en,
       (SELECT max(a.completada_en) FROM tareas_huerto a WHERE a.id_huerto=t.id_huerto
         AND a.id_planta=t.id_planta AND a.fecha_siembra=t.fecha_siembra
@@ -34,9 +36,11 @@ export async function taskDetails(db,garden,id=null,env={}) {
     WHERE t.id_huerto=$1 AND ($2::bigint IS NULL OR t.id_tarea=$2) ORDER BY t.id_tarea`,[garden,id,env.zonaHoraria || null,env.ahora || new Date(),Number(process.env.HARVEST_STATE_ID||6)])).rows
 }
 export function sowingReasons(prepared,env) {
+  const ignoreTime=ignoreTemporalRestrictions(env)
   const reasons=[]
   if (!prepared) reasons.push('Primero debe completarse la preparación de esta zona.')
-  else if (new Date(env.ahora)-new Date(prepared)<15*86400000) reasons.push('Todavía no han pasado 15 días desde la preparación.')
+  else if (!ignoreTime && new Date(env.ahora)-new Date(prepared)<15*86400000) reasons.push('Todavía no han pasado 15 días desde la preparación.')
+  if(ignoreTime)return reasons
   if (!env.zonaHoraria) return [...reasons,'No se conoce la zona horaria del huerto.']
   const minutes=localMinutes(env.ahora,env.zonaHoraria)
   if (minutes<480) reasons.push('La siembra comienza a las 08:00, hora local del huerto.')
@@ -44,6 +48,7 @@ export function sowingReasons(prepared,env) {
   return reasons
 }
 export async function availability(db,task,env) {
+  const ignoreTime=ignoreTemporalRestrictions(env)
   const required=confirmations[task.codigo_actividad] || []
   const decisions=task.codigo_actividad==='cosecha'?['conservarCultivo']:[]
   if (task.completada_en) return { estado:'completada',puedeCompletar:false,motivos:[],confirmacionesRequeridas:required,decisionesRequeridas:decisions }
@@ -55,8 +60,8 @@ export async function availability(db,task,env) {
     if(task.ciclo_vigente===false) reasons.push('La tarea pertenece a un ciclo anterior de la sección.')
     if(task.seccion_ocupada) reasons.push('La sección todavía tiene cultivos activos.')
   }
-  if (!zone) { reasons.push('No se conoce la zona horaria del huerto.');pending=true }
-  if (task.programada_para && new Date(task.programada_para)>new Date(env.ahora)
+  if (!zone&&!ignoreTime) { reasons.push('No se conoce la zona horaria del huerto.');pending=true }
+  if (!ignoreTime && task.programada_para && new Date(task.programada_para)>new Date(env.ahora)
     && !(['abono_organico','limpieza_huerto','secado_almacenamiento','ritual_agradecimiento'].includes(task.codigo_actividad)
       && zone && localDate(task.programada_para,zone)===localDate(env.ahora,zone))) {
     reasons.push('La fecha programada todavía no ha llegado.')
@@ -70,44 +75,54 @@ export async function availability(db,task,env) {
       if(!task.seccion_ocupada) reasons.push('Solo puedes regar secciones que tengan plantas activas en el huerto.')
       break
     case 'abono_organico':
-      if(zone&&daysBetween(task.ultimo_abono||task.fecha_exacta,env.ahora,zone)<20)
+      if(!ignoreTime&&zone&&daysBetween(task.ultimo_abono||task.fecha_exacta,env.ahora,zone)<20)
         reasons.push('Deben pasar 20 días desde la siembra o la última aplicación de abono.')
       break
     case 'senaletica': case 'limpieza_huerto': break
     case 'retiro_maleza':
-      if (zone && !lunarWindow(env.ahora,zone,[0])) reasons.push('Retirar maleza requiere el día de luna nueva, el anterior o el siguiente.')
-      if (!sunny(env)) reasons.push(env.clima?'Retirar maleza requiere sol o tiempo mayormente soleado y sin lluvia.':'No se pudo comprobar el clima; vuelve a intentarlo.')
+      if (!ignoreTime&&zone && !lunarWindow(env.ahora,zone,[0])) reasons.push('Retirar maleza requiere el día de luna nueva, el anterior o el siguiente.')
+      if (!ignoreTime&&!sunny(env)) reasons.push(env.clima?'Retirar maleza requiere sol o tiempo mayormente soleado y sin lluvia.':'No se pudo comprobar el clima; vuelve a intentarlo.')
       break
     case 'siembra': reasons.push(...sowingReasons(task.preparada_en,env));break
     case 'preparacion_tierra':
       if (!task.maleza_retirada_en) reasons.push('Primero debe completarse Retirar maleza en este ciclo de la zona.')
-      if (zone && !lunarWindow(env.ahora,zone,[0])) reasons.push('La preparación de la tierra requiere luna oscura (el día de luna nueva o uno de los días contiguos).')
+      if (!ignoreTime&&zone && !lunarWindow(env.ahora,zone,[0])) reasons.push('La preparación de la tierra requiere luna oscura (el día de luna nueva o uno de los días contiguos).')
       break
     case 'cosecha': {
-      if (zone && localMinutes(env.ahora,zone)<480) reasons.push('Espera al menos hasta las 08:00 para que se seque el rocío antes de cosechar.')
+      if (!ignoreTime&&zone && localMinutes(env.ahora,zone)<480) reasons.push('Espera al menos hasta las 08:00 para que se seque el rocío antes de cosechar.')
       const days=catalogDays(task.ciclo_cultivo)
       if (!days) {reasons.push('El catálogo no indica un ciclo en días para esta especie.');pending=true}
-      else if (new Date(env.ahora)-new Date(task.fecha_exacta)<days*86400000) reasons.push(`El cultivo debe cumplir ${days} días desde su siembra.`)
+      else if (!ignoreTime && new Date(env.ahora)-new Date(task.fecha_exacta)<days*86400000) reasons.push(`El cultivo debe cumplir ${days} días desde su siembra.`)
       if (!task.parte_cosecha) {reasons.push('Falta registrar qué parte del cultivo se cosechará.');pending=true}
-      else if (zone && !lunarWindow(env.ahora,zone,['semillas','raices'].includes(task.parte_cosecha)?[3]:[1,2])) reasons.push('La fecha no está en la ventana lunar de la parte que se cosechará.')
+      else if (!ignoreTime&&zone && !lunarWindow(env.ahora,zone,['semillas','raices'].includes(task.parte_cosecha)?[3]:[1,2])) reasons.push('La fecha no está en la ventana lunar de la parte que se cosechará.')
       if (zone) {
         if(!task.id_zona) {reasons.push('Falta vincular el cultivo a una sección del huerto.');pending=true}
-        const watered=task.regada_dos_dias ?? (await db.query(`SELECT EXISTS(SELECT 1 FROM tareas_huerto r JOIN tareas_huerto actual
-          ON r.id_huerto=actual.id_huerto AND r.id_zona=$4
-          WHERE actual.id_tarea=$1 AND r.codigo_actividad='riego' AND r.completada_en IS NOT NULL
-          AND (r.completada_en AT TIME ZONE $2)::date=(($3::timestamptz AT TIME ZONE $2)::date-2)) AS ok`,[task.id,zone,env.ahora,task.id_zona || null])).rows[0].ok
+        const wateredCached=ignoreTime?task.regada_seccion:task.regada_dos_dias
+        let watered=wateredCached
+        if(watered==null) {
+          const query=ignoreTime
+            ? `SELECT EXISTS(SELECT 1 FROM tareas_huerto r JOIN tareas_huerto actual
+                ON r.id_huerto=actual.id_huerto AND r.id_zona=$2 WHERE actual.id_tarea=$1
+                AND r.codigo_actividad='riego' AND r.completada_en IS NOT NULL) AS ok`
+            : `SELECT EXISTS(SELECT 1 FROM tareas_huerto r JOIN tareas_huerto actual
+                ON r.id_huerto=actual.id_huerto AND r.id_zona=$4
+                WHERE actual.id_tarea=$1 AND r.codigo_actividad='riego' AND r.completada_en IS NOT NULL
+                AND (r.completada_en AT TIME ZONE $2)::date=(($3::timestamptz AT TIME ZONE $2)::date-2)) AS ok`
+          const params=ignoreTime?[task.id,task.id_zona||null]:[task.id,zone,env.ahora,task.id_zona||null]
+          watered=(await db.query(query,params)).rows[0].ok
+        }
         if (!watered) reasons.push('Falta un riego de la sección del cultivo en la fecha local de hace dos días.')
       }
-      if (!sunny(env)) reasons.push(env.clima?'Se necesita sol o tiempo mayormente soleado, de día y sin lluvia.':'No se pudo comprobar el clima; vuelve a intentarlo.')
+      if (!ignoreTime&&!sunny(env)) reasons.push(env.clima?'Se necesita sol o tiempo mayormente soleado, de día y sin lluvia.':'No se pudo comprobar el clima; vuelve a intentarlo.')
       break
     }
     case 'ritual_agradecimiento':
-      if(zone&&(localDate(env.ahora,zone).slice(-2)!=='15'||task.clave_generacion!==`ritual:${localDate(env.ahora,zone)}`))
+      if(!ignoreTime&&zone&&(localDate(env.ahora,zone).slice(-2)!=='15'||task.clave_generacion!==`ritual:${localDate(env.ahora,zone)}`))
         reasons.push('El ritual es opcional y solo se puede marcar el día 15 del mes correspondiente.')
       break
     case 'secado_almacenamiento':
       if (!task.secado_iniciado_en) reasons.push('Falta registrar el inicio del secado a la sombra.')
-      else if (zone && daysBetween(task.secado_iniciado_en,env.ahora,zone)<10) reasons.push('Todavía no llegó el día 10 del secado.')
+      else if (!ignoreTime&&zone && daysBetween(task.secado_iniciado_en,env.ahora,zone)<10) reasons.push('Todavía no llegó el día 10 del secado.')
       break
     default:
       pending=true;reasons.push('Esta actividad todavía tiene reglas de disponibilidad pendientes de definir.')
