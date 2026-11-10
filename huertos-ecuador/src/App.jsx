@@ -6,6 +6,7 @@ import CrearGremio from "./pages/CrearGremio"
 import Catalogo from './pages/Catalogo'
 import Juego from './pages/Juego'
 import Gremio from './pages/Gremio'
+import Foro from './pages/Foro'
 import { usePresencia } from './hooks/usePresencia'
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
         <Route path="/catalogo-plantas" element={<Catalogo />} />
         <Route path="/juego" element={<Juego />} />
         <Route path="/gremio" element={<Gremio />} />
+        <Route path='/foro' element={<Foro />} />
       </Routes>
     </BrowserRouter>
   )

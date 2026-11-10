@@ -21,13 +21,14 @@ import ModalSeleccionPlanta from '../components/ModalSeleccionPlanta/ModalSelecc
 import ModalInfoCultivo from '../components/ModalInfoCultivo/ModalInfoCultivo'
 import ModalCosechaHerramienta from '../components/ModalCosechaHerramienta/ModalCosechaHerramienta'
 import PanelActividades from '../components/PanelActividades/PanelActividades'
+import PanelAjustes from '../components/PanelAjustes/PanelAjustes'
 import styles from './css/Juego.module.css'
 
 // accion: 'ruta' navega, 'modal' abre un modal, 'pendiente' aún sin definir.
 // Las descripciones son fijas, no vienen de la base.
 const BOTONES = [
-  { clave: 'ajustes',       nombre: 'Ajustes',       etiqueta: 'Ajustes',       icono: { src: iconoHuerto('herramientas', 'ajustes') }, descripcion: 'Cambia las opciones de tu cuenta y del juego.', accion: 'pendiente' },
-  { clave: 'foro',          nombre: 'Foro',          etiqueta: 'Foro',          icono: { src: iconoHuerto('herramientas', 'foro') }, descripcion: 'Conversa con otros jardineros.',               accion: 'pendiente' },
+   { clave: 'ajustes',       nombre: 'Ajustes',       etiqueta: 'Ajustes',       icono: { src: iconoHuerto('herramientas', 'ajustes') }, descripcion: 'Cambia las opciones de tu cuenta y del juego.', accion: 'panel' },
+  { clave: 'foro',          nombre: 'Foro',          etiqueta: 'Foro',          icono: { src: iconoHuerto('herramientas', 'foro') }, descripcion: 'Conversa con otros jardineros.',               accion: 'ruta', destino: '/foro' },
   { clave: 'gremio',        nombre: 'Gremio',        etiqueta: 'Gremio',        icono: { src: iconoHuerto('herramientas', 'gremio') }, descripcion: 'Mira a tu gremio y su ranking.',               accion: 'ruta', destino: '/gremio' },
   { clave: 'catalogo',      nombre: 'Catálogo',      etiqueta: 'Catálogo',      icono: { src: iconoHuerto('herramientas', 'catalogo') }, descripcion: 'Consulta las plantas disponibles.',            accion: 'ruta', destino: '/catalogo-plantas' },
   { clave: 'recordatorios', nombre: 'Recordatorios', etiqueta: 'Recordatorios', icono: { src: iconoHuerto('herramientas', 'recordatorios') }, descripcion: 'Revisa tus tareas pendientes.',                accion: 'pendiente' },
@@ -60,6 +61,7 @@ function Juego() {
   const [cultivoInfo, setCultivoInfo] = useState(null) // cultivo cuya información se muestra
   const [cosechaAnimada,setCosechaAnimada] = useState(null)
   const [riegoAnimado,setRiegoAnimado] = useState(null)
+  const [ajustesAbierto, setAjustesAbierto] = useState(false)
 
   const [mensajeAccion,setMensajeAccion]=useState('')
   const [seccionPanel,setSeccionPanel]=useState('')
@@ -109,6 +111,8 @@ function Juego() {
     setMensajeAccion('')
     if (boton.accion === 'ruta') {
       navigate(boton.destino)
+    } else if (boton.clave === 'ajustes') {
+      setAjustesAbierto(abierto => !abierto)
     } else if (boton.accion === 'modal') {
       setModal(boton.clave)
     } else if (boton.clave === 'recordatorios') {
@@ -354,7 +358,7 @@ function Juego() {
         ocupado={loadingAccion} error={errorAccion}
         onConfirmar={confirmaciones=>ejecutar(()=>checklist.completar(tareaCosecha.id,confirmaciones))}
         onCerrar={()=>setCultivoParaCosecha(null)}/>}
-
+      <PanelAjustes abierto={ajustesAbierto} onCerrar={() => setAjustesAbierto(false)} />
     </div>
   )
 }
