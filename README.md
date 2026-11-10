@@ -1,244 +1,164 @@
-Aquí tienes el contenido en Markdown, listo para guardarlo como `GUIA-INSTALACION.md` y compartirlo con tu equipo. Incluye el comando para instalar el router y una estructura mínima para conectar las páginas sin duplicar el encabezado.
+# Huertos.ec
 
-````markdown
-# Guía de instalación: React, Vite, pnpm y React Router
+Juego web para gestionar huertos comunitarios en Ecuador. Los jugadores se agrupan en gremios, siembran plantas en las parcelas de su huerto, siguen sus fases de crecimiento, completan actividades (riego, abono, cosecha, secado) y suman puntos para el ranking.
 
-Esta guía explica cómo preparar el entorno de desarrollo de **Huertos.ec** y configurar las rutas para las páginas de inicio de sesión y registro.
+## Tecnologías
 
-## 1. ¿Qué herramientas usaremos?
+| Parte | Tecnología |
+|---|---|
+| Frontend | React 19, Vite, React Router, Leaflet |
+| Backend | Node.js, Express 4, `express-session` |
+| Base de datos | PostgreSQL en Supabase (esquema `huertos`) |
+| Imágenes de plantas e iconos | Supabase Storage (bucket `huertos-assets`) |
 
-- **React:** biblioteca de JavaScript para construir la interfaz con componentes reutilizables.
-- **Vite:** herramienta que crea el proyecto y ejecuta el servidor de desarrollo.
-- **pnpm:** gestor de paquetes que instala las dependencias. El archivo `pnpm-lock.yaml` ayuda a que todas las personas del equipo instalen versiones compatibles.
-- **React Router:** biblioteca para navegar entre páginas sin recargar toda la aplicación.
+El backend siempre trabaja contra PostgreSQL: si no puede conectarse a la base, no arranca.
 
-## 2. Requisitos
+## Estructura
 
-Instala una versión LTS de [Node.js](https://nodejs.org/). Node incluye npm, que usaremos para instalar pnpm.
-
-Comprueba la instalación desde una terminal:
-
-```bash
-node --version
-npm --version
+```text
+GR2_Calidad_Proyecto/
+├── README.md
+├── backend/
+│   ├── .env.example          Variables de entorno de ejemplo
+│   ├── database/             SQL: esquema, datos iniciales y plantas
+│   │   └── migrations/       Migraciones del checklist de actividades (001–006)
+│   ├── scripts/              Ejecutores de migraciones, carga de imágenes a Supabase y utilidades
+│   ├── src/
+│   │   ├── config/           Conexión a la base, sesiones y presencia
+│   │   ├── controllers/      Controladores HTTP
+│   │   ├── data/             Reglas de negocio y consultas
+│   │   ├── routes/           Rutas de la API
+│   │   └── server.js         Punto de entrada
+│   ├── storage/plantas/      Imágenes originales de las plantas (se suben a Supabase Storage)
+│   └── test/                 Pruebas con node:test
+└── huertos-ecuador/          Frontend
+    ├── public/huertos/       Fondos de cada tipo de huerto
+    ├── src/
+    │   ├── assets/iconos/    Iconos del juego
+    │   ├── components/       Componentes (uno por carpeta, con su CSS module)
+    │   ├── data/             Configuración del mapeo de parcelas, fases e iconos
+    │   ├── hooks/            Hooks de datos (huerto, perfil, clima, checklist…)
+    │   ├── pages/            Páginas y su CSS en pages/css
+    │   └── services/         Llamadas a la API del checklist
+    └── test/                 Pruebas con node:test
 ```
 
-Instala pnpm:
+## Requisitos
+
+- Node.js 20 o superior.
+- pnpm (`npm install -g pnpm`).
+- Acceso a la base PostgreSQL del proyecto (cadena de conexión de Supabase).
+
+## Configuración
+
+Crea `backend/.env` a partir de `backend/.env.example`:
+
+| Variable | Obligatoria | Uso |
+|---|---|---|
+| `DATABASE_URL` | Sí | Cadena de conexión de PostgreSQL / Supabase |
+| `PORT` | No | Puerto del backend (por defecto `3001`) |
+| `DB_SCHEMA` | No | Esquema de la base (por defecto `huertos`) |
+| `SESSION_SECRET` | En producción | Firma de la cookie de sesión |
+| `FRONTEND_URL` | En producción | Origen permitido por CORS (por defecto `http://localhost:5173`) |
+| `HARVEST_STATE_ID` | No | ID del estado "cosechado" (por defecto `6`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Solo para los scripts de carga de imágenes | Acceso a Supabase Storage (`SUPABASE_URL` es opcional: se deduce de `DATABASE_URL`) |
+
+`backend/.env` no se sube al repositorio.
+
+## Ejecutar en local
+
+Necesitas dos terminales.
 
 ```bash
-npm install --global pnpm
+# Terminal 1: backend en http://localhost:3001
+cd backend
+pnpm install
+pnpm dev
 ```
 
-Verifica que esté disponible:
-
 ```bash
-pnpm --version
-```
-
-> Si tu equipo ya tiene pnpm instalado, no hace falta instalarlo otra vez.
-
-## 3. Crear el proyecto React con Vite
-
-Si todavía no existe el proyecto en tu equipo, ejecuta:
-
-```bash
-pnpm create vite huertos-ecuador --template react
+# Terminal 2: frontend en http://localhost:5173
 cd huertos-ecuador
 pnpm install
 pnpm dev
 ```
 
-El asistente puede preguntar qué herramientas adicionales deseas configurar. Para esta guía, selecciona **ESLint** si aparece esa opción. Vite mostrará una dirección local, habitualmente `http://localhost:5173/`; ábrela en el navegador.
+Vite redirige `/api/*` al backend, así que en desarrollo no hay problemas de CORS. Para comprobar el backend abre `http://localhost:3001/api/health`.
 
-> Si el repositorio de Huertos.ec ya está creado, no vuelvas a crear el proyecto. Abre la carpeta existente y ejecuta `pnpm install` desde ella.
+`pnpm dev:prueba` (en `backend`) arranca el backend sin las restricciones de fechas, hora y fase lunar del checklist, para probar actividades a mano. No funciona con `NODE_ENV=production`.
 
-## 4. Instalar React Router
+## Base de datos
 
-Desde la carpeta raíz del proyecto, ejecuta:
+### Archivos SQL
 
-```bash
-pnpm add react-router-dom
-```
+| Archivo | Contenido |
+|---|---|
+| `backend/database/01_esquema.sql` | Modelo completo de referencia. Contiene `DROP`: **no ejecutarlo en la base compartida**. |
+| `backend/database/02_datos_iniciales.sql` | Datos de catálogo iniciales |
+| `backend/database/03_plantas_ecuador.sql` | Plantas andinas con sus seis fases e imágenes |
+| `backend/database/migrations/*.sql` | Migraciones del checklist, en orden numérico |
 
-React Router permitirá mostrar una página diferente según la dirección visitada, por ejemplo `/` para iniciar sesión y `/registro` para crear una cuenta.
+### Migraciones
 
-## 5. Organización recomendada
+Se ejecutan desde `backend`. Los scripts con `--apply` trabajan en una transacción; sin `--apply` solo revisan o simulan.
 
-Dentro de `src/`, organiza los componentes así:
+| Comando | Qué hace |
+|---|---|
+| `pnpm db:migrate` | Agrega `usuario_general.last_seen` (presencia) si falta |
+| `node scripts/migrate-guild-profile.js` | Agrega `descripcion` y `anuncios` a `gremio` |
+| `node scripts/checklist-migrations.js [--apply]` | Migraciones 002 y 003 |
+| `node scripts/migrate-activities.js [--apply]` | Migración 004: secciones, puntos y ranking |
+| `node scripts/migrate-recurring-fertilizer.js [--apply]` | Migración 005: abono recurrente |
+| `node scripts/migrate-medicinal-catalog.js [--apply]` | Migración 006: catálogo medicinal |
 
-```text
-src/
-├── components/
-│   └── Header.jsx
-├── pages/
-│   ├── Login.jsx
-│   └── Registro.jsx
-├── App.jsx
-├── App.css
-├── index.css
-└── main.jsx
-```
+La migración 001 (`checklist_baseline`) ya está aplicada en la base compartida: no volver a ejecutarla allí. En la base compartida ya están aplicadas de la 001 a la 006.
 
-- `main.jsx` inicia React y carga el componente principal.
-- `App.jsx` declara las rutas de la aplicación.
-- `pages/` contiene una pantalla por página.
-- `components/` guarda piezas reutilizables, como el encabezado.
-- `App.css` e `index.css` contienen los estilos.
+### Imágenes en Supabase Storage
 
-## 6. Declarar las rutas
+| Comando | Qué sube |
+|---|---|
+| `node scripts/upload-storage.js` | `backend/storage/plantas` → `huertos-assets/plantas` |
+| `node scripts/upload-iconos.js` | `huertos-ecuador/src/assets/iconos` → `huertos-assets/iconos` |
 
-En `src/App.jsx`, importa el router y las páginas:
-
-```jsx
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import Login from './pages/Login'
-import Registro from './pages/Registro'
-
-function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/registro" element={<Registro />} />
-      </Routes>
-    </BrowserRouter>
-  )
-}
-
-export default App
-```
-
-`BrowserRouter` habilita la navegación. Cada `Route` relaciona una dirección con el componente que debe mostrarse.
-
-No incluyas `<Header />` aquí si cada página necesita mostrar un texto o un enlace diferente en su encabezado.
-
-## 7. Comprobar el punto de entrada
-
-En `src/main.jsx`, React debe importar y renderizar `App`. La plantilla de Vite normalmente ya tiene esta configuración:
-
-```jsx
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.jsx'
-
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
-```
-
-`index.css` se importa aquí una sola vez para aplicar estilos globales.
-
-## 8. Usar el mismo encabezado en las dos páginas
-
-El componente compartido va en `src/components/Header.jsx`:
-
-```jsx
-import { Link } from 'react-router-dom'
-
-function Header({ pregunta, textoEnlace, destino }) {
-  return (
-    <header className="barra-superior">
-      <Link className="marca" to="/" aria-label="Huertos.ec, inicio">
-        <span className="icono-planta" aria-hidden="true">🌱</span>
-        <span>Huertos Ec.</span>
-      </Link>
-
-      <nav aria-label="Navegación de cuenta">
-        <span>{pregunta}</span>
-        <Link className="boton-pixel" to={destino}>
-          {textoEnlace}
-        </Link>
-      </nav>
-    </header>
-  )
-}
-
-export default Header
-```
-
-En `src/pages/Login.jsx`, importa el encabezado y úsalo dentro de la página:
-
-```jsx
-import Header from '../components/Header'
-
-function Login() {
-  return (
-    <div className="pagina">
-      <Header
-        pregunta="¿No tienes una cuenta?"
-        textoEnlace="Registrarse"
-        destino="/registro"
-      />
-
-      <main>
-        {/* Aquí va el contenido del inicio de sesión */}
-      </main>
-    </div>
-  )
-}
-
-export default Login
-```
-
-En `src/pages/Registro.jsx`, usa el mismo componente, cambiando los textos y el destino:
-
-```jsx
-import Header from '../components/Header'
-
-function Registro() {
-  return (
-    <div className="pagina">
-      <Header
-        pregunta="¿Ya tienes una cuenta?"
-        textoEnlace="Iniciar sesión"
-        destino="/"
-      />
-
-      <main>
-        {/* Aquí va el contenido de creación de cuenta */}
-      </main>
-    </div>
-  )
-}
-
-export default Registro
-```
-
-El encabezado se escribe una sola vez y recibe sus textos como propiedades. `Link` realiza la navegación interna; se puede estilizar con la clase `boton-pixel` como cualquier enlace.
-
-## 9. Ejecutar y comprobar el proyecto
-
-Inicia el servidor de desarrollo:
+## Pruebas
 
 ```bash
-pnpm dev
+cd backend && pnpm test
+cd huertos-ecuador && pnpm test
 ```
 
-Comprueba estas direcciones en el navegador:
+Las pruebas de `backend/test/checklist.postgres.test.js` se omiten salvo que `CHECKLIST_TEST_DATABASE_URL` apunte a una base local `gr2_checklist_test`. `node scripts/run-checklist-postgres.js` crea esa base temporal en el puerto 55439, ejecuta esas pruebas y la detiene; requiere PostgreSQL 18 instalado (la ruta de los binarios se cambia con `POSTGRES_BIN`). No usa `DATABASE_URL` ni escribe en Supabase.
 
-- `http://localhost:5173/` debe mostrar el inicio de sesión.
-- `http://localhost:5173/registro` debe mostrar la creación de cuenta.
+## Funcionamiento
 
-Para generar una compilación de producción:
+### Huerto y parcelas
 
-```bash
-pnpm build
-```
+- Cada tipo de huerto (surcos, camadas, botellas, macetas…) tiene un fondo con sus parcelas dibujadas (`huertos-ecuador/src/data/parcelasHuerto.js`) y un área por parcela (`backend/src/data/parcelas.js`; los dos archivos deben coincidir).
+- El área total del gremio se reparte en parcelas. Cuando hay más parcelas de las que caben en un fondo, se habilitan zonas adicionales. Ejemplo con surcos (100 m² por parcela, 6 por fondo): 100 m² habilitan 1 parcela; 800 m² habilitan la zona 1 completa y 2 parcelas en la zona 2.
+- Una botella admite una planta; en el resto de tipos la cantidad depende del área de la parcela.
+- Las plantas avanzan de fase según los días de `ciclo_cultivo`. En el terreno llegan hasta la fase 4; la fase 5 aparece en la animación de cosecha. Solo se puede cosechar en la fase 4.
 
-## 10. Sincronizar el entorno del equipo
+### Actividades, puntos y ranking
 
-Incluye en el repositorio `package.json` y `pnpm-lock.yaml`. Cada integrante debe instalar las dependencias desde la carpeta del proyecto:
+El checklist (`/api/recordatorios/huerto/:huertoId/...`) genera las tareas de cada cultivo (siembra, riego, abono, señalética, cosecha, secado y rituales) según la fecha local del huerto, la fase lunar y el clima de Open-Meteo. Al completar una tarea se otorgan puntos mediante triggers de la base y se actualiza el ranking de gremios.
 
-```bash
-pnpm install --frozen-lockfile
-```
+### Presencia de los miembros
 
-No se debe borrar ni modificar el archivo de bloqueo para resolver una instalación rutinaria; si cambian las dependencias, se actualiza con pnpm y se comparte el nuevo `pnpm-lock.yaml`.
+Cada usuario guarda su última actividad en `usuario_general.last_seen`. Los intervalos se configuran en `backend/src/config/presence.js`:
 
-## Importante
+- `PRESENCE_UPDATE_MINUTES`: intervalo mínimo entre escrituras.
+- `PRESENCE_ONLINE_MINUTES`: tiempo durante el que un usuario se muestra en línea. Debe ser mayor que el anterior.
 
-Esta configuración solo crea la navegación y las interfaces. **No implementa autenticación, no verifica credenciales y no guarda usuarios.** El inicio de sesión y el registro reales requerirán conectarse a una API backend y validar los datos de manera segura.
-````
+Después de cambiarlos, reinicia el backend y recarga el navegador.
+
+## API
+
+| Ruta | Métodos |
+|---|---|
+| `/api/health` | `GET` |
+| `/api/auth` | `POST /login`, `POST /registro`, `POST /logout`, `POST /presence`, `GET /presence-config` |
+| `/api/gremios` | `GET /`, `GET /configuracion`, `GET /:id`, `PATCH /:id/perfil`, `POST /`, `POST /unirse`, `POST /:id/invitacion` |
+| `/api/huertos` | `GET /:id`, `POST /:id/sembrar`, `POST /:id/cosechar` |
+| `/api/plantas` | `GET /`, `GET /:id` |
+| `/api/perfil` | `GET /:id?`, `PUT /:id/descripcion` |
+| `/api/recordatorios/huerto/:huertoId` | `GET /`, `GET /panel`, `POST /sincronizar`, `POST /zonas`, `POST /ciclos`, `PUT /cultivos/configuracion`, `POST /cultivos/finalizar`, `POST /programar`, `POST /siembras`, `POST /secados`, `POST /riegos`, `POST /tareas/:tareaId/completar`, `POST /tareas/:tareaId/inscribirse` |

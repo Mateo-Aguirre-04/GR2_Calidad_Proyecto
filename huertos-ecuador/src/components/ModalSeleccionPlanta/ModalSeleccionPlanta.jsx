@@ -18,7 +18,6 @@ function ModalSeleccionPlanta({ onSeleccionar, onCerrar }) {
     )
   }, [plantas, busqueda])
 
-  // Close on Escape
   useEffect(() => {
     const handler = (e) => {
       if (e.key === 'Escape') onCerrar()

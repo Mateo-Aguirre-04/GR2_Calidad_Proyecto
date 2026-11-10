@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as api from '../services/checklist'
 
-// Karen puede montar este hook sin cambiar los hooks ni las pantallas existentes.
 // Las claves de las acciones deben mantenerse en la interfaz mientras se reintentan.
 export function useChecklist(huertoId) {
   const [revision, setRevision] = useState(0)

@@ -1,4 +1,4 @@
-import { httpError, requireMember, requireUser, sendError } from './postgres.js'
+import { httpError, requireMember } from './postgres.js'
 
 export async function readChecklist(db, usuarioId, huertoId) {
   // Mantener bigint como texto: los IDs de PostgreSQL pueden superar MAX_SAFE_INTEGER.
@@ -24,14 +24,4 @@ export async function readChecklist(db, usuarioId, huertoId) {
     actividad: { codigo, nombre, puntos },
     cultivo: plantaId === null ? null : { huertoId: task.huertoId, plantaId, fechaSiembra },
   }))
-}
-
-export function checklistHandler(db) {
-  return async (req, res) => {
-    try {
-      const usuarioId = requireUser(req)
-      const tasks = await readChecklist(db, usuarioId, req.params.huertoId)
-      res.set('Cache-Control', 'no-store').json(tasks)
-    } catch (error) { sendError(res, error) }
-  }
 }

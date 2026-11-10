@@ -73,7 +73,6 @@ function Gremio() {
 
       <main className={styles.contenido}>
         {error && <div role="alert"><p>{error}</p><Button onClick={reintentar}>Reintentar</Button></div>}
-        {gremio?.fuente === 'mock' && <p role="status">Modo demostración: datos locales, sin conexión a PostgreSQL.</p>}
         {cargando ? (
           <p className={styles.estado} role="status">Cargando gremio...</p>
         ) : (

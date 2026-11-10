@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
+import { authenticatedFetch } from '../../authSession'
 import Button from '../Button/Button'
 import styles from './ModalInvitar.module.css'
 
@@ -10,7 +11,6 @@ function ModalInvitar({ gremioId, gremioNombre, onCerrar }) {
   const [copiado, setCopiado] = useState(false)
 
   useEffect(() => {
-    // Cerrar con Escape
     const onKeyDown = (e) => {
       if (e.key === 'Escape') onCerrar()
     }
@@ -23,24 +23,12 @@ function ModalInvitar({ gremioId, gremioNombre, onCerrar }) {
     setCargando(true)
     setError('')
     try {
-      let usuarioId = null
-      try {
-        const u = localStorage.getItem('usuario_actual')
-        if (u) {
-          const parseado = JSON.parse(u)
-          usuarioId = parseado.id
-        }
-      } catch {}
-
-      const res = await fetch(`/api/gremios/${gremioId}/invitaciones`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creadoPor: usuarioId }),
-      })
+      // El backend toma el usuario de la sesión y comprueba que sea miembro del gremio.
+      const res = await authenticatedFetch(`/api/gremios/${gremioId}/invitacion`, { method: 'POST' })
 
       const data = await res.json()
-      if (res.ok && data.invitacion?.codigo) {
-        setCodigo(data.invitacion.codigo)
+      if (res.ok && data.codigo) {
+        setCodigo(data.codigo)
       } else {
         setError(data.error || 'No se pudo generar la invitación.')
       }
@@ -133,7 +121,7 @@ function ModalInvitar({ gremioId, gremioNombre, onCerrar }) {
             </div>
 
             <p className={styles.infoExpira}>
-              ⏳ <strong>Válido por 24 horas</strong>. Otros jardineros pueden ingresar este
+              ⏳ <strong>Válido por 7 días</strong>. Otros jardineros pueden ingresar este
               código o escanear el QR desde la pantalla <em>«Unirme a un Gremio»</em>.
             </p>
 

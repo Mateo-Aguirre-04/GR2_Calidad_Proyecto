@@ -8,11 +8,11 @@
 # Variables de entorno
 .env
 .env.*
+*.local
 !.env.example
 
 # Logs
 *.log
-tmp/catalogo-medicinal/
 pnpm-debug.log*
 npm-debug.log*
 
@@ -29,5 +29,5 @@ coverage/
 Thumbs.db
 *.swp
 
-# Notas personales
-huertos-ecuador/d.md
+# Archivos temporales locales
+tmp/

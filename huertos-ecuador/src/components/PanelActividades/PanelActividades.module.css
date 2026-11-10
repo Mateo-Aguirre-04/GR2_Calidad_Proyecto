@@ -1,26 +1,218 @@
-.overlay { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgb(14 30 17 / 70%); padding: 18px; }
-.panel { position: relative; background: #f3faf0; color: #203e2b; width: min(720px,100%); max-height: 88vh; overflow: auto; padding: 24px; border-radius: 18px; border: 2px solid #a9c9a7; }
-.panel h2 { padding-right: 30px; }
-.panel label { display: flex; align-items: center; gap: 9px; margin: 12px 0; flex-wrap: wrap; }
-.panel p,.panel li { line-height: 1.5; }
-.panel select,.panel input,.panel button { font: inherit; }
-.panel select,.panel input:not([type=checkbox]) { padding: 8px; max-width: 100%; }
-.panel button { padding: 9px 13px; border: 1px solid #356340; border-radius: 8px; background: #e1efdc; color: #203e2b; cursor: pointer; }
-.panel button:disabled { opacity: .55; cursor: default; }
-.cerrar { position: absolute; top: 12px; right: 12px; }
-.tarea { padding: 15px; margin: 12px 0; background: white; border: 1px solid #cfe0cc; border-radius: 10px; }
-.tarea summary { cursor: pointer; }
-.tareaResumen { display: flex; align-items: center; justify-content: space-between; gap: 12px; list-style: none; }
-.tareaResumen::-webkit-details-marker { display: none; }
-.tareaResumen > span:first-child { display: grid; gap: 4px; }
-.tareaResumen small { color: #687d6b; font-size: 12px; }
-.tareaEstado { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #e6f2e2; color: #365c3d; font-size: 12px; font-weight: 700; }
-.tareaDetalle { padding-top: 10px; }
-.requisito { margin: 8px 0; padding: 9px 11px; border-radius: 8px; background: #f2f7ef; color: #536858; }
-.acciones { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
-.vistas { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
-.panel button[aria-pressed=true] { background: #356340; color: white; }
-.modoPrueba { padding: 10px 12px; border: 1px solid #d3b662; border-radius: 8px; background: #fff8d8; color: #554716; }
-.recordatorio { margin: 15px 0; }
-.estadoInscripcion { padding: 9px 11px; border-left: 3px solid #5b8a60; background: #edf5e9; color: #315639; }
-.panel details { margin: 16px 0; padding: 12px; border: 1px solid #cfe0cc; border-radius: 10px; }
+/* Mismo estilo de los modales del juego: crema, borde de madera y fuente pixel en títulos y botones */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(48 74 53 / 55%);
+}
+
+.panel {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  padding: 26px 24px 22px;
+  border: 3px solid var(--madera);
+  border-radius: 6px;
+  background: var(--crema);
+  box-shadow: 0 5px 0 var(--madera-oscura);
+  color: var(--tinta);
+  font-size: 13px;
+  scrollbar-color: var(--madera) #f2e2c8;
+}
+
+.panel h2 {
+  margin: 0 40px 6px 0;
+  font: 400 13px/1.7 var(--fuente-pixel);
+}
+
+.panel h3 {
+  margin: 18px 0 8px;
+  color: var(--madera-oscura);
+  font: 400 10px/1.7 var(--fuente-pixel);
+}
+
+.panel p,
+.panel li { line-height: 1.5; }
+
+.panel label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 0;
+}
+
+.panel select,
+.panel input:not([type=checkbox]) {
+  max-width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 2px solid var(--borde-campo);
+  border-radius: 5px;
+  background: #fffdf5;
+  color: var(--tinta);
+  font: inherit;
+}
+
+.panel select:focus-visible,
+.panel input:focus-visible {
+  outline: none;
+  border-color: var(--hoja-clara);
+}
+
+.panel input[type=checkbox] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--hoja-clara);
+}
+
+/* Botones de acción: igual que components/Button */
+.panel button {
+  padding: 9px 12px;
+  border: 2px solid #28623b;
+  border-radius: 4px;
+  background: var(--hoja-clara);
+  box-shadow: 0 3px 0 #28623b;
+  color: var(--blanco);
+  font: 8px/1.5 var(--fuente-pixel);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.panel button:hover:not(:disabled) {
+  background: #388e48;
+  box-shadow: 0 2px 0 #28623b;
+  transform: translateY(1px);
+}
+
+.panel button:active:not(:disabled) {
+  box-shadow: none;
+  transform: translateY(3px);
+}
+
+.panel button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.panel button:focus-visible {
+  outline: 3px solid #d7a94b;
+  outline-offset: 2px;
+}
+
+/* Selector Recordatorios / Actividades: mismas pestañas-filtro que la página del gremio */
+.panel button[aria-pressed] {
+  border-color: #2b1a12;
+  background: #e3c39b;
+  box-shadow: none;
+  color: #451f3a;
+}
+
+.panel button[aria-pressed]:hover:not(:disabled) { background: #ecd3b0; transform: none; box-shadow: none; }
+
+.panel button[aria-pressed=true],
+.panel button[aria-pressed=true]:hover:not(:disabled) {
+  background: #2b1a12;
+  color: #f2c66d;
+}
+
+.panel .cerrar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 2px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--madera-oscura);
+  font: 22px/1 Arial, sans-serif;
+}
+
+.panel .cerrar:hover:not(:disabled) {
+  border-color: var(--madera);
+  background: #f2e2c8;
+  box-shadow: none;
+  transform: none;
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Tarjetas de recordatorios y actividades */
+.recordatorio,
+.tarea {
+  margin: 12px 0;
+  padding: 14px;
+  border: 2px solid var(--madera);
+  border-radius: 4px;
+  background: #fffdf5;
+  box-shadow: 0 3px 0 #e3c39b;
+}
+
+.recordatorio strong,
+.tarea strong {
+  display: block;
+  color: #451f3a;
+  font: 400 9px/1.7 var(--fuente-pixel);
+}
+
+.recordatorio p,
+.tarea p { margin: 6px 0; }
+
+.panel details {
+  margin: 16px 0;
+  padding: 12px 14px;
+  border: 2px dashed var(--madera);
+  border-radius: 4px;
+  background: #fbf1dc;
+}
+
+.panel summary {
+  color: var(--madera-oscura);
+  font: 400 9px/1.7 var(--fuente-pixel);
+  cursor: pointer;
+}
+
+.panel [role=alert] {
+  padding: 9px 11px;
+  border: 2px solid #c98b6b;
+  border-radius: 4px;
+  background: #f8e9d9;
+  color: #7a2e1b;
+}
+
+.modoPrueba {
+  padding: 10px 12px;
+  border: 2px solid #d7a94b;
+  border-radius: 4px;
+  background: #fff3d6;
+  color: #6b4a00;
+}
+
+.estadoInscripcion {
+  padding: 9px 11px;
+  border-left: 4px solid var(--hoja-clara);
+  background: #edf5e9;
+  color: var(--tinta);
+}
+
+@media (max-width: 520px) {
+  .panel { padding: 22px 14px 16px; }
+  .panel select { width: 100%; }
+}

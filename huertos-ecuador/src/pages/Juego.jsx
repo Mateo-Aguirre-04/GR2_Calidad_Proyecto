@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useHuerto } from '../hooks/useHuerto'
 import { usePerfil } from '../hooks/usePerfil'
@@ -24,10 +24,10 @@ import PanelActividades from '../components/PanelActividades/PanelActividades'
 import PanelAjustes from '../components/PanelAjustes/PanelAjustes'
 import styles from './css/Juego.module.css'
 
-// accion: 'ruta' navega, 'modal' abre un modal, 'pendiente' aún sin definir.
+// accion: 'ruta' navega, 'modal' abre un modal, 'panel' abre el panel lateral, 'pendiente' aún sin definir.
 // Las descripciones son fijas, no vienen de la base.
 const BOTONES = [
-   { clave: 'ajustes',       nombre: 'Ajustes',       etiqueta: 'Ajustes',       icono: { src: iconoHuerto('herramientas', 'ajustes') }, descripcion: 'Cambia las opciones de tu cuenta y del juego.', accion: 'panel' },
+  { clave: 'ajustes',       nombre: 'Ajustes',       etiqueta: 'Ajustes',       icono: { src: iconoHuerto('herramientas', 'ajustes') }, descripcion: 'Cambia las opciones de tu cuenta y del juego.', accion: 'panel' },
   { clave: 'foro',          nombre: 'Foro',          etiqueta: 'Foro',          icono: { src: iconoHuerto('herramientas', 'foro') }, descripcion: 'Conversa con otros jardineros.',               accion: 'ruta', destino: '/foro' },
   { clave: 'gremio',        nombre: 'Gremio',        etiqueta: 'Gremio',        icono: { src: iconoHuerto('herramientas', 'gremio') }, descripcion: 'Mira a tu gremio y su ranking.',               accion: 'ruta', destino: '/gremio' },
   { clave: 'catalogo',      nombre: 'Catálogo',      etiqueta: 'Catálogo',      icono: { src: iconoHuerto('herramientas', 'catalogo') }, descripcion: 'Consulta las plantas disponibles.',            accion: 'ruta', destino: '/catalogo-plantas' },
@@ -50,14 +50,13 @@ function Juego() {
   const [zona, setZona] = useState(1)
   const [parcelaElegida, setParcelaElegida] = useState(null)
 
-  // UI state
   const [modal, setModal] = useState(null) // 'perfil' | 'seleccionarPlanta' | 'cantidad' | 'recordatorios' | null
   const [loadingAccion, setLoadingAccion] = useState(false)
   const [errorAccion, setErrorAccion] = useState('')
   const [herramientaActiva, setHerramientaActiva] = useState(null) // 'riego' | 'cosecha'
   const [cultivoParaCosecha,setCultivoParaCosecha]=useState(null)
   const cursorHerramienta=useRef(null)
-  const [plantaSeleccionada, setPlantaSeleccionada] = useState(null) // plant chosen for planting
+  const [plantaSeleccionada, setPlantaSeleccionada] = useState(null)
   const [cultivoInfo, setCultivoInfo] = useState(null) // cultivo cuya información se muestra
   const [cosechaAnimada,setCosechaAnimada] = useState(null)
   const [riegoAnimado,setRiegoAnimado] = useState(null)
@@ -68,6 +67,21 @@ function Juego() {
   const [vistaPanel,setVistaPanel]=useState('recordatorios')
   const solicitudes=useRef(new Map())
   const enCurso=useRef(false)
+
+  // Esc cancela la herramienta activa (Regar/Cosechar) y la cosecha que se está confirmando.
+  // No interrumpe una acción que ya se está guardando.
+  useEffect(() => {
+    if (!herramientaActiva && !cultivoParaCosecha) return
+    function cancelar(event) {
+      if (event.key !== 'Escape' || enCurso.current) return
+      if (cultivoParaCosecha) setCultivoParaCosecha(null)
+      else if (modal || cultivoInfo) return
+      setHerramientaActiva(null)
+      setMensajeAccion('')
+    }
+    window.addEventListener('keydown', cancelar)
+    return () => window.removeEventListener('keydown', cancelar)
+  }, [herramientaActiva, cultivoParaCosecha, modal, cultivoInfo])
 
   async function ejecutar(operation) {
     if(enCurso.current) return
@@ -104,7 +118,6 @@ function Juego() {
     })
   }
 
-  // Handler for lateral button selection
   function seleccionar(boton) {
     if(enCurso.current) return
     setErrorAccion('')
@@ -130,7 +143,6 @@ function Juego() {
       setCultivoParaCosecha(null)
       setHerramientaActiva(actual=>actual==='cosecha'?null:'cosecha')
     }
-    // pendiente does nothing
   }
 
   function elegirParcela(numero) {
@@ -206,7 +218,7 @@ function Juego() {
     return {...h,activo:activa,cantidad:h.clave==='riego'?riegosPendientes:0,
       nombre:activa?`Cancelar ${h.clave==='riego'?'riego':'cosecha'}`:h.nombre,
       etiqueta:activa?`Cancelar ${h.clave==='riego'?'riego':'cosecha'}`:h.etiqueta,
-      descripcion:activa?'Pulsa otra vez para volver al cursor normal.':h.descripcion}
+      descripcion:activa?'Pulsa otra vez o Esc para volver al cursor normal.':h.descripcion}
   })
   const iconoActivo=HERRAMIENTAS_HUERTO.find(h=>h.clave===herramientaActiva)?.icono
   const mostrarCursor=!!iconoActivo&&!modal&&!cultivoInfo&&!cultivoParaCosecha
@@ -262,7 +274,6 @@ function Juego() {
         />
       </div>
 
-      {/* Huerto: render each cultivo */}
       <div className={styles.escenario}
         style={{ '--relacion': fondo.relacion, backgroundImage: `url(/huertos/${tipo}.png)` }}>
         {habilitadas.map((rect, i) => (
@@ -358,6 +369,7 @@ function Juego() {
         ocupado={loadingAccion} error={errorAccion}
         onConfirmar={confirmaciones=>ejecutar(()=>checklist.completar(tareaCosecha.id,confirmaciones))}
         onCerrar={()=>setCultivoParaCosecha(null)}/>}
+
       <PanelAjustes abierto={ajustesAbierto} onCerrar={() => setAjustesAbierto(false)} />
     </div>
   )

@@ -21,7 +21,7 @@ try {
     console.log('004 ya está aplicada.')
   } else if(apply) {
     if(triggers.length) throw new Error('Hay triggers previos: revisar para no acreditar puntos por dos vías.')
-    await db.query(await readFile(new URL('../migrations/20261108_004_secciones_puntos_ranking.sql',import.meta.url),'utf8'))
+    await db.query(await readFile(new URL('../database/migrations/20261108_004_secciones_puntos_ranking.sql',import.meta.url),'utf8'))
     console.log('004 aplicada: secciones, recompensas y totales iniciales de gremios.')
   } else console.log('Pendiente: 20261108_004_secciones_puntos_ranking.sql')
   const balance=(await db.query(`SELECT count(*)::int AS diferencias FROM gremio g WHERE COALESCE(g.puntos_gremio,0)

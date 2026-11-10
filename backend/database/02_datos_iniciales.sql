@@ -254,7 +254,7 @@ WHERE u.Nombre_Usuario = 'mateo_solis' AND g.Nombre_Gremio = 'Guardianes de la T
 
 -- =============================================================================
 -- 5. HUERTOS COMUNITARIOS (Tabla: Huerto)
--- Parámetros según catálogos existentes en sistema_agricola_gamificacion.sql:
+-- Parámetros según catálogos existentes en 01_esquema.sql:
 --   Cerca/SubCerca: (1, 1: Perimetral madera), (1, 2: Perimetral malla), (3, 4: Seto vivo ciprés)
 --   Abono: (1: Orgánico), (3: Verde), (4: Compost)
 --   Suelo: (1: Arcilloso), (3: Franco)

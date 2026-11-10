@@ -27,8 +27,8 @@ test('otro backend lee una fecha reciente del login y no vuelve a escribir', asy
   assert.equal(req.session.presenceDueAt,now-1000+presenceConfig.updateIntervalMs)
 })
 
-test('la demostración no escribe en Supabase y el plazo en línea cubre el intervalo', async () => {
-  await touchSharedPresence({session:{source:'mock'}},null,async()=>assert.fail('No debe consultar la base'))
+test('una sesión que no es de PostgreSQL no escribe presencia y el plazo en línea cubre el intervalo', async () => {
+  await touchSharedPresence({session:{source:'otra'}},null,async()=>assert.fail('No debe consultar la base'))
   assert.ok(presenceConfig.onlineWindowMs>presenceConfig.updateIntervalMs)
   assert.equal(presenceConfig.refreshIntervalMs,presenceConfig.updateIntervalMs)
 })

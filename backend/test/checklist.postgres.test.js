@@ -26,8 +26,8 @@ async function installCurrentSchema(db) {
     ALTER TABLE huerto ADD COLUMN id_diseño integer DEFAULT 1, ADD COLUMN id_subdiseño integer DEFAULT 1;
     ALTER TABLE huerto_planta ADD COLUMN zona integer, ADD COLUMN parcela integer;`)
   await db.query(`CREATE TABLE IF NOT EXISTS planta(id_planta bigint PRIMARY KEY,nombre_comun text,ciclo_cultivo text,fases jsonb DEFAULT '[]',imagen_muerta text)`)
-  await db.query(await readFile(new URL('../migrations/20261108_004_secciones_puntos_ranking.sql',import.meta.url),'utf8'))
-  await db.query(await readFile(new URL('../migrations/20261108_005_abono_recurrente.sql',import.meta.url),'utf8'))
+  await db.query(await readFile(new URL('../database/migrations/20261108_004_secciones_puntos_ranking.sql',import.meta.url),'utf8'))
+  await db.query(await readFile(new URL('../database/migrations/20261108_005_abono_recurrente.sql',import.meta.url),'utf8'))
 }
 
 const url = process.env.CHECKLIST_TEST_DATABASE_URL
@@ -69,7 +69,7 @@ test('catálogo medicinal: retira pruebas, completa ciclos y habilita cosechas e
       INSERT INTO usuario_general VALUES(1,1040);`)
     await db.query('UPDATE planta SET fases=$1',[JSON.stringify(Array.from({length:5},(_,i)=>({fase:i+1,imagen:`/plantas/medicinal${i+1}.png`})))])
     const completed=(await db.query('SELECT * FROM tareas_huerto WHERE completada_en IS NOT NULL ORDER BY id_tarea')).rows
-    const sql=await readFile(new URL('../migrations/20261109_006_catalogo_medicinal.sql',import.meta.url),'utf8')
+    const sql=await readFile(new URL('../database/migrations/20261109_006_catalogo_medicinal.sql',import.meta.url),'utf8')
     await db.query(sql)
     const plants=(await db.query('SELECT * FROM planta ORDER BY id_planta')).rows
     assert.equal(plants.length,13,'El historial sigue referenciando sus especies originales')
@@ -110,9 +110,9 @@ test('PostgreSQL aislado: baseline, consulta HTTP, permisos e inscripción por m
       CREATE TABLE huerto_planta (id_huerto bigint, id_planta bigint, fecha_siembra timestamptz,
         id_estado integer DEFAULT 1,cantidad integer DEFAULT 1,observaciones text DEFAULT '{}',modified_at timestamptz DEFAULT now(),
         PRIMARY KEY(id_huerto,id_planta,fecha_siembra));`)
-    await db.query(await readFile(new URL('../migrations/20261108_001_checklist_baseline.sql', import.meta.url), 'utf8'))
-    await db.query(await readFile(new URL('../migrations/20261108_002_solicitudes_checklist.sql', import.meta.url), 'utf8'))
-    await db.query(await readFile(new URL('../migrations/20261108_003_programacion_checklist.sql', import.meta.url), 'utf8'))
+    await db.query(await readFile(new URL('../database/migrations/20261108_001_checklist_baseline.sql', import.meta.url), 'utf8'))
+    await db.query(await readFile(new URL('../database/migrations/20261108_002_solicitudes_checklist.sql', import.meta.url), 'utf8'))
+    await db.query(await readFile(new URL('../database/migrations/20261108_003_programacion_checklist.sql', import.meta.url), 'utf8'))
     await installCurrentSchema(db)
     await db.query(`INSERT INTO usuario_general VALUES (5),(6),(7);
       INSERT INTO huerto VALUES (42,10),(43,11),(44,10);
@@ -346,9 +346,9 @@ test('PostgreSQL: finalizaciones concurrentes e inscripción simultánea no dupl
         CREATE TABLE huertos.miembro_gremio(id_usuario bigint,id_gremio bigint,PRIMARY KEY(id_usuario,id_gremio));
         CREATE TABLE huertos.huerto_planta(id_huerto bigint,id_planta bigint,fecha_siembra timestamptz,id_estado integer DEFAULT 1,
           PRIMARY KEY(id_huerto,id_planta,fecha_siembra));`)
-      await db.query(await readFile(new URL('../migrations/20261108_001_checklist_baseline.sql', import.meta.url), 'utf8'))
-      await db.query(await readFile(new URL('../migrations/20261108_002_solicitudes_checklist.sql', import.meta.url), 'utf8'))
-      await db.query(await readFile(new URL('../migrations/20261108_003_programacion_checklist.sql', import.meta.url), 'utf8'))
+      await db.query(await readFile(new URL('../database/migrations/20261108_001_checklist_baseline.sql', import.meta.url), 'utf8'))
+      await db.query(await readFile(new URL('../database/migrations/20261108_002_solicitudes_checklist.sql', import.meta.url), 'utf8'))
+      await db.query(await readFile(new URL('../database/migrations/20261108_003_programacion_checklist.sql', import.meta.url), 'utf8'))
       await installCurrentSchema(db)
       await db.query(`INSERT INTO usuario_general(id_usuario) VALUES(5),(6),(8);
         INSERT INTO huerto VALUES(42,10);
@@ -447,7 +447,7 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
       Array.from({length:5},(_,i)=>({fase:i+1,imagen:`/plantas/Menta/menta${i+1}.png`}))
     )])
     for(const file of ['20261108_001_checklist_baseline.sql','20261108_002_solicitudes_checklist.sql','20261108_003_programacion_checklist.sql']) {
-      await db.query(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'))
+      await db.query(await readFile(new URL(`../database/migrations/${file}`,import.meta.url),'utf8'))
     }
     await installCurrentSchema(db)
     const transact=async operation=>{
@@ -618,7 +618,7 @@ test('004: totales iniciales, cambios de membresía e inmutabilidad de recompens
       INSERT INTO miembro_gremio VALUES(5,10),(6,11);
       INSERT INTO huerto VALUES(42,10);`)
     for(const file of ['20261108_001_checklist_baseline.sql','20261108_002_solicitudes_checklist.sql','20261108_003_programacion_checklist.sql'])
-      await db.query(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'))
+      await db.query(await readFile(new URL(`../database/migrations/${file}`,import.meta.url),'utf8'))
     await installCurrentSchema(db)
     assert.deepEqual((await readGuildRanking(db)).map(g=>[g.id,g.puntos]),[['10',50],['11',20]])
     await db.query('UPDATE miembro_gremio SET id_gremio=10 WHERE id_usuario=6')
