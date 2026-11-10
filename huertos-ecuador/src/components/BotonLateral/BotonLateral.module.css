@@ -7,11 +7,13 @@
 }
 
 .boton {
+  --tamano-icono: 52px;
   position: relative;
   display: grid;
   place-items: center;
   width: 64px;
   height: 64px;
+  padding: 0;
   border: 4px solid var(--madera-oscura);
   border-radius: 50%;
   background-color: #f2e2c8;
@@ -23,6 +25,7 @@
 
 .boton:hover { transform: translateY(-2px); }
 .boton:active { transform: translateY(2px); box-shadow: inset 0 0 0 2px #f2e7c9; }
+.activo { outline: 3px solid #a8e3ff; outline-offset: 3px; background-color: #d8f0ff; }
 
 .boton:focus-visible {
   outline: 3px solid #d7a94b;

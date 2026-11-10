@@ -1,5 +1,7 @@
 -- =============================================================================
 -- SCRIPT COMPLETO DE CREACIÓN DE BASE DE DATOS
+-- REFERENCIA LEGADA: contiene DROP; no ejecutar en la base compartida.
+-- Checklist real de huertos: ver sección GAMIFICACIÓN: BASELINE al final.
 -- Proyecto: Sistema de Gestión Agrícola con Gamificación
 -- SGBD destino: PostgreSQL 12 o superior
 -- Incluye las 10 correcciones derivadas del análisis técnico del modelo
@@ -367,6 +369,7 @@ CREATE TABLE Planta (
     Altitud_Maxima     VARCHAR(100),
     Tipo_Planta        VARCHAR(100),
     Ciclo_Cultivo      VARCHAR(100),
+    Catalogo_Activo    BOOLEAN NOT NULL DEFAULT true,
     CONSTRAINT fk_Planta_Familia
         FOREIGN KEY (ID_familia)
         REFERENCES Familia_Botanica(ID_familia)
@@ -541,14 +544,19 @@ INSERT INTO Familia_Botanica (Nombre, Descripcion) VALUES
 INSERT INTO Planta (ID_familia, ID_Tipo_Planta, Nombre_Comun, Nombre_Cientifico, Altitud_Minima, Altitud_Maxima, Ciclo_Cultivo) VALUES
     (1, 1, 'Manzano',     'Malus domestica',     0,    3000, 'Perenne (5-8 años producción)'),
     (1, 1, 'Peral',       'Pyrus communis',      0,    2800, 'Perenne (4-7 años producción)'),
-    (2, 2, 'Menta',       'Mentha spicata',      0,    1500, 'Perenne (rebrote estacional)'),
-    (2, 2, 'Albahaca',    'Ocimum basilicum',    0,    1800, 'Anual'),
+    (2, 2, 'Menta',       'Mentha spicata',      0,    1500, 'Perenne (60-90 días; rebrote estacional)'),
+    (2, 2, 'Albahaca',    'Ocimum basilicum',    0,    1800, 'Anual (60-90 días)'),
     (3, 3, 'Tomate',      'Solanum lycopersicum', 0,   2000, 'Anual (90-120 días)'),
     (3, 3, 'Pimiento',    'Capsicum annuum',     0,    2000, 'Anual (70-90 días)'),
     (5, 3, 'Frijol',      'Phaseolus vulgaris',  0,    3000, 'Anual (60-90 días)'),
     (6, 3, 'Calabaza',    'Cucurbita pepo',      0,    2500, 'Anual (90-120 días)'),
-    (4, 4, 'Manzanilla',  'Matricaria chamomilla', 500, 2500, 'Anual'),
-    (5, 4, 'Llantén',     'Plantago major',      0,    3000, 'Perenne');
+    (4, 4, 'Manzanilla',  'Matricaria chamomilla', 500, 2500, 'Anual (60-90 días)'),
+    (5, 4, 'Llantén',     'Plantago major',      0,    3000, 'Perenne (50-70 días)');
+
+-- Compatibilidad con las relaciones históricas: estas pruebas ya no se ofrecen para sembrar.
+UPDATE Planta SET Catalogo_Activo=false WHERE Nombre_Cientifico IN
+    ('Cucurbita pepo','Solanum lycopersicum','Capsicum annuum',
+     'Phaseolus vulgaris','Pyrus communis','Malus domestica');
 
 -- Usos medicinales de ejemplo
 INSERT INTO Uso_Medicinal (Descripcion) VALUES
@@ -597,3 +605,162 @@ INSERT INTO Planta_Uso_Medicinal (ID_Planta, ID_Uso) VALUES
 --   SELECT COUNT(*) FROM Planta;  (debe devolver 10)
 --   SELECT COUNT(*) FROM Actividades;  (debe devolver 5)
 -- =============================================================================
+
+
+-- La sección anterior es el modelo legado; no representa el esquema huertos.
+-- El script completo es destructivo y no debe ejecutarse en Supabase.
+-- La sección siguiente documenta únicamente el checklist realmente verificado.
+-- =============================================================================
+-- GAMIFICACIÓN: BASELINE DEL CHECKLIST VERIFICADA EN SUPABASE (2026-11-08)
+-- =============================================================================
+-- Ya aplicada manualmente en la base compartida. NO ejecutar allí de nuevo.
+-- Para una base de prueba vacía, después del esquema operativo huertos.
+-- No sustituye el modelo original de public. No reparte ni recalcula puntos.
+-- Ejecutar dentro de una transacción. No contiene DROP ni altera tablas ajenas.
+-- Inscripción: PK (ID_Tarea, ID_Usuario) evita duplicados por miembro.
+-- Recompensa pendiente: Puntos_Otorgados IS NULL; cero ya es una recompensa resuelta.
+-- La acreditación y el acumulado del usuario deben confirmarse en una transacción.
+
+CREATE TABLE huertos.actividades (
+    Codigo TEXT PRIMARY KEY,
+    Nombre TEXT NOT NULL,
+    Puntos INTEGER NOT NULL CHECK (Puntos >= 0)
+);
+
+CREATE TABLE huertos.tareas_huerto (
+    ID_Tarea BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    Codigo_Actividad TEXT NOT NULL REFERENCES huertos.actividades(Codigo),
+    ID_Huerto BIGINT NOT NULL REFERENCES huertos.huerto(ID_Huerto),
+    ID_Planta BIGINT,
+    Fecha_Siembra TIMESTAMPTZ,
+    Modalidad TEXT NOT NULL CHECK (Modalidad IN ('individual', 'grupal')),
+    Programada_Para TIMESTAMPTZ,
+    Completada_En TIMESTAMPTZ,
+    Completada_Por BIGINT REFERENCES huertos.usuario_general(ID_Usuario),
+    Created_At TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK ((ID_Planta IS NULL) = (Fecha_Siembra IS NULL)),
+    CHECK ((Completada_En IS NULL) = (Completada_Por IS NULL)),
+    CHECK (Codigo_Actividad <> 'riego' OR ID_Planta IS NOT NULL),
+    FOREIGN KEY (ID_Huerto, ID_Planta, Fecha_Siembra)
+        REFERENCES huertos.huerto_planta(ID_Huerto, ID_Planta, Fecha_Siembra)
+);
+
+CREATE TABLE huertos.participantes_tarea (
+    ID_Tarea BIGINT NOT NULL REFERENCES huertos.tareas_huerto(ID_Tarea),
+    ID_Usuario BIGINT NOT NULL REFERENCES huertos.usuario_general(ID_Usuario),
+    Registrado_En TIMESTAMPTZ NOT NULL DEFAULT now(),
+    Puntos_Otorgados INTEGER CHECK (Puntos_Otorgados >= 0),
+    PRIMARY KEY (ID_Tarea, ID_Usuario)
+);
+
+ALTER TABLE huertos.actividades ENABLE ROW LEVEL SECURITY;
+ALTER TABLE huertos.tareas_huerto ENABLE ROW LEVEL SECURITY;
+ALTER TABLE huertos.participantes_tarea ENABLE ROW LEVEL SECURITY;
+
+INSERT INTO huertos.actividades (Codigo, Nombre, Puntos) VALUES
+    ('riego',                  'Regar',                                              5),
+    ('retiro_maleza',          'Retirar maleza',                                     15),
+    ('abono_organico',         'Aplicar abono orgánico',                             20),
+    ('senaletica',             'Colocar señalética',                                 25),
+    ('limpieza_huerto',        'Limpiar el huerto',                                  30),
+    ('preparacion_tierra',     'Preparar la tierra',                                 30),
+    ('siembra',                'Sembrar',                                            30),
+    ('ritual_agradecimiento',  'Realizar el ritual de agradecimiento a la Pachamama', 20),
+    ('cosecha',                'Cosechar',                                           35),
+    ('secado_almacenamiento',  'Secar y almacenar lo cosechado',                     20);
+
+-- =============================================================================
+-- CHECKLIST: REINTENTOS DE ACCIONES SIN DUPLICAR RECOMPENSAS
+-- =============================================================================
+-- Nueva migración, distinta de la baseline ya aplicada. Probar antes de aplicar.
+-- Aplicada y verificada en Supabase el 2026-11-08. No reejecutar manualmente.
+-- Ejecutar una sola vez dentro de una transacción; no incluye DROP ni un backfill.
+-- La clave la genera el cliente una vez por acción y la reutiliza al reintentar.
+-- Una clave del mismo miembro nunca representa dos huertos ni dos acciones distintas.
+CREATE TABLE huertos.solicitudes_checklist (
+    ID_Usuario BIGINT NOT NULL REFERENCES huertos.usuario_general(ID_Usuario),
+    Clave_Solicitud UUID NOT NULL,
+    ID_Huerto BIGINT NOT NULL REFERENCES huertos.huerto(ID_Huerto),
+    Accion TEXT NOT NULL,
+    Contenido JSONB NOT NULL CHECK (jsonb_typeof(Contenido) IN ('array', 'object')),
+    Resultado JSONB CHECK (Resultado IS NULL OR jsonb_typeof(Resultado) = 'object'),
+    Created_At TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (ID_Usuario, Clave_Solicitud)
+);
+ALTER TABLE huertos.solicitudes_checklist ENABLE ROW LEVEL SECURITY;
+COMMENT ON TABLE huertos.solicitudes_checklist IS
+    'Idempotencia de acciones del checklist. Resultado y recompensas se confirman en la misma transacción.';
+
+-- =============================================================================
+-- CHECKLIST: ZONAS, CICLOS DE PREPARACIÓN Y LOTES POR COSECHA
+-- =============================================================================
+-- Nueva migración. Requiere 001 y 002. No ejecutar el script raíz destructivo.
+-- Aplicada y verificada en Supabase el 2026-11-08. No reejecutar manualmente.
+-- Aplicar dentro de una transacción después de probar. No altera cultivos existentes.
+CREATE TABLE huertos.checklist_configuracion (
+    ID_Huerto BIGINT PRIMARY KEY REFERENCES huertos.huerto(ID_Huerto),
+    Zona_Horaria TEXT NOT NULL
+);
+CREATE TABLE huertos.zonas_huerto (
+    ID_Zona BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ID_Huerto BIGINT NOT NULL REFERENCES huertos.huerto(ID_Huerto),
+    Nombre TEXT NOT NULL CHECK (length(trim(Nombre)) BETWEEN 1 AND 100),
+    UNIQUE (ID_Zona, ID_Huerto),
+    UNIQUE (ID_Huerto, Nombre)
+);
+CREATE TABLE huertos.ciclos_zona (
+    ID_Ciclo BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ID_Zona BIGINT NOT NULL,
+    ID_Huerto BIGINT NOT NULL,
+    Created_At TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY (ID_Zona, ID_Huerto) REFERENCES huertos.zonas_huerto(ID_Zona, ID_Huerto),
+    UNIQUE (ID_Ciclo, ID_Huerto)
+);
+CREATE TABLE huertos.cultivos_checklist (
+    ID_Huerto BIGINT NOT NULL,
+    ID_Planta BIGINT NOT NULL,
+    Fecha_Siembra TIMESTAMPTZ NOT NULL,
+    ID_Ciclo BIGINT,
+    Parte_Cosecha TEXT CHECK (Parte_Cosecha IN ('hojas','flores','frutos','semillas','raices')),
+    Conservado_Tras_Cosecha BOOLEAN NOT NULL DEFAULT false,
+    Finalizado_En TIMESTAMPTZ,
+    CHECK (NOT Conservado_Tras_Cosecha OR Finalizado_En IS NULL),
+    PRIMARY KEY (ID_Huerto, ID_Planta, Fecha_Siembra),
+    FOREIGN KEY (ID_Huerto, ID_Planta, Fecha_Siembra)
+        REFERENCES huertos.huerto_planta(ID_Huerto, ID_Planta, Fecha_Siembra),
+    FOREIGN KEY (ID_Ciclo, ID_Huerto) REFERENCES huertos.ciclos_zona(ID_Ciclo, ID_Huerto)
+);
+ALTER TABLE huertos.tareas_huerto
+    ADD COLUMN ID_Ciclo BIGINT,
+    ADD COLUMN Clave_Generacion TEXT,
+    ADD COLUMN Responsable_ID BIGINT REFERENCES huertos.usuario_general(ID_Usuario),
+    ADD COLUMN Confirmaciones JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD FOREIGN KEY (ID_Ciclo, ID_Huerto) REFERENCES huertos.ciclos_zona(ID_Ciclo, ID_Huerto);
+CREATE UNIQUE INDEX tareas_huerto_generacion_unica
+    ON huertos.tareas_huerto(ID_Huerto, Clave_Generacion);
+CREATE UNIQUE INDEX tareas_huerto_jornada_zona_unica
+    ON huertos.tareas_huerto(ID_Ciclo, Codigo_Actividad)
+    WHERE ID_Ciclo IS NOT NULL AND Codigo_Actividad IN ('retiro_maleza','preparacion_tierra');
+CREATE UNIQUE INDEX tareas_huerto_recompensa_cultivo_unica
+    ON huertos.tareas_huerto(ID_Huerto, ID_Planta, Fecha_Siembra, Codigo_Actividad)
+    WHERE Codigo_Actividad IN ('siembra','abono_organico','cosecha','senaletica');
+CREATE TABLE huertos.lotes_cosecha (
+    ID_Lote BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ID_Huerto BIGINT NOT NULL REFERENCES huertos.huerto(ID_Huerto),
+    ID_Tarea_Cosecha BIGINT NOT NULL UNIQUE REFERENCES huertos.tareas_huerto(ID_Tarea),
+    Secado_Iniciado_En TIMESTAMPTZ,
+    Modalidad TEXT CHECK (Modalidad IN ('individual','grupal')),
+    Responsable_ID BIGINT REFERENCES huertos.usuario_general(ID_Usuario),
+    CHECK ((Secado_Iniciado_En IS NULL) = (Modalidad IS NULL)),
+    CHECK ((Modalidad IS NULL) = (Responsable_ID IS NULL)),
+    UNIQUE (ID_Lote, ID_Huerto)
+);
+ALTER TABLE huertos.tareas_huerto ADD COLUMN ID_Lote BIGINT,
+    ADD FOREIGN KEY (ID_Lote, ID_Huerto) REFERENCES huertos.lotes_cosecha(ID_Lote, ID_Huerto);
+CREATE INDEX tareas_huerto_huerto_programada ON huertos.tareas_huerto(ID_Huerto, Programada_Para, ID_Tarea);
+CREATE INDEX tareas_huerto_cultivo_actividad ON huertos.tareas_huerto(ID_Huerto, ID_Planta, Fecha_Siembra, Codigo_Actividad, Completada_En);
+ALTER TABLE huertos.zonas_huerto ENABLE ROW LEVEL SECURITY;
+ALTER TABLE huertos.ciclos_zona ENABLE ROW LEVEL SECURITY;
+ALTER TABLE huertos.cultivos_checklist ENABLE ROW LEVEL SECURITY;
+ALTER TABLE huertos.lotes_cosecha ENABLE ROW LEVEL SECURITY;
+ALTER TABLE huertos.checklist_configuracion ENABLE ROW LEVEL SECURITY;

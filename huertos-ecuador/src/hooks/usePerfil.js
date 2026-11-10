@@ -11,5 +11,5 @@ export function usePerfil(usuarioId) {
     if (!res.ok) throw new Error(result.error || 'No se pudo guardar el perfil.')
     recargar()
   }
-  return { perfil: data, guardarDescripcion, ...state }
+  return { perfil: data, guardarDescripcion, recargar, ...state }
 }

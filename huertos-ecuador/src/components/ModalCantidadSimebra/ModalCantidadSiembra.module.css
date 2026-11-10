@@ -1,0 +1,12 @@
+.overlay { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: rgb(48 74 53 / 55%); }
+.modal { position: relative; display: grid; gap: 12px; width: min(100%, 360px); padding: 28px 24px 22px; border: 3px solid #87613d; border-radius: 6px; background: #fff9e8; box-shadow: 0 5px 0 #6d4e34; color: #304a35; }
+.modal h2 { margin: 0; font: 13px/1.7 'Press Start 2P', monospace; }
+.modal p { margin: 0; font-size: 13px; }
+.modal input { height: 40px; padding: 0 10px; border: 2px solid #bdc99f; border-radius: 5px; background: #fffdf5; font-size: 16px; }
+.confirmar { height: 42px; border: 2px solid #28623b; border-radius: 5px; background: #43a653; box-shadow: 0 4px 0 #28623b; color: #fff; font-weight: 700; cursor: pointer; }
+.confirmar:disabled { opacity: 0.6; cursor: not-allowed; }
+.cerrar { position: absolute; top: 8px; right: 10px; border: 0; background: none; color: #87613d; font-size: 22px; cursor: pointer; }
+.modal { max-height: 90vh; overflow: auto; }
+.modal label { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.modal input[type=checkbox] { width: 20px; height: 20px; }
+.modal select { max-width: 100%; padding: 8px; font: inherit; }

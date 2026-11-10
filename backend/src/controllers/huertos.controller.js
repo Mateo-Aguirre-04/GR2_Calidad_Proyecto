@@ -1,5 +1,6 @@
 import { isDbConnected, query } from '../config/db.js'
 import { mockData } from '../data/mockStore.js'
+import { listaParaCosechar } from '../data/fases.js'
 
 export async function getHuerto(req, res) {
     const SQL_HUERTO = `
@@ -97,6 +98,10 @@ export async function cosecharCultivo(req, res) {
     }
 
     if (!cultivo.cosechado) {
+      const totalFases = cultivo.planta?.imagenes?.length || 5
+      if (!listaParaCosechar(cultivo.sembradoEn, cultivo.planta?.diasCrecimiento || 60, totalFases)) {
+        return res.status(409).json({ error: 'La planta aún no está en la fase de cosecha.' })
+      }
       cultivo.cosechado = true
     }
 

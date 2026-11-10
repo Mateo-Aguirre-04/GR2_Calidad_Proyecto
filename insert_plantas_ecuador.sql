@@ -430,7 +430,7 @@ BEGIN
 
   -- 17. MARACUYÁ
   SELECT id_familia INTO v_fam FROM huertos.familia_botanica WHERE nombre = 'Passifloraceae' LIMIT 1;
-  SELECT id_tipo_planta INTO v_tipo FROM huertos.tipo_planta WHERE nombre = 'Árbol frutal' LIMIT 1;
+  SELECT id_tipo_planta INTO v_tipo FROM huertos.tipo_planta WHERE nombre = 'Planta medicinal' LIMIT 1;
   IF NOT EXISTS (SELECT 1 FROM huertos.planta WHERE LOWER(nombre_comun) = 'maracuyá' OR LOWER(nombre_comun) = 'maracuya') THEN
     INSERT INTO huertos.planta (id_familia, id_tipo_planta, nombre_comun, nombre_cientifico, nombre_alternativo, altitud_minima, altitud_maxima, ciclo_cultivo, region, descripcion, imagen, imagen_muerta, cuidados, fases)
     VALUES (v_fam, v_tipo, 'Maracuyá', 'Passiflora edulis', 'Fruta de la pasión', 0, 1500, 'Perenne (150-210 días)', 'Costa / Valles',
@@ -590,7 +590,7 @@ BEGIN
 
   -- 25. SAÚCO
   SELECT id_familia INTO v_fam FROM huertos.familia_botanica WHERE nombre = 'Adoxaceae' LIMIT 1;
-  SELECT id_tipo_planta INTO v_tipo FROM huertos.tipo_planta WHERE nombre = 'Árbol frutal' LIMIT 1;
+  SELECT id_tipo_planta INTO v_tipo FROM huertos.tipo_planta WHERE nombre = 'Planta medicinal' LIMIT 1;
   IF NOT EXISTS (SELECT 1 FROM huertos.planta WHERE LOWER(nombre_comun) = 'saúco' OR LOWER(nombre_comun) = 'sauco') THEN
     INSERT INTO huertos.planta (id_familia, id_tipo_planta, nombre_comun, nombre_cientifico, nombre_alternativo, altitud_minima, altitud_maxima, ciclo_cultivo, region, descripcion, imagen, imagen_muerta, cuidados, fases)
     VALUES (v_fam, v_tipo, 'Saúco', 'Sambucus nigra subsp. peruviana', 'Tilo andino, Rayán', 2000, 3600, 'Perenne (120-180 días)', 'Sierra',

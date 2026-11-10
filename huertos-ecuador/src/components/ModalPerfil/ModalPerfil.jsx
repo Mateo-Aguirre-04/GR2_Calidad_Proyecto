@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Button from '../Button/Button'
+import { iconoHuerto } from '../../data/iconosHuerto'
 import styles from './ModalPerfil.module.css'
 
 const MAX_DESCRIPCION = 120
@@ -50,7 +51,7 @@ function ModalPerfil({ perfil, onGuardar, onCerrar }) {
         aria-labelledby="modal-perfil-titulo"
       >
         <header className={styles.encabezado}>
-          <span className={styles.logo} aria-hidden="true">🌱</span>
+          <span className={styles.logo} aria-hidden="true"><img src={iconoHuerto('jugador', 'novato')} alt="" /></span>
           <h2 id="modal-perfil-titulo">Mi Perfil</h2>
           {error && <p role="alert">{error}</p>}
           <button className={styles.cerrar} type="button" onClick={onCerrar} aria-label="Cerrar">
@@ -62,9 +63,7 @@ function ModalPerfil({ perfil, onGuardar, onCerrar }) {
           {/* Panel izquierdo */}
           <div className={styles.panel}>
             <div className={styles.avatar}>
-              {perfil.avatar
-                ? <img src={perfil.avatar} alt={`Avatar de ${perfil.nombre}`} />
-                : <span aria-hidden="true">🧑‍🌾</span>}
+              <img src={perfil.avatar || iconoHuerto('jugador', 'avatar_predeterminado')} alt={`Avatar de ${perfil.nombre}`} />
             </div>
 
             <h3 className={styles.tituloDesc}>Descripción:</h3>
