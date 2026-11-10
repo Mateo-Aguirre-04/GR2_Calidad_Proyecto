@@ -1,0 +1,33 @@
+@startuml secuencia_01_registro_login
+!include estilo_moderno.puml
+skinparam linetype polyline
+autonumber
+
+title Secuencia HU-001 — Registro e Inicio de Sesión del Jugador
+
+actor "Jugador" as J
+participant "Frontend\n(Registro.jsx / Login.jsx)" as FE
+participant "Backend Express\n(/api/auth)" as BE
+database "Supabase\n(usuario / usuario_general)" as DB
+
+group 1. Registro de nuevo jugador
+  J -> FE : Llena datos personales y contraseña (>= 8 caracteres)
+  FE -> BE : POST /api/auth/registro
+  BE -> BE : Valida campos y encripta contraseña (bcrypt)
+  BE -> DB : INSERT en usuario y usuario_general (0 puntos, Novato)
+  DB --> BE : Usuario creado
+  BE --> FE : 201 Created
+  FE --> J : Redirige a pantalla de Login (/)
+end
+
+group 2. Inicio de sesión
+  J -> FE : Ingresa nombre de usuario y contraseña
+  FE -> BE : POST /api/auth/login
+  BE -> DB : SELECT usuario y contrasenia_hash
+  DB --> BE : Registro del jugador
+  BE -> BE : Compara hash bcrypt y crea sesión (cookie HttpOnly)
+  BE -> DB : UPDATE last_seen en usuario_general
+  BE --> FE : 200 OK (Datos del jugador y sus gremios)
+  FE --> J : Redirige a /seleccion-gremio
+end
+@enduml

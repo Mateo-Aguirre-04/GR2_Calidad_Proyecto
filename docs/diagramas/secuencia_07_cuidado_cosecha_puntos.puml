@@ -1,0 +1,31 @@
+@startuml secuencia_07_cuidado_cosecha_puntos
+!include estilo_moderno.puml
+skinparam linetype polyline
+autonumber
+
+title Secuencia HU-007 — Completar Recordatorios, Cosechar y Subir de Rango
+
+actor "Jugador" as J
+participant "Frontend\n(Juego.jsx / PanelActividades)" as FE
+participant "Backend Express\n(/api/huertos/:id/checklist)" as BE
+database "Supabase\n(tareas_huerto / usuario_general / gremio)" as DB
+
+group 1. Completar recordatorio o regar parcela
+  J -> FE : Abre Recordatorios o usa herramienta Regadera en parcela
+  FE -> BE : POST /api/huertos/:id/checklist/riegos (con claveSolicitud)
+  BE -> DB : Verifica que no sea repetido en solicitudes_checklist\nActualiza tareas_huerto y suma puntos en usuario_general y gremio
+  DB --> BE : Puntos acreditados
+  BE --> FE : 200 OK (Puntos otorgados)
+  FE --> J : Muestra aviso de puntos ganados y actualiza placa del jugador
+end
+
+group 2. Cosechar planta madura y actualizar rango
+  J -> FE : Selecciona herramienta Cosechar y hace clic en planta madura
+  J -> FE : Confirma cosecha en ModalCosechaHerramienta
+  FE -> BE : POST /api/huertos/:id/checklist/tareas/:tareaId/completar
+  BE -> DB : Marca cosecha en tareas_huerto y lotes_cosecha\nSuma puntos (25 pts) al jugador y al gremio
+  DB --> BE : Nuevo puntaje acumulado
+  BE --> FE : 200 OK (Puntos y nuevo rango: Novato/Aprendiz/Oficial/Maestro)
+  FE --> J : Reproduce animación de cosecha y actualiza medalla de rango
+end
+@enduml

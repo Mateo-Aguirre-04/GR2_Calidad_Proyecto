@@ -1,0 +1,30 @@
+@startuml secuencia_10_editar_anuncios_gremio
+!include estilo_moderno.puml
+skinparam linetype polyline
+autonumber
+
+title Secuencia HU-010 — Edición de Descripción y Anuncios por Oficiales y Maestros
+
+actor "Jugador (Oficial / Maestro)" as J
+participant "Frontend\n(Gremio.jsx - Pestaña Comunidad)" as FE
+participant "Backend Express\n(PATCH /api/gremios/:id/perfil)" as BE
+database "Supabase\n(miembro_gremio / gremio)" as DB
+
+J -> FE : Abre /gremio (Pestaña Comunidad)
+FE -> FE : Muestra botón 'Editar Perfil del Gremio' solo si puedeEditar = true
+J -> FE : Edita descripción (<=120 car.) y anuncios (<=160 car.) y guarda
+FE -> BE : PATCH /api/gremios/:id/perfil { descripcion, anuncios }
+BE -> DB : SELECT rol FROM miembro_gremio WHERE id_gremio=$1 AND id_usuario=$2 FOR UPDATE
+
+alt El usuario en sesión tiene rol 'Oficial' o 'Maestro'
+  DB --> BE : rol = 'Oficial' o 'Maestro'
+  BE -> DB : UPDATE gremio SET descripcion = $1, anuncios = $2
+  DB --> BE : Textos guardados
+  BE --> FE : 200 OK (Descripción y anuncios actualizados)
+  FE --> J : Muestra mensaje 'Descripción y anuncios guardados.'
+else El usuario tiene otro rol (Aprendiz, Miembro o Fundador)
+  DB --> BE : rol sin permiso de edición
+  BE --> FE : 403 Forbidden ("Solo Oficiales y Maestros pueden editar")
+  FE --> J : Muestra alerta de error y oculta la edición
+end
+@enduml

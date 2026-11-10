@@ -1,0 +1,28 @@
+@startuml secuencia_03_unirse_gremio
+!include estilo_moderno.puml
+skinparam linetype polyline
+autonumber
+
+title Secuencia HU-003 — Unirse a un Gremio con Código o QR
+
+actor "Jugador" as J
+participant "Frontend\n(SeleccionGremio / ModalUnirse)" as FE
+participant "Backend Express\n(POST /api/gremios/unirse)" as BE
+database "Supabase\n(invitacion_gremio / miembro_gremio)" as DB
+
+J -> FE : Abre ventana 'Unirse a un gremio'
+J -> FE : Escribe código de 6 dígitos (ej. 000001) o escanea QR
+FE -> BE : POST /api/gremios/unirse { codigo, usuarioId }
+BE -> DB : SELECT id_gremio FROM invitacion_gremio WHERE codigo = $1
+alt Código válido y vigente
+  DB --> BE : id_gremio encontrado
+  BE -> DB : INSERT INTO miembro_gremio (rol: 'Miembro')\nUPDATE usos en invitacion_gremio
+  DB --> BE : Miembro vinculado al gremio
+  BE --> FE : 200 OK (Datos del gremio y huerto)
+  FE --> J : Entra al huerto de la comunidad (/juego)
+else Código inexistente o vencido
+  DB --> BE : Sin resultados
+  BE --> FE : 404 Not Found ("Código inválido")
+  FE --> J : Muestra aviso de error en la ventana
+end
+@enduml

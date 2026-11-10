@@ -1,0 +1,90 @@
+' Hoja de estilo minimalista y moderna para PlantUML (Huertos.ec)
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundCorner 8
+skinparam defaultFontName "Segoe UI, Inter, Arial, sans-serif"
+skinparam defaultFontSize 13
+skinparam defaultFontColor #1E293B
+skinparam Padding 6
+skinparam nodesep 40
+skinparam ranksep 40
+
+skinparam Arrow {
+  Color #475569
+  FontColor #334155
+  FontSize 11
+  Thickness 1
+}
+
+skinparam Class {
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #F1F5F9
+  BorderColor #CBD5E1
+  BorderThickness 1
+  FontColor #0F172A
+  FontSize 13
+  AttributeFontColor #334155
+  AttributeFontSize 12
+  StereotypeFontColor #64748B
+  StereotypeFontSize 10
+}
+
+skinparam Package {
+  BackgroundColor #F8FAFC
+  BorderColor #CBD5E1
+  BorderThickness 1
+  FontColor #0F172A
+  FontStyle bold
+}
+
+skinparam Note {
+  BackgroundColor #F8FAFC
+  BorderColor #CBD5E1
+  FontColor #475569
+  FontSize 11
+}
+
+skinparam Node {
+  BackgroundColor #F8FAFC
+  BorderColor #94A3B8
+  BorderThickness 1
+  FontColor #0F172A
+}
+
+skinparam Component {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  BorderThickness 1
+  FontColor #0F172A
+}
+
+skinparam Database {
+  BackgroundColor #F1F5F9
+  BorderColor #64748B
+  FontColor #0F172A
+}
+
+skinparam Cloud {
+  BackgroundColor #F8FAFC
+  BorderColor #94A3B8
+  FontColor #0F172A
+}
+
+skinparam Sequence {
+  ArrowColor #334155
+  ArrowThickness 1
+  LifeLineBorderColor #94A3B8
+  LifeLineBackgroundColor #F8FAFC
+  ParticipantBorderColor #64748B
+  ParticipantBackgroundColor #F8FAFC
+  ParticipantFontColor #0F172A
+  ParticipantPadding 12
+  ActorBorderColor #334155
+  ActorBackgroundColor #F1F5F9
+  ActorFontColor #0F172A
+  GroupBorderColor #CBD5E1
+  GroupBackgroundColor #F8FAFC
+  BoxBorderColor #CBD5E1
+  BoxBackgroundColor #F8FAFC
+}

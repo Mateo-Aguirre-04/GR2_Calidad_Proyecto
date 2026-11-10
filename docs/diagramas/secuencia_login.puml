@@ -1,0 +1,29 @@
+@startuml secuencia_login
+!include estilo_moderno.puml
+skinparam linetype polyline
+autonumber
+
+title Diagrama de Secuencia — Inicio de Sesión y Presencia en Línea
+
+actor "Jugador" as J
+participant "Frontend\n(Login.jsx / usePresencia)" as FE
+participant "Backend Express\n(/api/auth)" as BE
+database "Supabase\n(PostgreSQL)" as DB
+
+J -> FE : Ingresa usuario y contraseña
+FE -> BE : POST /api/auth/login
+BE -> DB : Consulta usuario y contrasenia_hash
+DB --> BE : Datos del usuario
+BE -> BE : Verifica contraseña (bcrypt)\ny crea sesión (cookie HttpOnly)
+BE -> DB : Actualiza last_seen del jugador
+BE --> FE : 200 OK (Datos de sesión y gremios)
+FE --> J : Redirige a /seleccion-gremio
+
+group Latido de presencia en línea (cuando la pestaña está activa)
+  FE -> BE : POST /api/auth/presence
+  BE -> DB : Actualiza last_seen en usuario_general
+  DB --> BE : Confirmación
+  BE --> FE : 200 OK (nextUpdateAt)
+end
+
+@enduml

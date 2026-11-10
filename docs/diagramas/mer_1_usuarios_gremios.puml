@@ -1,0 +1,95 @@
+@startuml mer_1_usuarios_gremios
+!include estilo_moderno.puml
+skinparam linetype ortho
+hide methods
+hide circle
+
+title MER Dominio 1 — Usuarios y Gremios (Esquema: huertos)
+
+package "Dominio 1: Usuarios y Gremios" {
+  entity "usuario" as usuario {
+    * **id_usuario** : bigint <<PK>>
+    --
+    * nombres : varchar
+    * apellidos : varchar
+    * fecha_nacimiento : date
+    * genero : varchar
+    * contrasenia_hash : text
+    * created_at : timestamptz
+  }
+
+  entity "usuario_general" as u_gen {
+    * **id_usuario** : bigint <<PK, FK>>
+    --
+    * nombre_usuario : text <<UNIQUE>>
+    * descripcion : text
+    * puntos : integer
+    last_seen : timestamptz
+  }
+
+  entity "gremio" as gremio {
+    * **id_gremio** : bigint <<PK>>
+    --
+    * nombre_gremio : varchar
+    * area_total : numeric
+    * puntos_gremio : bigint
+    * latitud : numeric
+    * longitud : numeric
+    * descripcion : text
+    * anuncios : text
+  }
+
+  entity "miembro_gremio" as miembro {
+    * **id_usuario** : bigint <<PK, FK>>
+    * **id_gremio** : bigint <<PK, FK>>
+    --
+    * fecha_ingreso : date
+    * rol : text
+  }
+
+  entity "invitacion_gremio" as invitacion {
+    * **codigo** : varchar(6) <<PK>>
+    --
+    * id_gremio : bigint <<FK>>
+    creado_por : bigint
+    * expira_en : timestamptz
+    * usos : integer
+  }
+}
+
+package "Conexiones a otros dominios" {
+  entity "huerto" as ext_huerto <<Conexion>> {
+    * **id_huerto** : bigint <<PK>>
+    * id_gremio : bigint <<FK>>
+  }
+
+  entity "tareas_huerto" as ext_tareas <<Conexion>> {
+    * **id_tarea** : bigint <<PK>>
+    completada_por : bigint <<FK>>
+  }
+
+  entity "participantes_tarea" as ext_part <<Conexion>> {
+    * **id_tarea** : bigint <<PK, FK>>
+    * **id_usuario** : bigint <<PK, FK>>
+  }
+}
+
+note right of ext_huerto
+  Conexión hacia Dominio 2
+  (Huerto y Configuración Física)
+end note
+
+note right of ext_tareas
+  Conexión hacia Dominio 4
+  (Cultivos y Tareas del Huerto)
+end note
+
+usuario ||--|| u_gen : "1:1"
+u_gen ||--o{ miembro : "pertenece"
+gremio ||--o{ miembro : "tiene"
+gremio ||--o{ invitacion : "genera"
+
+gremio ||..|| ext_huerto : "conexión (id_gremio)"
+u_gen ||..o{ ext_tareas : "conexión (id_usuario)"
+u_gen ||..o{ ext_part : "conexión (id_usuario)"
+@enduml
