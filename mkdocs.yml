@@ -1,0 +1,51 @@
+site_name: "Huertos.ec - Documentación del Proyecto"
+site_description: "Documentación del proyecto Huertos.ec: Historias de Usuario, Arquitectura, Diseño, Herramientas y Casos de Prueba."
+site_author: "Grupo 2 - Aguirre Mateo, Camino Emilio, Jibaja Velky, Mosquera Karen, Oviedo Jorge, Tamayo Oscar"
+docs_dir: docs
+site_dir: site
+exclude_docs: |
+  *.docx
+  *.puml
+
+theme:
+  name: material
+  language: es
+  palette:
+    - scheme: default
+      primary: blue
+      accent: light-blue
+      toggle:
+        icon: material/brightness-7
+        name: Cambiar a modo oscuro
+    - scheme: slate
+      primary: blue
+      accent: light-blue
+      toggle:
+        icon: material/brightness-4
+        name: Cambiar a modo claro
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - tables
+  - attr_list
+  - toc:
+      permalink: true
+
+nav:
+  - Inicio: index.md
+  - Historias de Usuario: historias_usuario.md
+  - Arquitectura: arquitectura.md
+  - Diseño: diseno.md
+  - Herramientas y Tecnologías: herramientas_tecnologias.md
+  - Casos de Prueba con Resultados: casos_prueba.md

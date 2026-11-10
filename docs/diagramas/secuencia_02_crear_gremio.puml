@@ -1,0 +1,28 @@
+@startuml secuencia_02_crear_gremio
+!include estilo_moderno.puml
+skinparam linetype polyline
+autonumber
+
+title Secuencia HU-002 — Creación y Ubicación Real del Gremio
+
+actor "Jugador Fundador" as J
+participant "Frontend\n(CrearGremio.jsx + Leaflet)" as FE
+participant "Backend Express\n(POST /api/gremios)" as BE
+database "Supabase\n(gremio / huerto / miembro_gremio)" as DB
+
+J -> FE : Abre /crear-gremio
+FE -> BE : GET /api/gremios/configuracion
+BE -> DB : Consulta catálogos (suelo, riego, diseño, cerca, abono)
+DB --> BE : Catálogos disponibles
+BE --> FE : 200 OK (Opciones del formulario)
+
+J -> FE : Ingresa nombre, descripción (<=120 car.), área,\nsuelo, riego y marca ubicación en el mapa
+FE -> BE : POST /api/gremios (datos y coordenadas lat/lng)
+BE -> DB : INSERT en gremio (con latitud y longitud)
+BE -> DB : INSERT en huerto (vinculado a id_gremio)
+BE -> DB : INSERT en miembro_gremio (rol: 'Fundador')
+BE -> DB : INSERT código de 6 dígitos en invitacion_gremio
+DB --> BE : Confirmación de transacción
+BE --> FE : 201 Created (Gremio, huerto y código)
+FE --> J : Guarda gremio activo y abre el huerto (/juego)
+@enduml

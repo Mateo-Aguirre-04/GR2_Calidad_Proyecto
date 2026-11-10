@@ -1,0 +1,30 @@
+@startuml secuencia_05_siembra_parcela
+!include estilo_moderno.puml
+skinparam linetype polyline
+autonumber
+
+title Secuencia HU-005 — Siembra por Parcelas y Crecimiento en el Huerto
+
+actor "Jugador" as J
+participant "Frontend\n(Juego.jsx / ModalCantidadSiembra)" as FE
+participant "Backend Express\n(/api/huertos/:id)" as BE
+database "Supabase\n(huerto_planta / tareas_huerto)" as DB
+
+J -> FE : Abre la pantalla del huerto (/juego)
+FE -> BE : GET /api/huertos/:id
+BE -> DB : Consulta parcelas, zonas y cultivos en huerto_planta
+DB --> BE : Cultivos activos con su fecha_siembra
+BE --> FE : 200 OK (Datos del huerto y cultivos)
+FE --> J : Dibuja cada planta según su etapa de crecimiento
+
+group Sembrar en una parcela preparada
+  J -> FE : Hace clic en una parcela vacía y elige una planta
+  FE -> FE : Calcula máximo de plantas según m² de la parcela
+  J -> FE : Indica cantidad, cuidados y confirma siembra
+  FE -> BE : POST /api/huertos/:id/checklist/sembrar
+  BE -> DB : INSERT cultivo en huerto_planta y cultivos_checklist\nMarca tarea 'siembra' en tareas_huerto y suma puntos
+  DB --> BE : Cultivo registrado y puntos sumados
+  BE --> FE : 200 OK (Comprobante y puntos ganados)
+  FE --> J : Dibuja la planta en la parcela y muestra puntos sumados
+end
+@enduml

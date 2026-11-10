@@ -1,0 +1,119 @@
+@startuml mer_2_huerto_configuracion
+!include estilo_moderno.puml
+skinparam linetype ortho
+hide methods
+hide circle
+
+title MER Dominio 2 — Huerto y Configuración Física (Esquema: huertos)
+
+package "Dominio 2: Huerto y Configuración Física" {
+  entity "huerto" as huerto {
+    * **id_huerto** : bigint <<PK>>
+    --
+    * id_gremio : bigint <<FK>>
+    * id_diseño : bigint <<FK>>
+    * id_subdiseño : bigint <<FK>>
+    * id_cerca : bigint <<FK>>
+    * id_subcerca : bigint <<FK>>
+    * id_suelo : bigint <<FK>>
+    * id_riego : bigint <<FK>>
+    * id_abono : bigint <<FK>>
+  }
+
+  entity "diseño_huerto" as diseno {
+    * **id_diseño** : bigint <<PK>>
+    --
+    * nombre : text
+    * descripcion : text
+  }
+
+  entity "subdiseño_huerto" as subdiseno {
+    * **id_diseño** : bigint <<PK, FK>>
+    * **id_subdiseño** : bigint <<PK>>
+    --
+    nombre : text
+    * num_parcelas : smallint
+    imagen : text
+  }
+
+  entity "cerca_seguridad" as cerca {
+    * **id_cerca** : bigint <<PK>>
+    --
+    * nombre : text
+    * descripcion : text
+  }
+
+  entity "subcerca_seguridad" as subcerca {
+    * **id_cerca** : bigint <<PK, FK>>
+    * **id_subcerca** : bigint <<PK>>
+    --
+    * nombre : text
+    * descripcion : text
+  }
+
+  entity "tipo_suelo" as suelo {
+    * **id_suelo** : bigint <<PK>>
+    --
+    * nombre : text
+    * descripcion : text
+  }
+
+  entity "tipo_riego" as riego {
+    * **id_riego** : bigint <<PK>>
+    --
+    * nombre : text
+    * descripcion : text
+  }
+
+  entity "tipo_abono" as abono {
+    * **id_abono** : bigint <<PK>>
+    --
+    * nombre : text
+    * descripcion : text
+  }
+}
+
+package "Conexiones a otros dominios" {
+  entity "gremio" as ext_gremio <<Conexion>> {
+    * **id_gremio** : bigint <<PK>>
+  }
+
+  entity "zonas_huerto" as ext_zonas <<Conexion>> {
+    * **id_zona** : bigint <<PK>>
+    * id_huerto : bigint <<FK>>
+  }
+
+  entity "huerto_planta" as ext_hp <<Conexion>> {
+    * **id_huerto** : bigint <<PK, FK>>
+    * **id_planta** : bigint <<PK, FK>>
+  }
+
+  entity "tareas_huerto" as ext_tareas <<Conexion>> {
+    * **id_tarea** : bigint <<PK>>
+    * id_huerto : bigint <<FK>>
+  }
+}
+
+note left of ext_gremio
+  Conexión hacia Dominio 1
+  (Usuarios y Gremios)
+end note
+
+note right of ext_zonas
+  Conexión hacia Dominio 4
+  (Zonas, Cultivos y Tareas)
+end note
+
+diseno ||--o{ subdiseno
+cerca ||--o{ subcerca
+subdiseno ||--o{ huerto
+subcerca ||--o{ huerto
+suelo ||--o{ huerto
+riego ||--o{ huerto
+abono ||--o{ huerto
+
+ext_gremio ||..|| huerto : "conexión (id_gremio)"
+huerto ||..o{ ext_zonas : "conexión (id_huerto)"
+huerto ||..o{ ext_hp : "conexión (id_huerto)"
+huerto ||..o{ ext_tareas : "conexión (id_huerto)"
+@enduml

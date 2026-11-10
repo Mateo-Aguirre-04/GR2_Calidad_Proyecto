@@ -1,0 +1,39 @@
+@startuml despliegue
+!include estilo_moderno.puml
+skinparam linetype polyline
+
+title Diagrama de Despliegue — Arquitectura de Huertos.ec
+
+node "Dispositivo del Jugador\n(Navegador Web)" as cliente {
+  component "Aplicación Web SPA\n(React / Vue / Vite)" as spa {
+    component "Vistas y Componentes\n(Juego, Gremio, Catálogo)" as vistas
+    component "Mapa Interactivo\n(Leaflet / OpenStreetMap)" as mapa
+    component "Hooks de Estado\n(useHuerto, useGremio, useClima)" as hooks
+  }
+}
+
+node "Servidor de Aplicación\n(Node.js + Express)" as backend {
+  component "API REST (/api/*)" as api {
+    component "Controladores de Negocio\n(Auth, Gremios, Huertos, Plantas)" as ctrl
+    component "Gestor de Sesiones y Presencia\n(express-session)" as sess
+  }
+}
+
+cloud "Plataforma en la Nube\n(Supabase)" as supabase {
+  database "PostgreSQL\n(Esquema: huertos)" as db
+  storage "Supabase Storage\n(Imágenes e Íconos)" as storage
+}
+
+cloud "Servicio Meteorológico\n(Open-Meteo API)" as openmeteo {
+  component "API de Clima Actual\n(/v1/forecast)" as clima_api
+}
+
+vistas --> hooks
+vistas --> mapa
+hooks --> api : "Peticiones HTTP / JSON\n(Cookies HttpOnly)"
+hooks --> clima_api : "HTTPS GET\n(Latitud y Longitud)"
+vistas --> storage : "Carga de sprites\ne íconos (HTTPS)"
+ctrl --> db : "Consultas y Transacciones SQL\n(Pool pg / SSL)"
+sess --> db : "Persistencia de sesión\n(last_seen)"
+
+@enduml

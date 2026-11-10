@@ -1,0 +1,270 @@
+@startuml mer_supabase
+!include estilo_moderno.puml
+hide methods
+hide circle
+
+title Modelo Entidad-Relación / Clases de Dominio (Esquema Supabase: huertos)
+
+package "1. Usuarios y Gremios" {
+  entity "usuario" as usuario {
+    * **id_usuario** : bigint <<PK>>
+    --
+    * nombres : varchar
+    * apellidos : varchar
+    * fecha_nacimiento : date
+    * genero : varchar
+    * contrasenia_hash : text
+  }
+
+  entity "usuario_general" as u_gen {
+    * **id_usuario** : bigint <<PK, FK>>
+    --
+    * nombre_usuario : text <<UNIQUE>>
+    * descripcion : text
+    * puntos : integer
+    last_seen : timestamptz
+  }
+
+  entity "gremio" as gremio {
+    * **id_gremio** : bigint <<PK>>
+    --
+    * nombre_gremio : varchar
+    * area_total : numeric
+    * puntos_gremio : bigint
+    * latitud : numeric
+    * longitud : numeric
+    * descripcion : text
+    * anuncios : text
+  }
+
+  entity "miembro_gremio" as miembro {
+    * **id_usuario** : bigint <<PK, FK>>
+    * **id_gremio** : bigint <<PK, FK>>
+    --
+    * fecha_ingreso : date
+    * rol : text
+  }
+
+  entity "invitacion_gremio" as invitacion {
+    * **codigo** : varchar(6) <<PK>>
+    --
+    * id_gremio : bigint <<FK>>
+    creado_por : bigint
+    * expira_en : timestamptz
+    * usos : integer
+  }
+}
+
+package "2. Huerto y Configuración Física" {
+  entity "huerto" as huerto {
+    * **id_huerto** : bigint <<PK>>
+    --
+    * id_gremio : bigint <<FK>>
+    * id_diseño : bigint <<FK>>
+    * id_subdiseño : bigint <<FK>>
+    * id_cerca : bigint <<FK>>
+    * id_subcerca : bigint <<FK>>
+    * id_suelo : bigint <<FK>>
+    * id_riego : bigint <<FK>>
+    * id_abono : bigint <<FK>>
+  }
+
+  entity "diseño_huerto" as diseno {
+    * **id_diseño** : bigint <<PK>>
+    --
+    * nombre : text
+  }
+
+  entity "subdiseño_huerto" as subdiseno {
+    * **id_diseño** : bigint <<PK, FK>>
+    * **id_subdiseño** : bigint <<PK>>
+    --
+    nombre : text
+    * num_parcelas : smallint
+    imagen : text
+  }
+
+  entity "cerca_seguridad" as cerca {
+    * **id_cerca** : bigint <<PK>>
+    --
+    * nombre : text
+  }
+
+  entity "subcerca_seguridad" as subcerca {
+    * **id_cerca** : bigint <<PK, FK>>
+    * **id_subcerca** : bigint <<PK>>
+    --
+    * nombre : text
+  }
+
+  entity "tipo_suelo" as suelo {
+    * **id_suelo** : bigint <<PK>>
+    --
+    * nombre : text
+  }
+
+  entity "tipo_riego" as riego {
+    * **id_riego** : bigint <<PK>>
+    --
+    * nombre : text
+  }
+
+  entity "tipo_abono" as abono {
+    * **id_abono** : bigint <<PK>>
+    --
+    * nombre : text
+  }
+}
+
+package "3. Catálogo de Plantas Ecuatorianas" {
+  entity "planta" as planta {
+    * **id_planta** : bigint <<PK>>
+    --
+    * id_familia : bigint <<FK>>
+    * id_tipo_planta : bigint <<FK>>
+    * nombre_comun : text
+    * nombre_cientifico : text
+    * altitud_minima : numeric
+    * altitud_maxima : numeric
+    * ciclo_cultivo : text
+    region : varchar
+    cuidados : jsonb
+    fases : jsonb
+    imagen : text
+  }
+
+  entity "familia_botanica" as familia {
+    * **id_familia** : bigint <<PK>>
+    --
+    * nombre : text
+  }
+
+  entity "tipo_planta" as tipo_planta {
+    * **id_tipo_planta** : bigint <<PK>>
+    --
+    * nombre : text
+  }
+
+  entity "uso_medicinal" as uso {
+    * **id_uso** : bigint <<PK>>
+    --
+    * descripcion : text
+  }
+
+  entity "planta_uso_medicinal" as planta_uso {
+    * **id_planta** : bigint <<PK, FK>>
+    * **id_uso** : bigint <<PK, FK>>
+  }
+
+  entity "provincia" as provincia {
+    * **id_provincia** : bigint <<PK>>
+    --
+    * nombre : text
+  }
+
+  entity "planta_provincia" as planta_prov {
+    * **id_planta** : bigint <<PK, FK>>
+    * **id_provincia** : bigint <<PK, FK>>
+  }
+}
+
+package "4. Cultivos, Parcelas y Tareas del Huerto" {
+  entity "zonas_huerto" as zona {
+    * **id_zona** : bigint <<PK>>
+    --
+    * id_huerto : bigint <<FK>>
+    * nombre : text
+    zona_mapa : integer
+    parcela_mapa : integer
+  }
+
+  entity "ciclos_zona" as ciclo {
+    * **id_ciclo** : bigint <<PK>>
+    --
+    * id_zona : bigint <<FK>>
+    * id_huerto : bigint <<FK>>
+  }
+
+  entity "huerto_planta" as huerto_planta {
+    * **id_huerto** : bigint <<PK, FK>>
+    * **id_planta** : bigint <<PK, FK>>
+    * **fecha_siembra** : timestamptz <<PK>>
+    --
+    * cantidad : integer
+    * id_estado : smallint <<FK>>
+    zona : smallint
+    parcela : smallint
+  }
+
+  entity "estado_cultivo" as estado {
+    * **id_estado** : smallint <<PK>>
+    --
+    * nombre : text
+  }
+
+  entity "actividades" as actividades {
+    * **codigo** : text <<PK>>
+    --
+    * nombre : text
+    * puntos : integer
+  }
+
+  entity "tareas_huerto" as tarea {
+    * **id_tarea** : bigint <<PK>>
+    --
+    * codigo_actividad : text <<FK>>
+    * id_huerto : bigint <<FK>>
+    id_zona : bigint <<FK>>
+    id_ciclo : bigint <<FK>>
+    id_planta : bigint <<FK>>
+    fecha_siembra : timestamptz <<FK>>
+    programada_para : timestamptz
+    completada_en : timestamptz
+    completada_por : bigint <<FK>>
+  }
+
+  entity "participantes_tarea" as part_tarea {
+    * **id_tarea** : bigint <<PK, FK>>
+    * **id_usuario** : bigint <<PK, FK>>
+    --
+    puntos_otorgados : integer
+  }
+}
+
+' Relaciones principales
+usuario ||--|| u_gen
+u_gen ||--o{ miembro
+gremio ||--o{ miembro
+gremio ||--o{ invitacion
+gremio ||--|| huerto
+
+diseno ||--o{ subdiseno
+cerca ||--o{ subcerca
+subdiseno ||--o{ huerto
+subcerca ||--o{ huerto
+suelo ||--o{ huerto
+riego ||--o{ huerto
+abono ||--o{ huerto
+
+familia ||--o{ planta
+tipo_planta ||--o{ planta
+planta ||--o{ planta_uso
+uso ||--o{ planta_uso
+planta ||--o{ planta_prov
+provincia ||--o{ planta_prov
+
+huerto ||--o{ zona
+zona ||--o{ ciclo
+huerto ||--o{ huerto_planta
+planta ||--o{ huerto_planta
+estado ||--o{ huerto_planta
+
+huerto ||--o{ tarea
+actividades ||--o{ tarea
+ciclo ||--o{ tarea
+huerto_planta ||--o{ tarea
+u_gen ||--o{ tarea : "completa"
+tarea ||--o{ part_tarea
+u_gen ||--o{ part_tarea
+
+@enduml

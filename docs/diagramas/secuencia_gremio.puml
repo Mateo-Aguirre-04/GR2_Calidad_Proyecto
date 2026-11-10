@@ -1,0 +1,29 @@
+@startuml secuencia_gremio
+!include estilo_moderno.puml
+skinparam linetype polyline
+autonumber
+
+title Diagrama de Secuencia — Creación y Unión a un Gremio
+
+actor "Jugador" as J
+participant "Frontend\n(CrearGremio / ModalUnirse)" as FE
+participant "Backend Express\n(/api/gremios)" as BE
+database "Supabase\n(PostgreSQL)" as DB
+
+alt Caso A: Crear un nuevo gremio
+  J -> FE : Llena datos y elige ubicación en el mapa
+  FE -> BE : POST /api/gremios
+  BE -> DB : INSERT en gremio y huerto\nINSERT en miembro_gremio (rol: 'Fundador')\nINSERT código en invitacion_gremio
+  DB --> BE : Gremio y huerto creados
+  BE --> FE : 201 Created (gremio, huerto y código)
+  FE --> J : Abre pantalla del huerto (/juego)
+else Caso B: Unirse a un gremio existente con código
+  J -> FE : Ingresa código de 6 dígitos (ej. 000001)
+  FE -> BE : POST /api/gremios/unirse
+  BE -> DB : Verifica código en invitacion_gremio\nINSERT en miembro_gremio (rol: 'Miembro')
+  DB --> BE : Membresía registrada
+  BE --> FE : 200 OK (Datos del gremio y huerto)
+  FE --> J : Abre pantalla del huerto (/juego)
+end
+
+@enduml
