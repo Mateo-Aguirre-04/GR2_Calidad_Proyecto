@@ -4,6 +4,7 @@
 **/dist-ssr/
 **/build/
 **/.vite/
+site/
 
 # Variables de entorno
 .env
