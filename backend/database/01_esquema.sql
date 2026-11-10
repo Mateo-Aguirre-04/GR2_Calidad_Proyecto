@@ -597,7 +597,7 @@ INSERT INTO Planta_Uso_Medicinal (ID_Planta, ID_Uso) VALUES
 -- FIN DEL SCRIPT
 -- =============================================================================
 -- Para ejecutar en PostgreSQL:
---   psql -U <usuario> -d <base_datos> -f sistema_agricola_gamificacion.sql
+--   psql -U <usuario> -d <base_datos> -f backend/database/01_esquema.sql
 --
 -- Para verificar la creación:
 --   \dt                    (lista todas las tablas)

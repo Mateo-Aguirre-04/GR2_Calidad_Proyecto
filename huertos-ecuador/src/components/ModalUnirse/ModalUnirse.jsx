@@ -12,7 +12,6 @@ function ModalUnirse({ onCerrar }) {
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
 
-  // Cerrar modal al presionar Escape
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key === 'Escape') onCerrar()

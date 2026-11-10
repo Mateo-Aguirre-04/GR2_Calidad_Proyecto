@@ -15,7 +15,7 @@ try {
     throw new Error('Índice de recompensas inesperado. Revisar antes de migrar.')
   if(!definition.includes("'abono_organico'"))console.log('005 ya está aplicada: abono recurrente habilitado.')
   else if(apply) {
-    await db.query(await readFile(new URL('../migrations/20261108_005_abono_recurrente.sql',import.meta.url),'utf8'))
+    await db.query(await readFile(new URL('../database/migrations/20261108_005_abono_recurrente.sql',import.meta.url),'utf8'))
     console.log('005 aplicada. Historial y puntos conservados.')
   } else console.log('Pendiente: 005 permite aplicaciones de abono independientes.')
   await db.query(apply?'COMMIT':'ROLLBACK')

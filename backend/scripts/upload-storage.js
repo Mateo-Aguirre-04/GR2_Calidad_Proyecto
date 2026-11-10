@@ -33,7 +33,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 })
 
 const BUCKET = 'huertos-assets'
-const BASE_DIR = path.resolve(__dirname, '../../huertos-ecuador/public/plantas')
+const BASE_DIR = path.resolve(__dirname, '../storage/plantas')
 
 async function uploadAll() {
   console.log(`\nIniciando subida al bucket "${BUCKET}/plantas" en ${supabaseUrl}...\n`)

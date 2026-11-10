@@ -21,7 +21,7 @@ function App() {
         <Route path="/catalogo-plantas" element={<Catalogo />} />
         <Route path="/juego" element={<Juego />} />
         <Route path="/gremio" element={<Gremio />} />
-        <Route path='/foro' element={<Foro />} />
+        <Route path="/foro" element={<Foro />} />
       </Routes>
     </BrowserRouter>
   )

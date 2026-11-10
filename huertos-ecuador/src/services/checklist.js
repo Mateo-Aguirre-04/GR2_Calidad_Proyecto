@@ -8,18 +8,10 @@ async function request(path, method = 'GET', signal, body) {
   return result
 }
 
-export function obtenerChecklist(huertoId, { signal } = {}) {
-  return request(`/api/recordatorios/huerto/${encodeURIComponent(huertoId)}`, 'GET', signal)
-}
-
 const gardenPath = huertoId => `/api/recordatorios/huerto/${encodeURIComponent(huertoId)}`
 
 export function sincronizarChecklist(huertoId, { signal } = {}) {
   return request(`${gardenPath(huertoId)}/sincronizar`, 'POST', signal)
-}
-
-export function obtenerPanelChecklist(huertoId, { signal } = {}) {
-  return request(`${gardenPath(huertoId)}/panel`, 'GET', signal)
 }
 
 export function completarTarea(huertoId, tareaId, confirmaciones = {}) {

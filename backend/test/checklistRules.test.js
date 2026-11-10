@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { SearchMoonQuarter, NextMoonQuarter } from 'astronomy-engine'
-import { localDate, localMinutes, daysBetween, lunarWindow, catalogDays, sunny, harvestReminder, loadEnvironment, weatherAt } from '../src/data/checklistEnvironment.js'
+import { localDate, localMinutes, daysBetween, lunarWindow, catalogDays, sunny, loadEnvironment, weatherAt } from '../src/data/checklistEnvironment.js'
 import { sowingReasons, availability } from '../src/data/checklistRules.js'
 
 const zone='America/Guayaquil'
@@ -97,15 +97,6 @@ test('secado permanece pendiente en el día 15 si todavía falta confirmar que e
   assert.equal(state.puedeCompletar,true)
   assert.deepEqual(state.confirmacionesRequeridas,['seco','empacado','etiquetado','almacenado'])
 })
-test('el riego previo se recuerda dos fechas locales antes de una cosecha posible; si ya está registrado no se vuelve a pedir',()=>{
-  const now=at(phase(1)),task={ciclo_cultivo:'2 días',fecha_exacta:new Date(+now-30*86400000).toISOString(),parte_cosecha:'hojas'}
-  const plan=harvestReminder(task,{ahora:new Date(+now-3*86400000),zonaHoraria:zone})
-  assert.ok(plan.requiereRiego)
-  assert.equal(Math.round((Date.parse(plan.fechaCosechaPrevista)-Date.parse(plan.fechaRiego))/86400000),2)
-  const covered=harvestReminder(task,{ahora:new Date(`${plan.fechaRiego}T15:00Z`),zonaHoraria:zone},[plan.fechaRiego])
-  assert.equal(covered.requiereRiego,false)
-})
-
 test('ritual opcional solo permite marcar la tarea de ese mes el día 15 local, sin exigir amanecer',async()=>{
   const task={codigo_actividad:'ritual_agradecimiento',clave_generacion:'ritual:2026-11-15',programada_para:'2026-11-15T15:00Z'}
   for(const [now,allowed] of [['2026-11-14T15:00Z',false],['2026-11-15T05:00Z',true],['2026-11-16T05:00Z',false],['2026-12-15T15:00Z',false]]) {

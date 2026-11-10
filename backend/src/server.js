@@ -63,7 +63,7 @@ process.on('unhandledRejection', (reason) => {
   console.error('[Promesa no controlada]:', reason)
 })
 
-// Iniciar el servidor solo si la base de datos (o el modo mock) está lista
+// Iniciar el servidor solo si la base de datos está lista
 try {
   await checkDbConnection()
 } catch (error) {

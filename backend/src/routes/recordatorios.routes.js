@@ -1,13 +1,8 @@
-import * as real from '../controllers/supabase.controller.js'
 import { Router } from 'express'
 import { query, transaction } from '../config/db.js'
 import { enrollTask, taskMutationHandler } from '../data/taskParticipation.js'
 import { recordWatering } from '../data/watering.js'
 import { workflowHandler, panel, synchronize, createZone, startCycle, configureCrop, finalizeCrop, schedule, sow, finish, startDrying } from '../data/checklistWorkflow.js'
-import {
-  getRecordatorios,
-  completarRecordatorio,
-} from '../controllers/recordatorios.controller.js'
 
 export function createRecordatoriosRouter(db = { query }, runTransaction = transaction, environment) {
   const router = Router()
@@ -29,8 +24,6 @@ export function createRecordatoriosRouter(db = { query }, runTransaction = trans
   router.post('/huerto/:huertoId/tareas/:tareaId/completar', workflow((client,user,garden,req,env)=>finish(client,user,garden,req.params.tareaId,req.body,env)))
   router.post('/huerto/:huertoId/riegos', workflow((client,user,garden,req,env)=>recordWatering(client,user,garden,req.body,env)))
   router.post('/huerto/:huertoId/tareas/:tareaId/inscribirse', taskMutationHandler(runTransaction, enrollTask))
-  router.get('/:usuarioId?', real.realOrDemo(real.getRecordatorios, getRecordatorios))
-  router.post('/:id/completar', real.realOrDemo(real.completarRecordatorio, completarRecordatorio))
 
   return router
 }

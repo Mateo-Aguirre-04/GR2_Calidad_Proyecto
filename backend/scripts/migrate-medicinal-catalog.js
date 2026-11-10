@@ -25,7 +25,7 @@ try {
     await writeFile(backup,JSON.stringify({plantas:before,cosechasPendientes:dates},null,2),'utf8')
     console.log('Respaldo local:',fileURLToPath(backup))
   }
-  await db.query(await readFile(new URL('../migrations/20261109_006_catalogo_medicinal.sql',import.meta.url),'utf8'))
+  await db.query(await readFile(new URL('../database/migrations/20261109_006_catalogo_medicinal.sql',import.meta.url),'utf8'))
   const after=(await db.query('SELECT * FROM planta ORDER BY id_planta')).rows
   const available=after.filter(plantaDisponibleEnCatalogo)
   if(available.some(p=>!catalogDays(p.ciclo_cultivo)||catalogDays(p.ciclo_cultivo)!==growthDays(p.ciclo_cultivo)))

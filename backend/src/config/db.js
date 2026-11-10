@@ -21,14 +21,9 @@ export const pool = new Pool({
 let connected = false
 
 export async function checkDbConnection() {
-  if (process.env.DATA_MODE === 'mock') {
-    connected = false
-    console.info('[DB] DATA_MODE=mock: demostración explícita.')
-    return false
-  }
   if (!process.env.DATABASE_URL) {
     connected = false
-    throw new Error('Falta DATABASE_URL en backend/.env. Para una demo explícita usa DATA_MODE=mock.')
+    throw new Error('Falta DATABASE_URL en backend/.env.')
   }
   try {
     const client = await pool.connect()
@@ -38,7 +33,7 @@ export async function checkDbConnection() {
     return true
   } catch (err) {
     connected = false
-    throw new Error(`No se pudo conectar a PostgreSQL (${err.code || 'CONNECTION_FAILED'}). No se usarán datos mock.`)
+    throw new Error(`No se pudo conectar a PostgreSQL (${err.code || 'CONNECTION_FAILED'}).`)
   }
 }
 
@@ -55,10 +50,6 @@ export async function transaction(operation) {
   } finally {
     client.release()
   }
-}
-
-export function isDbConnected() {
-  return connected
 }
 
 export async function query(text, params) {

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { checklistHandler, readChecklist } from '../src/data/checklist.js'
+import { readChecklist } from '../src/data/checklist.js'
 
 function database(member = true, rows = []) {
   const calls = []
@@ -41,25 +41,6 @@ test('rechaza IDs inválidos antes de consultar PostgreSQL', async () => {
   for (const id of ['', '0', '-1', '1.5', '1 OR 1=1', '9223372036854775808']) {
     const db = database()
     await assert.rejects(readChecklist(db, '5', id), { status: 400 })
-    assert.equal(db.calls.length, 0)
-  }
-})
-
-test('el controlador toma el usuario de la sesión e ignora usuarioId del cliente', async () => {
-  const db = database()
-  const res = { set() { return this }, json(body) { this.body = body; return this } }
-  await checklistHandler(db)({ session: { usuarioId: '5', source: 'postgres' },
-    params: { huertoId: '42' }, query: { usuarioId: '99' }, body: { usuarioId: '99' } }, res)
-  assert.deepEqual(db.calls[0].params, ['5', '42'])
-  assert.deepEqual(res.body, [])
-})
-
-test('sin sesión real devuelve 401 antes de consultar', async () => {
-  for (const session of [undefined, { usuarioId: '5', source: 'mock' }]) {
-    const db = database()
-    const res = { status(code) { this.code = code; return this }, json() { return this } }
-    await checklistHandler(db)({ session, params: { huertoId: '42' } }, res)
-    assert.equal(res.code, 401)
     assert.equal(db.calls.length, 0)
   }
 })

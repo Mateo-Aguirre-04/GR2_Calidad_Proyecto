@@ -1,0 +1,72 @@
+/* Misma tabla que la pestaña Miembros (pages/css/Gremio.module.css) */
+.ranking { display: grid; gap: 12px; }
+
+.barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.barra h2 {
+  margin: 0;
+  color: #451f3a;
+  font: 400 11px/1.6 var(--fuente-pixel);
+}
+
+.estado {
+  margin: 0;
+  color: var(--texto-suave);
+  font-size: 12px;
+}
+
+.tablaScroll {
+  max-height: 330px;
+  overflow: auto;
+  border: 3px solid #2b1a12;
+  scrollbar-color: var(--madera) #f2e2c8;
+}
+
+.tablaScroll::-webkit-scrollbar { width: 16px; }
+.tablaScroll::-webkit-scrollbar-track { border-left: 2px solid #2b1a12; background: #f2e2c8; }
+.tablaScroll::-webkit-scrollbar-thumb { border: 2px solid #2b1a12; background: var(--madera); }
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  color: #451f3a;
+  font-family: var(--fuente-pixel);
+  font-size: 10px;
+  text-align: center;
+}
+
+.tabla th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px 8px;
+  border: 2px solid #4a3020;
+  background-color: #2b1a12;
+  color: #f2c66d;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.tabla td {
+  padding: 10px 8px;
+  border: 2px solid var(--madera);
+  line-height: 1.5;
+}
+
+.tabla tbody tr:nth-child(odd) { background-color: #fff9e8; }
+.tabla tbody tr:nth-child(even) { background-color: #f2e2c8; }
+.tabla tbody tr:hover { background-color: #f7ebd6; }
+
+.podio { color: #a8741a; }
+.vacio { padding: 24px; }
+
+@media (max-width: 640px) {
+  .tabla { font-size: 8px; }
+  .tabla th, .tabla td { padding: 8px 6px; }
+}

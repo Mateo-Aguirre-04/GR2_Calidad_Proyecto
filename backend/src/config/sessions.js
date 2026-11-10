@@ -1,7 +1,6 @@
 import session from 'express-session'
 import { randomBytes } from 'node:crypto'
 
-export const ONLINE_MS = 15 * 60 * 1000
 export const COOKIE_NAME = 'huertos.sid'
 export const cookieOptions = {
   httpOnly: true,
@@ -28,26 +27,6 @@ export function sessionMiddleware(store) {
     rolling: true,
     cookie: { ...cookieOptions, maxAge: 24 * 60 * 60 * 1000 },
   })
-}
-
-export function isOnline(lastSeen, now = Date.now()) {
-  const age = now - new Date(lastSeen).getTime()
-  return Number.isFinite(age) && age >= 0 && age < ONLINE_MS
-}
-
-export async function getPresence(store, source) {
-  const sessions = await new Promise((resolve, reject) => {
-    store.all((err, values) => err ? reject(err) : resolve(Object.values(values || {})))
-  })
-  const presence = new Map()
-  for (const item of sessions) {
-    if (item.source !== source || !item.usuarioId || !item.lastSeen) continue
-    const previous = presence.get(Number(item.usuarioId))
-    if (!previous || new Date(item.lastSeen) > new Date(previous)) {
-      presence.set(Number(item.usuarioId), item.lastSeen)
-    }
-  }
-  return presence
 }
 
 export async function startSession(req, usuarioId, source) {

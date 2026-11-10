@@ -37,7 +37,7 @@ try {
     }
     console.log('Pendientes:',files.join(', '))
     if(apply) {
-      for(const file of files) await db.query(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'))
+      for(const file of files) await db.query(await readFile(new URL(`../database/migrations/${file}`,import.meta.url),'utf8'))
       console.log('Preparadas 6 tablas nuevas y las columnas e índices del checklist. No se modificaron puntos ni cultivos.')
     }
   }
