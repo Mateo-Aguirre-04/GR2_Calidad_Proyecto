@@ -8,6 +8,7 @@ import { createGuildRecords } from '../data/guildCreation.js'
 import { isValidBirthDate } from '../data/registration.js'
 import { distribucionHuerto, areaDeParcela, capacidadParcela, tipoDesdeImagen } from '../data/parcelas.js'
 import { fasesCrecimiento, listaParaCosechar } from '../data/fases.js'
+import { plantaDisponibleEnCatalogo } from '../data/catalogoMedicinal.js'
 import { daysUntilLunarAge, lunarPhase } from '../data/lunarCalendar.js'
 import { guildRankingHandler } from '../data/guildRanking.js'
 
@@ -147,10 +148,10 @@ const plantResponse = (p) => ({
   imagenMuerta: p.imagen_muerta || '',
   fases: p.fases || []
 })
-export const getPlantas = handle(async (req,res) => res.json((await query(`${plantSQL} ORDER BY p.id_planta`)).rows.map(plantResponse)))
+export const getPlantas = handle(async (req,res) => res.json((await query(`${plantSQL} ORDER BY p.id_planta`)).rows.filter(plantaDisponibleEnCatalogo).map(plantResponse)))
 export const getPlanta = handle(async (req,res) => {
   const { rows } = await query(`${plantSQL} WHERE p.id_planta=$1`,[req.params.id])
-  if (!rows.length) throw httpError(404,'Planta no encontrada.')
+  if (!plantaDisponibleEnCatalogo(rows[0])) throw httpError(404,'Planta no disponible en el catálogo medicinal.')
   res.json(plantResponse(rows[0]))
 })
 
@@ -199,6 +200,7 @@ export const sembrar = handle(async (req,res) => {
     if (cantidad>maximo) throw httpError(400,`En esta parcela caben máximo ${maximo} plantas.`)
     const plant=(await db.query('SELECT * FROM planta WHERE id_planta=$1',[plantaId])).rows[0]
     if (!plant) throw httpError(404,'Planta no encontrada.')
+    if (!plantaDisponibleEnCatalogo(plant)) throw httpError(409,'Solo puedes sembrar plantas del catálogo medicinal con imágenes de sus fases.')
     try {
       const {rows}=await db.query(`INSERT INTO huerto_planta(id_huerto,id_planta,cantidad,id_estado,observaciones,zona,parcela)
         VALUES($1,$2,$3,1,$4,$5,$6) RETURNING *,fecha_siembra::text AS fecha_exacta`,

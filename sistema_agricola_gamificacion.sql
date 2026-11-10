@@ -369,6 +369,7 @@ CREATE TABLE Planta (
     Altitud_Maxima     VARCHAR(100),
     Tipo_Planta        VARCHAR(100),
     Ciclo_Cultivo      VARCHAR(100),
+    Catalogo_Activo    BOOLEAN NOT NULL DEFAULT true,
     CONSTRAINT fk_Planta_Familia
         FOREIGN KEY (ID_familia)
         REFERENCES Familia_Botanica(ID_familia)
@@ -543,14 +544,19 @@ INSERT INTO Familia_Botanica (Nombre, Descripcion) VALUES
 INSERT INTO Planta (ID_familia, ID_Tipo_Planta, Nombre_Comun, Nombre_Cientifico, Altitud_Minima, Altitud_Maxima, Ciclo_Cultivo) VALUES
     (1, 1, 'Manzano',     'Malus domestica',     0,    3000, 'Perenne (5-8 años producción)'),
     (1, 1, 'Peral',       'Pyrus communis',      0,    2800, 'Perenne (4-7 años producción)'),
-    (2, 2, 'Menta',       'Mentha spicata',      0,    1500, 'Perenne (rebrote estacional)'),
-    (2, 2, 'Albahaca',    'Ocimum basilicum',    0,    1800, 'Anual'),
+    (2, 2, 'Menta',       'Mentha spicata',      0,    1500, 'Perenne (60-90 días; rebrote estacional)'),
+    (2, 2, 'Albahaca',    'Ocimum basilicum',    0,    1800, 'Anual (60-90 días)'),
     (3, 3, 'Tomate',      'Solanum lycopersicum', 0,   2000, 'Anual (90-120 días)'),
     (3, 3, 'Pimiento',    'Capsicum annuum',     0,    2000, 'Anual (70-90 días)'),
     (5, 3, 'Frijol',      'Phaseolus vulgaris',  0,    3000, 'Anual (60-90 días)'),
     (6, 3, 'Calabaza',    'Cucurbita pepo',      0,    2500, 'Anual (90-120 días)'),
-    (4, 4, 'Manzanilla',  'Matricaria chamomilla', 500, 2500, 'Anual'),
-    (5, 4, 'Llantén',     'Plantago major',      0,    3000, 'Perenne');
+    (4, 4, 'Manzanilla',  'Matricaria chamomilla', 500, 2500, 'Anual (60-90 días)'),
+    (5, 4, 'Llantén',     'Plantago major',      0,    3000, 'Perenne (50-70 días)');
+
+-- Compatibilidad con las relaciones históricas: estas pruebas ya no se ofrecen para sembrar.
+UPDATE Planta SET Catalogo_Activo=false WHERE Nombre_Cientifico IN
+    ('Cucurbita pepo','Solanum lycopersicum','Capsicum annuum',
+     'Phaseolus vulgaris','Pyrus communis','Malus domestica');
 
 -- Usos medicinales de ejemplo
 INSERT INTO Uso_Medicinal (Descripcion) VALUES

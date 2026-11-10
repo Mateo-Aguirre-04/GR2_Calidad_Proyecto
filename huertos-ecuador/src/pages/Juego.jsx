@@ -8,7 +8,8 @@ import { useAhora } from '../hooks/useAhora'
 import { useChecklist } from '../hooks/useChecklist'
 import { fondoHuerto, capacidadParcela, distribucionHuerto } from '../data/parcelasHuerto'
 import { cultivosDelChecklist } from '../data/cultivosChecklist'
-import { HERRAMIENTAS_HUERTO } from '../data/herramientasHuerto'
+import { DURACION_RIEGO_MS, HERRAMIENTAS_HUERTO } from '../data/herramientasHuerto'
+import { iconoHuerto } from '../data/iconosHuerto'
 import { DURACION_COSECHA_MS } from '../data/fasesPlanta'
 import Parcela from '../components/Parcela/Parcela'
 import ModalCantidadSiembra from '../components/ModalCantidadSimebra/ModalCantidadSiembra'
@@ -25,14 +26,14 @@ import styles from './css/Juego.module.css'
 // accion: 'ruta' navega, 'modal' abre un modal, 'pendiente' aún sin definir.
 // Las descripciones son fijas, no vienen de la base.
 const BOTONES = [
-  { clave: 'ajustes',       nombre: 'Ajustes',       etiqueta: 'Ajustes',       emoji: '⚙️', descripcion: 'Cambia las opciones de tu cuenta y del juego.', accion: 'pendiente' },
-  { clave: 'foro',          nombre: 'Foro',          etiqueta: 'Foro',          emoji: '💬', descripcion: 'Conversa con otros jardineros.',               accion: 'pendiente' },
-  { clave: 'gremio',        nombre: 'Gremio',        etiqueta: 'Gremio',        emoji: '🛡️', descripcion: 'Mira a tu gremio y su ranking.',               accion: 'ruta', destino: '/gremio' },
-  { clave: 'catalogo',      nombre: 'Catálogo',      etiqueta: 'Catálogo',      emoji: '📖', descripcion: 'Consulta las plantas disponibles.',            accion: 'ruta', destino: '/catalogo-plantas' },
-  { clave: 'recordatorios', nombre: 'Recordatorios', etiqueta: 'Recordatorios', emoji: '🔔', descripcion: 'Revisa tus tareas pendientes.',                accion: 'pendiente' },
+  { clave: 'ajustes',       nombre: 'Ajustes',       etiqueta: 'Ajustes',       icono: { src: iconoHuerto('herramientas', 'ajustes') }, descripcion: 'Cambia las opciones de tu cuenta y del juego.', accion: 'pendiente' },
+  { clave: 'foro',          nombre: 'Foro',          etiqueta: 'Foro',          icono: { src: iconoHuerto('herramientas', 'foro') }, descripcion: 'Conversa con otros jardineros.',               accion: 'pendiente' },
+  { clave: 'gremio',        nombre: 'Gremio',        etiqueta: 'Gremio',        icono: { src: iconoHuerto('herramientas', 'gremio') }, descripcion: 'Mira a tu gremio y su ranking.',               accion: 'ruta', destino: '/gremio' },
+  { clave: 'catalogo',      nombre: 'Catálogo',      etiqueta: 'Catálogo',      icono: { src: iconoHuerto('herramientas', 'catalogo') }, descripcion: 'Consulta las plantas disponibles.',            accion: 'ruta', destino: '/catalogo-plantas' },
+  { clave: 'recordatorios', nombre: 'Recordatorios', etiqueta: 'Recordatorios', icono: { src: iconoHuerto('herramientas', 'recordatorios') }, descripcion: 'Revisa tus tareas pendientes.',                accion: 'pendiente' },
 ]
 
-const MEDALLAS = { Novato: '🌱', Aprendiz: '🥉', Oficial: '🥈', Maestro: '🥇' }
+const MEDALLAS = { Novato: 'novato', Aprendiz: 'aprendiz', Oficial: 'oficial', Maestro: 'maestro' }
 
 function Juego() {
   const navigate = useNavigate()
@@ -58,6 +59,7 @@ function Juego() {
   const [plantaSeleccionada, setPlantaSeleccionada] = useState(null) // plant chosen for planting
   const [cultivoInfo, setCultivoInfo] = useState(null) // cultivo cuya información se muestra
   const [cosechaAnimada,setCosechaAnimada] = useState(null)
+  const [riegoAnimado,setRiegoAnimado] = useState(null)
 
   const [mensajeAccion,setMensajeAccion]=useState('')
   const [seccionPanel,setSeccionPanel]=useState('')
@@ -156,7 +158,15 @@ function Juego() {
     if(enCurso.current)return
     const section=checklist.panel?.zonas?.find(s=>s.zona===cultivo.zona&&s.parcela===cultivo.parcela)
     if(!section) {setErrorAccion('Todavía no se cargó la sección de esta parcela. Espera a que terminen de cargar las actividades.');return}
-    await conClave('riego',{zonaId:section.id},b=>checklist.registrarRiegos(b.zonaId,b.claveSolicitud))
+    await conClave('riego',{zonaId:section.id},async b=>{
+      const result=await checklist.registrarRiegos(b.zonaId,b.claveSolicitud)
+      // La animación confirma un riego guardado y mantiene bloqueados los clics repetidos.
+      setRiegoAnimado(cultivo.id)
+      try {
+        await new Promise(resolve=>setTimeout(resolve,DURACION_RIEGO_MS))
+      } finally {setRiegoAnimado(null)}
+      return result
+    })
   }
 
   function onCultivoSeleccionado(cultivo) {
@@ -222,11 +232,11 @@ function Juego() {
       {/* Jugador (arriba a la izquierda): abre el perfil */}
       <button type="button" className={styles.jugador} onClick={() => setModal('perfil')} aria-label="Abrir mi perfil">
         <span className={styles.avatar}>
-          {perfil?.avatar ? <img src={perfil.avatar} alt="" /> : <span aria-hidden="true">🧑‍🌾</span>}
+          <img src={perfil?.avatar || iconoHuerto('jugador', 'avatar_predeterminado')} alt="" />
         </span>
         <span className={styles.placa}>
           <span className={styles.nombre}>{perfil?.nombre ?? '...'} · {perfil?.puntuacion ?? 0} puntos</span>
-          <span aria-hidden="true">{MEDALLAS[perfil?.rango] ?? '🏅'}</span>
+          <img className={styles.medalla} src={iconoHuerto('jugador', MEDALLAS[perfil?.rango] ?? 'medalla_generica')} alt={perfil?.rango ? `Rango: ${perfil.rango}` : 'Medalla'} />
         </span>
       </button>
 
@@ -234,16 +244,14 @@ function Juego() {
       <div className={styles.estados}>
         <IconoEstado
           id="clima"
-          key={clima.clave}
-          src={`/clima/${clima.clave}.png`}
+          src={iconoHuerto('clima', clima.clave)}
           emoji={clima.emoji}
           etiqueta={clima.temperatura !== null ? `${clima.etiqueta} (${clima.temperatura}°C)` : clima.etiqueta}
           descripcion={clima.descripcion}
         />
         <IconoEstado
           id="luna"
-          key={luna.clave}
-          src={`/luna/${luna.clave}.png`}
+          src={iconoHuerto('luna', luna.clave)}
           emoji={luna.emoji}
           etiqueta={`${luna.etiqueta} (${luna.iluminacion}%)`}
           descripcion={luna.descripcion}
@@ -265,6 +273,7 @@ function Juego() {
             modo={herramientaActiva}
             deshabilitada={loadingAccion}
             cosechando={cosechaAnimada != null && cultivoEn(i + 1)?.id === cosechaAnimada}
+            regando={riegoAnimado != null && cultivoEn(i + 1)?.id === riegoAnimado}
             onSembrar={elegirParcela}
             onRegar={regarParcela}
             onCosechar={onCultivoSeleccionado}
@@ -278,9 +287,9 @@ function Juego() {
 
       {zonas.length > 1 && (
         <nav className={styles.zonas} aria-label="Zonas del huerto">
-          <button type="button" onClick={() => setZona(zonaActual - 1)} disabled={zonaActual === 1} aria-label="Zona anterior">◀</button>
+          <button type="button" onClick={() => setZona(zonaActual - 1)} disabled={zonaActual === 1} aria-label="Zona anterior"><img src={iconoHuerto('navegacion', 'flecha_izquierda')} alt="" /></button>
           <span>Zona {zonaActual} de {zonas.length}</span>
-          <button type="button" onClick={() => setZona(zonaActual + 1)} disabled={zonaActual === zonas.length} aria-label="Zona siguiente">▶</button>
+          <button type="button" onClick={() => setZona(zonaActual + 1)} disabled={zonaActual === zonas.length} aria-label="Zona siguiente"><img src={iconoHuerto('navegacion', 'flecha_derecha')} alt="" /></button>
         </nav>
       )}
 

@@ -1,4 +1,6 @@
 import { imagenCosecha, imagenCultivo, usarRespaldo } from '../../data/fasesPlanta'
+import { iconoHuerto } from '../../data/iconosHuerto'
+import { DURACION_RIEGO_MS } from '../../data/herramientasHuerto'
 import styles from './Parcela.module.css'
 
 // Máximo de imágenes dibujadas por parcela (el total real se muestra en ×N).
@@ -20,7 +22,7 @@ function mejorCuadricula(n, aspecto) {
 // rect   = [x, y, ancho, alto] de la parcela (clicable), en % de la imagen del fondo.
 // tierra = [x, y, ancho, alto] de la tierra de esa parcela, en % de la imagen del fondo.
 // relacion = ancho / alto de la imagen (para pasar % de alto a % de ancho).
-function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, deshabilitada, cosechando = false, onSembrar, onCosechar, onRegar, onVerInfo }) {
+function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, deshabilitada, cosechando = false, regando = false, onSembrar, onCosechar, onRegar, onVerInfo }) {
   const [x, y, ancho, alto] = rect
   // Si `tierra` falta o no es [x, y, ancho, alto], se usa toda la parcela.
   const tierraValida = Array.isArray(tierra) && tierra.length === 4 && tierra.every((n) => Number.isFinite(n))
@@ -121,7 +123,37 @@ function Parcela({ numero, rect, tierra, relacion = 1, cultivo, ahora, modo, des
       )}
       {animando && (
         <span className={styles.textoCosecha} aria-hidden="true">
-          +{cultivo.cantidad} 🧺
+          +{cultivo.cantidad} <img className={styles.iconoCosecha} src={iconoHuerto('herramientas', 'cosechar')} alt="" />
+        </span>
+      )}
+      {ocupada && regando && (
+        <span
+          className={styles.riego}
+          aria-hidden="true"
+          style={{
+            left: `${((tx - x) / ancho) * 100}%`,
+            top: `${((ty - y) / alto) * 100}%`,
+            width: `${(tw / ancho) * 100}%`,
+            height: `${(th / alto) * 100}%`,
+            '--duracion-riego': `${DURACION_RIEGO_MS}ms`,
+          }}
+        >
+          <span className={styles.tierraHumeda} />
+          <img className={styles.regadera} src={iconoHuerto('herramientas', 'regar')} alt="" />
+          <span className={styles.gotas}>
+            {Array.from({ length: 18 }, (_, i) => (
+              <span
+                key={i}
+                className={styles.gota}
+                style={{
+                  left: `${12 + (i % 6) * 15}%`,
+                  top: `${12 + Math.floor(i / 6) * 28}%`,
+                  '--retraso-gota': `${((i * 3) % 7) * 50}ms`,
+                }}
+              />
+            ))}
+          </span>
+          <span className={styles.textoRiego}>Regado</span>
         </span>
       )}
       {ocupada && !animando && <span className={styles.cantidad}>×{cultivo.cantidad}</span>}

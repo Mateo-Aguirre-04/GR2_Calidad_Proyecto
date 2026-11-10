@@ -2,15 +2,15 @@ import { useState } from 'react'
 import styles from './IconoEstado.module.css'
 
 function IconoEstado({ id, src, emoji, etiqueta, descripcion }) {
-  const [fallo, setFallo] = useState(false)
+  const [srcFallido, setSrcFallido] = useState(null)
   const idTooltip = `tooltip-${id}`
 
   return (
     <div className={styles.contenedor} tabIndex={0} aria-describedby={idTooltip}>
       <div className={styles.circulo}>
-        {fallo
+        {!src || srcFallido === src
           ? <span aria-hidden="true">{emoji}</span>
-          : <img src={src} alt="" onError={() => setFallo(true)} />}
+          : <img key={src} src={src} alt="" onError={() => setSrcFallido(src)} />}
 
         <span id={idTooltip} role="tooltip" className={styles.tooltip}>
           {descripcion}

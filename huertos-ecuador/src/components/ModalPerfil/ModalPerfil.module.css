@@ -54,6 +54,8 @@
   font-weight: 400;
 }
 
+.logo img { width: 30px; height: 30px; object-fit: contain; image-rendering: pixelated; }
+
 .cerrar {
   width: 36px;
   height: 36px;

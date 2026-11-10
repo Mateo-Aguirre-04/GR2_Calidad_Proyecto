@@ -40,6 +40,19 @@ test('riego semanal solo en diseños con recipientes; se cuenta desde siembra o 
   assert.equal(has(on('2026-11-07T15:00:00Z',[],'surcos'),'riego_diario'),true)
 })
 
+for(const [tipoHuerto,tipoAviso] of [['surcos','riego_diario'],['maceteros','riego_semanal']]) {
+  test(`modo de prueba: ${tipoAviso} desaparece al regar y vuelve el siguiente día local`,()=>{
+    const env={...environment('2026-11-09T02:00:00Z'),ignorarRestriccionesTemporales:true}
+    const water={codigo_actividad:'riego',id_zona:'1',completada_en:'2026-11-09T01:00:00Z'}
+    const on=(details=[],current=env)=>reminders(details,current,[crop],[section],tipoHuerto)
+    assert.equal(has(on(),tipoAviso),true)
+    assert.equal(has(on([water]),tipoAviso),false)
+    assert.equal(has(on([{...water,id_zona:'2'}]),tipoAviso),true)
+    assert.equal(has(on([{...water,completada_en:null}]),tipoAviso),true)
+    assert.equal(has(on([water],{...env,ahora:new Date('2026-11-09T05:00:00Z')}),tipoAviso),true)
+  })
+}
+
 test('cosecha: los avisos son por cultivo maduro, desaparecen al cosechar y no se inventan días del catálogo',()=>{
   assert.equal(has(reminders([harvest]),'riego_previo_cosecha'),true)
   for(const patch of [{completada_en:date},{id_estado:6},{ciclo_cultivo:'Perenne'},{fecha_exacta:date},{regada_dos_dias:false}]) {

@@ -56,12 +56,90 @@
   pointer-events: none;
   animation: textoCosecha 1.5s ease-out both;
 }
+.textoCosecha .iconoCosecha { width: 20px; height: 20px; vertical-align: middle; }
 @keyframes textoCosecha {
   0%   { transform: translate(-50%, 40%); opacity: 0; }
   20%  { transform: translate(-50%, 0); opacity: 1; }
   75%  { opacity: 1; }
   100% { transform: translate(-50%, -160%); opacity: 0; }
 }
+.riego {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+.tierraHumeda {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgb(111 205 242 / 65%);
+  border-radius: 4px;
+  background: rgb(20 63 79 / 32%);
+  animation: humedecer var(--duracion-riego) ease-out both;
+}
+.riego .regadera {
+  position: absolute;
+  left: 65%;
+  top: -24px;
+  width: clamp(24px, 25%, 56px);
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  transform-origin: 60% 65%;
+  filter: drop-shadow(2px 2px 0 rgb(16 48 68 / 45%));
+  animation: inclinarRegadera var(--duracion-riego) steps(6, end) both;
+}
+.gotas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.gota {
+  position: absolute;
+  width: 4px;
+  height: 8px;
+  background: #8de4ff;
+  box-shadow: 2px 2px 0 #318cc8, -1px -1px 0 #d5f8ff;
+  animation: caerGota 600ms steps(5, end) 2 both;
+  animation-delay: var(--retraso-gota);
+}
+.textoRiego {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  padding: 5px 8px;
+  border: 2px solid #316b87;
+  background: #e6faff;
+  color: #245369;
+  font: 8px 'Press Start 2P', monospace;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: confirmarRiego var(--duracion-riego) ease-out both;
+}
+@keyframes humedecer {
+  0% { opacity: 0; }
+  20%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes inclinarRegadera {
+  0%, 100% { opacity: 0; transform: translateX(-50%) rotate(0deg); }
+  15%, 75% { opacity: 1; transform: translateX(-50%) rotate(-22deg); }
+  40%, 60% { transform: translateX(-50%) translateY(-3px) rotate(-16deg); }
+}
+@keyframes caerGota {
+  0% { opacity: 0; transform: translateY(-16px) scale(0.7); }
+  20%, 65% { opacity: 1; }
+  80% { transform: translateY(15px) scale(1); }
+  100% { opacity: 0; transform: translateY(22px) scale(0.4); }
+}
+@keyframes confirmarRiego {
+  0%, 30% { opacity: 0; transform: translate(-50%, 6px); }
+  50%, 85% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -4px); }
+}
 @media (prefers-reduced-motion: reduce) {
   .cosechando, .textoCosecha { animation-duration: 1ms; }
+  .riego .regadera, .tierraHumeda, .textoRiego { animation: none; }
+  .riego .regadera { transform: translateX(-50%); }
+  .gotas { display: none; }
 }

@@ -9,6 +9,7 @@ El comando previo pnpm db:migrate sigue limitado a last_seen y no se cambió.
 | 20261108_003_programacion_checklist.sql | Aplicado y verificado el 2026-11-08 | Zonas, ciclos, metadatos de cultivo, lotes, zona horaria y contexto de tareas |
 | 20261108_004_secciones_puntos_ranking.sql | Aplicada y verificada en Supabase el 2026-11-08 | Secciones mapeadas, riego por sección y triggers de puntos y gremios |
 | 20261108_005_abono_recurrente.sql | Aplicada y verificada en Supabase el 2026-11-08 | Permite varias aplicaciones de abono por cultivo, preservando historial y premios |
+| 20261109_006_catalogo_medicinal.sql | Aplicada y verificada en Supabase el 2026-11-09 | Retira especies de prueba, completa ciclos medicinales y programa cosechas existentes sin cambiar sus siembras |
 
 002 y 003 agregan seis tablas y columnas/índices en tareas_huerto. No borran tablas,
 no cambian puntos ni rellenan cultivos existentes. Las nuevas tablas tienen RLS activo
@@ -76,3 +77,21 @@ la ubicación de sus ejecutables.
 Las pruebas PostgreSQL se omiten en pnpm test salvo que CHECKLIST_TEST_DATABASE_URL
 apunte a localhost y la base gr2_checklist_test. El ejecutor temporal configura esa
 variable únicamente para su proceso hijo.
+
+## Catálogo medicinal (006)
+
+```powershell
+node scripts/migrate-medicinal-catalog.js         # Simula en una transacción y revierte
+node scripts/migrate-medicinal-catalog.js --apply # Respaldo local y confirmación de cambios
+```
+
+La migración marca como inactivas las seis especies de prueba. Se conservan las
+filas históricas porque existen premios inmutables vinculados al pimiento.
+El catálogo, la consulta individual y las dos rutas de siembra admiten únicamente
+plantas activas con imágenes en sus cinco fases. Maracuyá y saúco se conservan
+como integrantes del catálogo medicinal por indicación del usuario.
+
+006 completa los ciclos sin días de menta, manzanilla, albahaca y llantén, y rellena
+solo fechas de cosecha pendientes que estaban vacías. No modifica la fecha de
+siembra ni tareas completadas, ni recalcula puntos. Su segunda ejecución no
+altera la planificación ya establecida. Ver [criterios y referencias](../../CATALOGO_MEDICINAL.md).

@@ -12,6 +12,7 @@
 
 # Logs
 *.log
+tmp/catalogo-medicinal/
 pnpm-debug.log*
 npm-debug.log*
 

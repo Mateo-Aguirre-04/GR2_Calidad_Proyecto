@@ -13,6 +13,9 @@ import { localDate } from '../src/data/checklistEnvironment.js'
 import { SearchMoonQuarter, NextMoonQuarter } from 'astronomy-engine'
 import { readGuildRanking, guildRankingHandler } from '../src/data/guildRanking.js'
 import { finish } from '../src/data/checklistWorkflow.js'
+import { plantaDisponibleEnCatalogo } from '../src/data/catalogoMedicinal.js'
+import { catalogDays } from '../src/data/checklistEnvironment.js'
+import { growthDays } from '../src/data/postgres.js'
 
 async function installCurrentSchema(db) {
   await db.query(`CREATE TABLE gremio(id_gremio bigint PRIMARY KEY,puntos_gremio integer DEFAULT 0,area_total numeric DEFAULT 1800,
@@ -28,6 +31,67 @@ async function installCurrentSchema(db) {
 }
 
 const url = process.env.CHECKLIST_TEST_DATABASE_URL
+test('catálogo medicinal: retira pruebas, completa ciclos y habilita cosechas existentes sin cambiar premios ni siembras', {skip:!url},async()=>{
+  const target=new URL(url)
+  assert.ok(['localhost','127.0.0.1'].includes(target.hostname))
+  assert.equal(target.pathname,'/gr2_checklist_test')
+  const db=new pg.Client({connectionString:url})
+  await db.connect()
+  try {
+    await db.query(`BEGIN;CREATE SCHEMA huertos;SET LOCAL search_path=huertos,public;
+      CREATE TABLE tipo_planta(id_tipo_planta integer PRIMARY KEY,nombre text);
+      INSERT INTO tipo_planta VALUES(1,'Hierba aromática'),(2,'Planta medicinal'),(3,'Árbol frutal');
+      CREATE TABLE planta(id_planta integer PRIMARY KEY,nombre_comun text,nombre_cientifico text,
+        id_tipo_planta integer REFERENCES tipo_planta,ciclo_cultivo text,fases jsonb);
+      INSERT INTO planta VALUES
+        (1,'Calabaza','Cucurbita pepo',1,'120 días',null),
+        (2,'Tomate','Solanum lycopersicum',1,'120 días',null),
+        (3,'Pimiento','Capsicum annuum',1,'90 días',null),
+        (4,'Frijol','Phaseolus vulgaris',1,'90 días',null),
+        (5,'Peral','Pyrus communis',3,'Perenne (4-7 años producción)',null),
+        (6,'Manzano','Malus domestica',3,'Perenne (5-8 años producción)',null),
+        (7,'Menta','Mentha spicata',1,'Perenne (rebrote estacional)',null),
+        (8,'Manzanilla','Matricaria chamomilla',2,'Anual',null),
+        (9,'Llantén','Plantago major',2,'Perenne',null),
+        (10,'Albahaca','Ocimum basilicum',1,'Anual',null),
+        (11,'Saúco','Sambucus nigra subsp. peruviana',3,'Perenne (120-180 días)',null),
+        (12,'Maracuyá','Passiflora edulis',3,'Perenne (150-210 días)',null),
+        (13,'Hierbabuena','Mentha spicata',1,'Perenne (60-90 días)',null);
+      CREATE TABLE tareas_huerto(id_tarea integer PRIMARY KEY,id_planta integer REFERENCES planta,
+        codigo_actividad text,fecha_siembra timestamptz,completada_en timestamptz,programada_para timestamptz);
+      INSERT INTO tareas_huerto VALUES
+        (1,7,'cosecha','2026-11-08T15:00Z',null,null),
+        (2,9,'cosecha','2026-11-08T15:00Z','2026-11-09T15:00Z',null),
+        (3,10,'cosecha','2026-11-08T15:00Z',null,'2030-01-01T15:00Z'),
+        (4,3,'cosecha','2026-11-08T15:00Z','2026-11-09T15:00Z',null),
+        (5,8,'cosecha','2026-11-08T15:00Z',null,null);
+      CREATE TABLE usuario_general(id_usuario integer PRIMARY KEY,puntos integer);
+      INSERT INTO usuario_general VALUES(1,1040);`)
+    await db.query('UPDATE planta SET fases=$1',[JSON.stringify(Array.from({length:5},(_,i)=>({fase:i+1,imagen:`/plantas/medicinal${i+1}.png`})))])
+    const completed=(await db.query('SELECT * FROM tareas_huerto WHERE completada_en IS NOT NULL ORDER BY id_tarea')).rows
+    const sql=await readFile(new URL('../migrations/20261109_006_catalogo_medicinal.sql',import.meta.url),'utf8')
+    await db.query(sql)
+    const plants=(await db.query('SELECT * FROM planta ORDER BY id_planta')).rows
+    assert.equal(plants.length,13,'El historial sigue referenciando sus especies originales')
+    assert.deepEqual(plants.filter(p=>!p.catalogo_activo).map(p=>p.nombre_comun),['Calabaza','Tomate','Pimiento','Frijol','Peral','Manzano'])
+    assert.equal(plants.filter(plantaDisponibleEnCatalogo).length,7)
+    for(const [id,days] of [[7,90],[8,90],[9,70],[10,90],[13,90]]) {
+      const p=plants.find(p=>p.id_planta===id)
+      assert.equal(catalogDays(p.ciclo_cultivo),days)
+      assert.equal(growthDays(p.ciclo_cultivo),days)
+    }
+    for(const id of [11,12])assert.equal(plants.find(p=>p.id_planta===id).id_tipo_planta,2)
+    const tasks=(await db.query('SELECT * FROM tareas_huerto ORDER BY id_tarea')).rows
+    for(const id of [1,5])assert.equal(+tasks.find(t=>t.id_tarea===id).programada_para,
+      Date.parse('2026-11-08T15:00Z')+90*86400000)
+    assert.equal(tasks.find(t=>t.id_tarea===3).programada_para.toISOString(),'2030-01-01T15:00:00.000Z')
+    assert.deepEqual(tasks.filter(t=>t.completada_en),completed)
+    assert.equal((await db.query('SELECT puntos FROM usuario_general')).rows[0].puntos,1040)
+    await db.query(sql)
+    assert.deepEqual((await db.query('SELECT * FROM tareas_huerto ORDER BY id_tarea')).rows,tasks)
+  } finally {await db.query('ROLLBACK');await db.end()}
+})
+
 test('PostgreSQL aislado: baseline, consulta HTTP, permisos e inscripción por miembro', { skip: !url }, async () => {
   const target = new URL(url)
   assert.ok(['localhost', '127.0.0.1'].includes(target.hostname))
@@ -379,6 +443,9 @@ test('HTTP: zona → maleza → preparación → siembra → señalética/abono 
       INSERT INTO huerto VALUES(42,10),(43,11);
       INSERT INTO miembro_gremio VALUES(5,10),(6,10),(7,11),(8,10);
       INSERT INTO planta(id_planta,nombre_comun,ciclo_cultivo) VALUES(9,'Especie de prueba','2 días'),(10,'Sin plazo','Perenne');`)
+    await db.query('UPDATE planta SET fases=$1 WHERE id_planta=9',[JSON.stringify(
+      Array.from({length:5},(_,i)=>({fase:i+1,imagen:`/plantas/Menta/menta${i+1}.png`}))
+    )])
     for(const file of ['20261108_001_checklist_baseline.sql','20261108_002_solicitudes_checklist.sql','20261108_003_programacion_checklist.sql']) {
       await db.query(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'))
     }

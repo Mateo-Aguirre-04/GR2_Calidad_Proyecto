@@ -29,12 +29,14 @@ export function activityReminders({details,zones,crops,env,tipoHuerto='surcos'})
     const planted=plantedCrops.length>0
     const sectionWaters=waters.filter(t=>t.id_zona===section.id)
     const lastWater=sectionWaters.map(t=>t.completada_en).sort((a,b)=>new Date(b)-new Date(a))[0]
+    // Un riego registrado hoy satisface el aviso también en modo de prueba.
+    const wateredToday=sectionWaters.some(t=>localDate(t.completada_en,zone)===today)
     const weekly=RECIPIENTS.has(tipoHuerto)
     const dueWater=weekly
       ? planted&&(ignoreTime
-        ? !sectionWaters.some(t=>localDate(t.completada_en,zone)===today)
+        ? !wateredToday
         : daysBetween(lastWater||plantedCrops.map(c=>c.fechaSiembra).sort((a,b)=>new Date(a)-new Date(b))[0],env.ahora,zone)>=7)
-      : planted&&(ignoreTime||!sectionWaters.some(t=>localDate(t.completada_en,zone)===today))
+      : planted&&!wateredToday
     if(dueWater) {
       add(weekly?'riego_semanal':'riego_diario',weekly
         ?'Revisa tus plantas en recipientes: ya pasaron siete días desde la siembra o el último riego.'

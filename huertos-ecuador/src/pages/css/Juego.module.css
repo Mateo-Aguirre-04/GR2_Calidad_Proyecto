@@ -26,7 +26,7 @@
   image-rendering: pixelated;
 }
 .modoHerramienta,.modoHerramienta * { cursor: none !important; }
-.cursorHerramienta { position: fixed; left: 0; top: 0; z-index: 40; display: none; pointer-events: none; font-size: 32px; line-height: 1; filter: drop-shadow(0 2px 1px #222); }
+.cursorHerramienta { --tamano-icono: 44px; position: fixed; left: 0; top: 0; z-index: 40; display: none; pointer-events: none; font-size: 32px; line-height: 1; filter: drop-shadow(0 2px 1px #222); }
 
 .zonas {
   position: absolute;
@@ -43,6 +43,10 @@
   transform: translateX(-50%);
   font: 10px 'Press Start 2P', monospace;
 }
+
+.zonas button { display: grid; place-items: center; padding: 2px 4px; }
+.zonas button img { width: 18px; height: 18px; object-fit: contain; image-rendering: pixelated; }
+.zonas button:disabled img { opacity: 0.35; }
 
 .cargando {
   padding: 40px;
@@ -177,6 +181,7 @@
 }
 
 .nombre { font-weight: 400; }
+.medalla { width: 24px; height: 24px; flex-shrink: 0; object-fit: contain; image-rendering: pixelated; }
 
 /* ===== Clima y luna ===== */
 .estados {

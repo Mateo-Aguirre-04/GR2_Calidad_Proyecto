@@ -9,6 +9,7 @@ import { activityReminders } from './activityReminders.js'
 import { taskDetails, availability, assertAvailable, sowingReasons } from './checklistRules.js'
 import { synchronizeSections, mappedSection, validatePlanting, gardenLayout } from './sections.js'
 import { areaDeParcela } from './parcelas.js'
+import { plantaDisponibleEnCatalogo } from './catalogoMedicinal.js'
 
 const DAY=86400000
 const PARTS=['hojas','flores','frutos','semillas','raices']
@@ -289,6 +290,7 @@ export async function sow(db,user,garden,body,env) {
     if(reasons.length) throw httpError(409,reasons.join(' '))
     const plant=(await db.query('SELECT * FROM planta WHERE id_planta=$1',[body.plantaId])).rows[0]
     if(!plant) throw httpError(404,'Planta no encontrada.')
+    if(!plantaDisponibleEnCatalogo(plant)) throw httpError(409,'Solo puedes sembrar plantas del catálogo medicinal con imágenes de sus fases.')
     const raw=(await db.query(`INSERT INTO huerto_planta(id_huerto,id_planta,fecha_siembra,cantidad,id_estado,observaciones,zona,parcela)
       VALUES($1,$2,$3,$4,1,$5,$6,$7) RETURNING *,fecha_siembra::text AS fecha_exacta`,[garden,body.plantaId,env.ahora,cantidad,JSON.stringify({cosechado:false}),section.zona_mapa,section.parcela_mapa])).rows[0]
     const crop={plantaId:body.plantaId,fechaSiembra:raw.fecha_exacta,cicloId:body.cicloId}
