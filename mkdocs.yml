@@ -6,6 +6,8 @@ site_dir: site
 exclude_docs: |
   *.docx
   *.puml
+  diseno.md
+  LISTADO_HERRAMIENTAS_TECNOLOGIAS.md
 
 theme:
   name: material
@@ -45,7 +47,6 @@ markdown_extensions:
 nav:
   - Inicio: index.md
   - Historias de Usuario: historias_usuario.md
-  - Arquitectura: arquitectura.md
-  - Diseño: diseno.md
+  - Arquitectura y Diseño: arquitectura.md
   - Herramientas y Tecnologías: herramientas_tecnologias.md
   - Casos de Prueba con Resultados: casos_prueba.md

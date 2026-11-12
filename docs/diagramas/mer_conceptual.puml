@@ -1,0 +1,80 @@
+@startuml mer_conceptual
+!theme plain
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundCorner 8
+skinparam defaultFontName "Segoe UI, Inter, Arial, sans-serif"
+skinparam defaultFontSize 12
+skinparam nodesep 50
+skinparam ranksep 40
+
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+  BorderThickness 1.5
+  HeaderBackgroundColor #E2E8F0
+  FontColor #0F172A
+  FontSize 13
+  FontStyle bold
+  AttributeFontColor #334155
+  AttributeFontSize 11
+}
+
+skinparam arrow {
+  Color #334155
+  FontColor #0F172A
+  FontSize 11
+  Thickness 1.2
+}
+
+hide methods
+hide circle
+
+class "**JUGADOR**" as jugador {
+  nombre_usuario
+  rango
+  puntos
+}
+
+class "**TAREA**" as tarea {
+  tipo_actividad
+  estado
+  puntos_recompensa
+}
+
+class "**PARCELA**" as parcela {
+  numero_seccion
+  estado
+}
+
+class "**PLANTA**" as planta {
+  nombre_comun
+  tipo_cultivo
+  dias_cosecha
+}
+
+class "**GREMIO**" as gremio {
+  nombre_gremio
+  codigo_invitacion
+  puntos_gremio
+}
+
+class "**HUERTO**" as huerto {
+  ubicacion
+  area_total
+}
+
+' Flujo de actividades y cultivo
+jugador ||--o{ tarea : "realiza"
+tarea }|--|| parcela : "se aplica en"
+parcela ||--o| planta : "alberga"
+
+' Flujo de comunidad y huerto
+gremio ||--|| huerto : "administra"
+huerto ||--|{ parcela : "se divide en"
+
+' Pertenencia al gremio
+jugador }o..|| gremio : "pertenece a"
+
+@enduml
