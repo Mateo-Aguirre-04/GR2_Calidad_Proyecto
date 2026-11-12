@@ -24,7 +24,6 @@ Documentación del sistema web **Huertos.ec**, desarrollado para la gestión y g
 ## Contenido de la Documentación
 
 1. **[Historias de Usuario](historias_usuario.md):** Historias implementadas en la versión 1 (`HU-001` a `HU-010`) e historias de secciones no implementadas (`HU-011` a `HU-015`).
-2. **[Arquitectura](arquitectura.md):** Estructura del sistema (Frontend, Backend y Supabase), diagrama de despliegue y rutas principales del servidor.
-3. **[Diseño](diseno.md):** Modelo Entidad-Relación de la base de datos por dominios, diagramas de secuencia por historia de usuario y reglas de puntajes.
-4. **[Herramientas y Tecnologías](herramientas_tecnologias.md):** Listado de lenguajes, librerías y programas usados en el desarrollo.
-5. **[Casos de Prueba con Resultados](casos_prueba.md):** Sección en espera (*On Hold*).
+2. **[Arquitectura y Diseño](arquitectura.md):** Estructura del sistema (Frontend, Backend y Supabase), diagramas de capas y despliegue, modelo conceptual de dominio (MER semántico), rangos, puntos y especificaciones técnicas.
+3. **[Herramientas y Tecnologías](herramientas_tecnologias.md):** Listado de lenguajes, librerías y programas usados en el desarrollo.
+4. **[Casos de Prueba con Resultados](casos_prueba.md):** Sección en espera (*On Hold*).

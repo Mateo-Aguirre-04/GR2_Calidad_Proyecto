@@ -463,230 +463,233 @@
   </tbody>
 </table>
 
-## HISTORIAS DE USUARIO DE SECCIONES NO IMPLEMENTADAS
+??? note "HISTORIAS DE USUARIO DE SECCIONES NO IMPLEMENTADAS (HU-011 a HU-015)"
 
-### HU-011: Revisión de gremios y huertos por el personal del Ministerio
+    Aquí se detallan las historias de usuario planificadas para fases posteriores (backlog) y módulos de fiscalización ministerial, las cuales no forman parte del alcance de la versión 1 actualmente implementada.
 
-<table class="hu-table">
-  <tbody>
-    <tr>
-      <td class="hu-col-nro">
-        <p><strong>Nro:</strong> HU-011</p>
-      </td>
-      <td class="hu-col-titulo">
-        <p><strong>Título: Revisión de gremios y huertos por el personal del Ministerio</strong></p>
-      </td>
-      <td class="hu-col-meta">
-        <p><strong>Prioridad:</strong> Alta</p>
-        <p><strong>Estimación:</strong> 10 horas</p>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Historia de usuario:</strong></p>
-        <p><strong>Como </strong>personal del Ministerio (supervisor) <strong>quiero </strong>entrar con una cuenta de supervisor para elegir cualquier gremio y ver sus miembros, sus rangos y las actividades que han hecho, <strong>para </strong>revisar cómo avanzan los huertos comunitarios sin participar ni alterar el juego como si fuera un jugador.</p>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Sabré que he terminado cuando se cumplan todos los criterios de aceptación a continuación:</strong></p>
-        <ul>
-          <li><strong>Consulta de datos de una comunidad en modo supervisor: Dada </strong>una cuenta perteneciente al personal del Ministerio, <strong>cuando </strong>inicia sesión y selecciona un gremio de la lista <strong>entonces </strong>el sistema le muestra la lista de miembros, sus rangos, sus puntos y el historial del huerto en modo de solo revisión, sin botones para jugar o sembrar. [ESCENARIO IDEAL]</li>
-          <li><strong>Bloqueo de la vista del Ministerio para cuentas de jugadores: Dada </strong>una sesión normal de un jugador, <strong>cuando </strong>intenta abrir la pantalla exclusiva del personal del Ministerio <strong>entonces </strong>el sistema le niega el paso y lo devuelve a su pantalla normal de juego. [ESCENARIO EXCEPCIONAL O PROBLEMÁTICO]</li>
-        </ul>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Tareas de implementación:</strong></p>
-        <ul>
-          <li>Diseñar la pantalla de revisión de gremios para el usuario del Ministerio (3 horas).</li>
-          <li>Codificar las consultas en el servidor para listar gremios, miembros y actividades en modo supervisor (3 horas).</li>
-          <li>Incluir validaciones para diferenciar una cuenta del Ministerio de una cuenta de jugador (2 horas).</li>
-          <li>Probar el ingreso como personal del Ministerio y el bloqueo para jugadores normales (2 horas).</li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
 
-### HU-012: Registro y actualización de los datos físicos del huerto real por el Ministerio
+    ### HU-011: Revisión de gremios y huertos por el personal del Ministerio
 
-<table class="hu-table">
-  <tbody>
-    <tr>
-      <td class="hu-col-nro">
-        <p><strong>Nro:</strong> HU-012</p>
-      </td>
-      <td class="hu-col-titulo">
-        <p><strong>Título: Registro y actualización de los datos físicos del huerto real por el Ministerio</strong></p>
-      </td>
-      <td class="hu-col-meta">
-        <p><strong>Prioridad:</strong> Alta</p>
-        <p><strong>Estimación:</strong> 12 horas</p>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Historia de usuario:</strong></p>
-        <p><strong>Como </strong>personal del Ministerio <strong>quiero </strong>registrar y actualizar los datos reales del huerto cuando visito una comunidad (provincia, parroquia, forma del huerto, tipo de cerca, suelo, agua de riego y abono), <strong>para </strong>dejar constancia oficial de cómo está construido realmente el huerto en el terreno.</p>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Sabré que he terminado cuando se cumplan todos los criterios de aceptación a continuación:</strong></p>
-        <ul>
-          <li><strong>Guardado de los datos físicos del huerto tras una visita: Dada </strong>una visita presencial del personal del Ministerio a una comunidad, <strong>cuando </strong>llena el formulario eligiendo el diseño del huerto (en tierra, vertical, colgante o en macetas), el tipo de cerca (cerca viva, natural, reciclada, metálica o bloque), el área, el suelo, el riego y el abono <strong>entonces </strong>el sistema guarda la información técnica verificada del huerto junto con la fecha de la revisión. [ESCENARIO IDEAL]</li>
-          <li><strong>Formulario con datos físicos incompletos: Dada </strong>una ficha donde falta elegir el tipo de cerca, el diseño del huerto o el área es inválida, <strong>cuando </strong>el supervisor intenta guardar los datos <strong>entonces </strong>el sistema no guarda el registro e indica qué campos obligatorios faltan completar. [ESCENARIO EXCEPCIONAL O PROBLEMÁTICO]</li>
-        </ul>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Tareas de implementación:</strong></p>
-        <ul>
-          <li>Diseñar el formulario para que el Ministerio registre los datos físicos del huerto real (3 horas).</li>
-          <li>Codificar el guardado conectando las tablas de diseño de huerto, cercas de seguridad, suelo, riego y abono (4 horas).</li>
-          <li>Incluir validaciones de campos obligatorios y valores positivos de superficie (2 horas).</li>
-          <li>Probar el registro y la actualización de los datos físicos de un huerto (2 horas).</li>
-          <li>Depurar la visualización de estos datos dentro de la información del gremio (1 hora).</li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
+    <table class="hu-table">
+      <tbody>
+        <tr>
+          <td class="hu-col-nro">
+            <p><strong>Nro:</strong> HU-011</p>
+          </td>
+          <td class="hu-col-titulo">
+            <p><strong>Título: Revisión de gremios y huertos por el personal del Ministerio</strong></p>
+          </td>
+          <td class="hu-col-meta">
+            <p><strong>Prioridad:</strong> Alta</p>
+            <p><strong>Estimación:</strong> 10 horas</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Historia de usuario:</strong></p>
+            <p><strong>Como </strong>personal del Ministerio (supervisor) <strong>quiero </strong>entrar con una cuenta de supervisor para elegir cualquier gremio y ver sus miembros, sus rangos y las actividades que han hecho, <strong>para </strong>revisar cómo avanzan los huertos comunitarios sin participar ni alterar el juego como si fuera un jugador.</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Sabré que he terminado cuando se cumplan todos los criterios de aceptación a continuación:</strong></p>
+            <ul>
+              <li><strong>Consulta de datos de una comunidad en modo supervisor: Dada </strong>una cuenta perteneciente al personal del Ministerio, <strong>cuando </strong>inicia sesión y selecciona un gremio de la lista <strong>entonces </strong>el sistema le muestra la lista de miembros, sus rangos, sus puntos y el historial del huerto en modo de solo revisión, sin botones para jugar o sembrar. [ESCENARIO IDEAL]</li>
+              <li><strong>Bloqueo de la vista del Ministerio para cuentas de jugadores: Dada </strong>una sesión normal de un jugador, <strong>cuando </strong>intenta abrir la pantalla exclusiva del personal del Ministerio <strong>entonces </strong>el sistema le niega el paso y lo devuelve a su pantalla normal de juego. [ESCENARIO EXCEPCIONAL O PROBLEMÁTICO]</li>
+            </ul>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Tareas de implementación:</strong></p>
+            <ul>
+              <li>Diseñar la pantalla de revisión de gremios para el usuario del Ministerio (3 horas).</li>
+              <li>Codificar las consultas en el servidor para listar gremios, miembros y actividades en modo supervisor (3 horas).</li>
+              <li>Incluir validaciones para diferenciar una cuenta del Ministerio de una cuenta de jugador (2 horas).</li>
+              <li>Probar el ingreso como personal del Ministerio y el bloqueo para jugadores normales (2 horas).</li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
 
-### HU-013: Registro y actualización del inventario de la bodega del gremio
+    ### HU-012: Registro y actualización de los datos físicos del huerto real por el Ministerio
 
-<table class="hu-table">
-  <tbody>
-    <tr>
-      <td class="hu-col-nro">
-        <p><strong>Nro:</strong> HU-013</p>
-      </td>
-      <td class="hu-col-titulo">
-        <p><strong>Título: Registro y actualización del inventario de la bodega del gremio</strong></p>
-      </td>
-      <td class="hu-col-meta">
-        <p><strong>Prioridad:</strong> Media</p>
-        <p><strong>Estimación:</strong> 10 horas</p>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Historia de usuario:</strong></p>
-        <p><strong>Como </strong>personal del Ministerio (en la primera visita) y Maestro u Oficial del gremio (en las siguientes actualizaciones) <strong>quiero </strong>registrar y actualizar lo que hay en la bodega de la comunidad (herramientas, semillas o plántulas y abonos), <strong>para </strong>saber con qué materiales cuenta el gremio para trabajar en su huerto.</p>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Sabré que he terminado cuando se cumplan todos los criterios de aceptación a continuación:</strong></p>
-        <ul>
-          <li><strong>Registro inicial por el Ministerio y actualización por el Maestro u Oficiales: Dada </strong>una comunidad donde el agente del Ministerio llena por primera vez el inventario de herramientas (palas, azadones, rastrillos, regaderas), semillas y abono, <strong>cuando </strong>más adelante el Maestro o un Oficial del gremio actualiza las cantidades disponibles <strong>entonces </strong>el sistema guarda el nuevo inventario de la bodega indicando quién hizo el cambio y la fecha. [ESCENARIO IDEAL]</li>
-          <li><strong>Intento de editar la bodega antes de la primera visita del Ministerio o con números negativos: Dada </strong>una bodega que todavía no ha sido inaugurada por el Ministerio o un intento de poner cantidades menores a cero, <strong>cuando </strong>un usuario intenta guardar cambios en el inventario <strong>entonces </strong>el sistema rechaza el guardado y explica que primero debe registrarla el Ministerio o que las cantidades no pueden ser negativas. [ESCENARIO EXCEPCIONAL O PROBLEMÁTICO]</li>
-        </ul>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Tareas de implementación:</strong></p>
-        <ul>
-          <li>Diseñar la pantalla de Bodega dividida en herramientas, semillas/plántulas y abonos (2 horas).</li>
-          <li>Codificar el guardado inicial por parte del Ministerio y la actualización por parte del Maestro y los Oficiales (4 horas).</li>
-          <li>Incluir validaciones para no permitir números negativos ni ediciones de usuarios sin permiso (2 horas).</li>
-          <li>Probar el registro inicial del Ministerio y la actualización posterior de un Maestro (2 horas).</li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
+    <table class="hu-table">
+      <tbody>
+        <tr>
+          <td class="hu-col-nro">
+            <p><strong>Nro:</strong> HU-012</p>
+          </td>
+          <td class="hu-col-titulo">
+            <p><strong>Título: Registro y actualización de los datos físicos del huerto real por el Ministerio</strong></p>
+          </td>
+          <td class="hu-col-meta">
+            <p><strong>Prioridad:</strong> Alta</p>
+            <p><strong>Estimación:</strong> 12 horas</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Historia de usuario:</strong></p>
+            <p><strong>Como </strong>personal del Ministerio <strong>quiero </strong>registrar y actualizar los datos reales del huerto cuando visito una comunidad (provincia, parroquia, forma del huerto, tipo de cerca, suelo, agua de riego y abono), <strong>para </strong>dejar constancia oficial de cómo está construido realmente el huerto en el terreno.</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Sabré que he terminado cuando se cumplan todos los criterios de aceptación a continuación:</strong></p>
+            <ul>
+              <li><strong>Guardado de los datos físicos del huerto tras una visita: Dada </strong>una visita presencial del personal del Ministerio a una comunidad, <strong>cuando </strong>llena el formulario eligiendo el diseño del huerto (en tierra, vertical, colgante o en macetas), el tipo de cerca (cerca viva, natural, reciclada, metálica o bloque), el área, el suelo, el riego y el abono <strong>entonces </strong>el sistema guarda la información técnica verificada del huerto junto con la fecha de la revisión. [ESCENARIO IDEAL]</li>
+              <li><strong>Formulario con datos físicos incompletos: Dada </strong>una ficha donde falta elegir el tipo de cerca, el diseño del huerto o el área es inválida, <strong>cuando </strong>el supervisor intenta guardar los datos <strong>entonces </strong>el sistema no guarda el registro e indica qué campos obligatorios faltan completar. [ESCENARIO EXCEPCIONAL O PROBLEMÁTICO]</li>
+            </ul>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Tareas de implementación:</strong></p>
+            <ul>
+              <li>Diseñar el formulario para que el Ministerio registre los datos físicos del huerto real (3 horas).</li>
+              <li>Codificar el guardado conectando las tablas de diseño de huerto, cercas de seguridad, suelo, riego y abono (4 horas).</li>
+              <li>Incluir validaciones de campos obligatorios y valores positivos de superficie (2 horas).</li>
+              <li>Probar el registro y la actualización de los datos físicos de un huerto (2 horas).</li>
+              <li>Depurar la visualización de estos datos dentro de la información del gremio (1 hora).</li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
 
-### HU-014: Subir fotos de respaldo al realizar actividades del huerto
+    ### HU-013: Registro y actualización del inventario de la bodega del gremio
 
-<table class="hu-table">
-  <tbody>
-    <tr>
-      <td class="hu-col-nro">
-        <p><strong>Nro:</strong> HU-014</p>
-      </td>
-      <td class="hu-col-titulo">
-        <p><strong>Título: Subir fotos de respaldo al realizar actividades del huerto</strong></p>
-      </td>
-      <td class="hu-col-meta">
-        <p><strong>Prioridad:</strong> Media</p>
-        <p><strong>Estimación:</strong> 10 horas</p>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Historia de usuario:</strong></p>
-        <p><strong>Como </strong>jugador <strong>quiero </strong>subir las fotos que pide cada actividad del huerto (como preparar la tierra, hacer los surcos, poner letreros a las plantas o cosechar), <strong>para </strong>demostrar que sí hicimos el trabajo en el huerto real y que el Ministerio nos apruebe los puntos.</p>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Sabré que he terminado cuando se cumplan todos los criterios de aceptación a continuación:</strong></p>
-        <ul>
-          <li><strong>Subida completa de las fotos pedidas en la actividad: Dada </strong>una actividad del huerto que pide fotos (por ejemplo, 3 fotos del antes, durante y después al preparar la tierra, o 2 fotos al hacer los surcos luego de 15 días), <strong>cuando </strong>el jugador sube todas las fotos requeridas y selecciona qué compañeros participaron <strong>entonces </strong>el sistema guarda las fotos en el historial del huerto y deja la actividad como &#x27;Pendiente de revisión&#x27; para el Ministerio. [ESCENARIO IDEAL]</li>
-          <li><strong>Faltan fotos por subir o aún no pasan los 15 días de espera: Dada </strong>una entrega donde el jugador sube menos fotos de las pedidas, o intenta subir fotos de los surcos antes de que pasen 15 días desde la preparación de la tierra, <strong>cuando </strong>intenta enviar la actividad <strong>entonces </strong>el sistema no permite enviarla y le avisa cuántas fotos le faltan o cuántos días debe esperar. [ESCENARIO EXCEPCIONAL O PROBLEMÁTICO]</li>
-        </ul>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Tareas de implementación:</strong></p>
-        <ul>
-          <li>Diseñar la ventana para seleccionar y previsualizar las fotos de cada actividad (3 horas).</li>
-          <li>Codificar la subida de imágenes al almacenamiento y su registro en la tabla Historial_Fotografias (3 horas).</li>
-          <li>Incluir validaciones del número obligatorio de fotos por tarea y los 15 días de espera para los surcos (2 horas).</li>
-          <li>Probar la subida con las fotos completas y el aviso de error cuando faltan imágenes (2 horas).</li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
+    <table class="hu-table">
+      <tbody>
+        <tr>
+          <td class="hu-col-nro">
+            <p><strong>Nro:</strong> HU-013</p>
+          </td>
+          <td class="hu-col-titulo">
+            <p><strong>Título: Registro y actualización del inventario de la bodega del gremio</strong></p>
+          </td>
+          <td class="hu-col-meta">
+            <p><strong>Prioridad:</strong> Media</p>
+            <p><strong>Estimación:</strong> 10 horas</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Historia de usuario:</strong></p>
+            <p><strong>Como </strong>personal del Ministerio (en la primera visita) y Maestro u Oficial del gremio (en las siguientes actualizaciones) <strong>quiero </strong>registrar y actualizar lo que hay en la bodega de la comunidad (herramientas, semillas o plántulas y abonos), <strong>para </strong>saber con qué materiales cuenta el gremio para trabajar en su huerto.</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Sabré que he terminado cuando se cumplan todos los criterios de aceptación a continuación:</strong></p>
+            <ul>
+              <li><strong>Registro inicial por el Ministerio y actualización por el Maestro u Oficiales: Dada </strong>una comunidad donde el agente del Ministerio llena por primera vez el inventario de herramientas (palas, azadones, rastrillos, regaderas), semillas y abono, <strong>cuando </strong>más adelante el Maestro o un Oficial del gremio actualiza las cantidades disponibles <strong>entonces </strong>el sistema guarda el nuevo inventario de la bodega indicando quién hizo el cambio y la fecha. [ESCENARIO IDEAL]</li>
+              <li><strong>Intento de editar la bodega antes de la primera visita del Ministerio o con números negativos: Dada </strong>una bodega que todavía no ha sido inaugurada por el Ministerio o un intento de poner cantidades menores a cero, <strong>cuando </strong>un usuario intenta guardar cambios en el inventario <strong>entonces </strong>el sistema rechaza el guardado y explica que primero debe registrarla el Ministerio o que las cantidades no pueden ser negativas. [ESCENARIO EXCEPCIONAL O PROBLEMÁTICO]</li>
+            </ul>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Tareas de implementación:</strong></p>
+            <ul>
+              <li>Diseñar la pantalla de Bodega dividida en herramientas, semillas/plántulas y abonos (2 horas).</li>
+              <li>Codificar el guardado inicial por parte del Ministerio y la actualización por parte del Maestro y los Oficiales (4 horas).</li>
+              <li>Incluir validaciones para no permitir números negativos ni ediciones de usuarios sin permiso (2 horas).</li>
+              <li>Probar el registro inicial del Ministerio y la actualización posterior de un Maestro (2 horas).</li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
 
-### HU-015: Revisión y aprobación de fotos por el Ministerio para entregar puntos
+    ### HU-014: Subir fotos de respaldo al realizar actividades del huerto
 
-<table class="hu-table">
-  <tbody>
-    <tr>
-      <td class="hu-col-nro">
-        <p><strong>Nro:</strong> HU-015</p>
-      </td>
-      <td class="hu-col-titulo">
-        <p><strong>Título: Revisión y aprobación de fotos por el Ministerio para entregar puntos</strong></p>
-      </td>
-      <td class="hu-col-meta">
-        <p><strong>Prioridad:</strong> Alta</p>
-        <p><strong>Estimación:</strong> 10 horas</p>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Historia de usuario:</strong></p>
-        <p><strong>Como </strong>personal del Ministerio <strong>quiero </strong>revisar las fotos que subieron los gremios en la semana y aprobar o rechazar sus actividades, <strong>para </strong>dar los puntos a todos los miembros que participaron y entregar una medalla a quien subió las fotos cuando el trabajo esté bien hecho.</p>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Sabré que he terminado cuando se cumplan todos los criterios de aceptación a continuación:</strong></p>
-        <ul>
-          <li><strong>Aprobar fotos y entregar puntos al grupo: Dada </strong>una actividad en estado &#x27;Pendiente de revisión&#x27; con todas sus fotos subidas, <strong>cuando </strong>el personal del Ministerio revisa las imágenes y aprueba el trabajo <strong>entonces </strong>el sistema marca la tarea como completada, suma los puntos a todos los miembros que participaron en esa actividad y le da una medalla al jugador que subió las fotos. [ESCENARIO IDEAL]</li>
-          <li><strong>Rechazar fotos que no cumplen con la actividad: Dada </strong>unas fotos borrosas o que no muestran el trabajo que decía la tarea, <strong>cuando </strong>el personal del Ministerio rechaza la entrega y escribe el motivo <strong>entonces </strong>el sistema no entrega los puntos y le muestra el comentario al gremio para que puedan volver a subir las fotos correctas. [ESCENARIO EXCEPCIONAL O PROBLEMÁTICO]</li>
-        </ul>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="3">
-        <p><strong>Tareas de implementación:</strong></p>
-        <ul>
-          <li>Diseñar la pantalla para que el Ministerio vea las fotos enviadas por cada gremio y tenga botones de aprobar o rechazar (3 horas).</li>
-          <li>Codificar la entrega automática de puntos a los participantes y la medalla a quien subió las fotos al aprobarse (4 horas).</li>
-          <li>Incluir la validación para exigir un comentario cuando se rechacen las fotos y evitar que una misma entrega se apruebe dos veces (1 hora).</li>
-          <li>Probar la aprobación con suma grupal de puntos y el rechazo con mensaje de corrección (2 horas).</li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
+    <table class="hu-table">
+      <tbody>
+        <tr>
+          <td class="hu-col-nro">
+            <p><strong>Nro:</strong> HU-014</p>
+          </td>
+          <td class="hu-col-titulo">
+            <p><strong>Título: Subir fotos de respaldo al realizar actividades del huerto</strong></p>
+          </td>
+          <td class="hu-col-meta">
+            <p><strong>Prioridad:</strong> Media</p>
+            <p><strong>Estimación:</strong> 10 horas</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Historia de usuario:</strong></p>
+            <p><strong>Como </strong>jugador <strong>quiero </strong>subir las fotos que pide cada actividad del huerto (como preparar la tierra, hacer los surcos, poner letreros a las plantas o cosechar), <strong>para </strong>demostrar que sí hicimos el trabajo en el huerto real y que el Ministerio nos apruebe los puntos.</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Sabré que he terminado cuando se cumplan todos los criterios de aceptación a continuación:</strong></p>
+            <ul>
+              <li><strong>Subida completa de las fotos pedidas en la actividad: Dada </strong>una actividad del huerto que pide fotos (por ejemplo, 3 fotos del antes, durante y después al preparar la tierra, o 2 fotos al hacer los surcos luego de 15 días), <strong>cuando </strong>el jugador sube todas las fotos requeridas y selecciona qué compañeros participaron <strong>entonces </strong>el sistema guarda las fotos en el historial del huerto y deja la actividad como &#x27;Pendiente de revisión&#x27; para el Ministerio. [ESCENARIO IDEAL]</li>
+              <li><strong>Faltan fotos por subir o aún no pasan los 15 días de espera: Dada </strong>una entrega donde el jugador sube menos fotos de las pedidas, o intenta subir fotos de los surcos antes de que pasen 15 días desde la preparación de la tierra, <strong>cuando </strong>intenta enviar la actividad <strong>entonces </strong>el sistema no permite enviarla y le avisa cuántas fotos le faltan o cuántos días debe esperar. [ESCENARIO EXCEPCIONAL O PROBLEMÁTICO]</li>
+            </ul>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Tareas de implementación:</strong></p>
+            <ul>
+              <li>Diseñar la ventana para seleccionar y previsualizar las fotos de cada actividad (3 horas).</li>
+              <li>Codificar la subida de imágenes al almacenamiento y su registro en la tabla Historial_Fotografias (3 horas).</li>
+              <li>Incluir validaciones del número obligatorio de fotos por tarea y los 15 días de espera para los surcos (2 horas).</li>
+              <li>Probar la subida con las fotos completas y el aviso de error cuando faltan imágenes (2 horas).</li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    ### HU-015: Revisión y aprobación de fotos por el Ministerio para entregar puntos
+
+    <table class="hu-table">
+      <tbody>
+        <tr>
+          <td class="hu-col-nro">
+            <p><strong>Nro:</strong> HU-015</p>
+          </td>
+          <td class="hu-col-titulo">
+            <p><strong>Título: Revisión y aprobación de fotos por el Ministerio para entregar puntos</strong></p>
+          </td>
+          <td class="hu-col-meta">
+            <p><strong>Prioridad:</strong> Alta</p>
+            <p><strong>Estimación:</strong> 10 horas</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Historia de usuario:</strong></p>
+            <p><strong>Como </strong>personal del Ministerio <strong>quiero </strong>revisar las fotos que subieron los gremios en la semana y aprobar o rechazar sus actividades, <strong>para </strong>dar los puntos a todos los miembros que participaron y entregar una medalla a quien subió las fotos cuando el trabajo esté bien hecho.</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Sabré que he terminado cuando se cumplan todos los criterios de aceptación a continuación:</strong></p>
+            <ul>
+              <li><strong>Aprobar fotos y entregar puntos al grupo: Dada </strong>una actividad en estado &#x27;Pendiente de revisión&#x27; con todas sus fotos subidas, <strong>cuando </strong>el personal del Ministerio revisa las imágenes y aprueba el trabajo <strong>entonces </strong>el sistema marca la tarea como completada, suma los puntos a todos los miembros que participaron en esa actividad y le da una medalla al jugador que subió las fotos. [ESCENARIO IDEAL]</li>
+              <li><strong>Rechazar fotos que no cumplen con la actividad: Dada </strong>unas fotos borrosas o que no muestran el trabajo que decía la tarea, <strong>cuando </strong>el personal del Ministerio rechaza la entrega y escribe el motivo <strong>entonces </strong>el sistema no entrega los puntos y le muestra el comentario al gremio para que puedan volver a subir las fotos correctas. [ESCENARIO EXCEPCIONAL O PROBLEMÁTICO]</li>
+            </ul>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="3">
+            <p><strong>Tareas de implementación:</strong></p>
+            <ul>
+              <li>Diseñar la pantalla para que el Ministerio vea las fotos enviadas por cada gremio y tenga botones de aprobar o rechazar (3 horas).</li>
+              <li>Codificar la entrega automática de puntos a los participantes y la medalla a quien subió las fotos al aprobarse (4 horas).</li>
+              <li>Incluir la validación para exigir un comentario cuando se rechacen las fotos y evitar que una misma entrega se apruebe dos veces (1 hora).</li>
+              <li>Probar la aprobación con suma grupal de puntos y el rechazo con mensaje de corrección (2 horas).</li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
