@@ -14,7 +14,15 @@ El sistema **Huertos.ec** utiliza una arquitectura Cliente-Servidor dividida en 
 
 ---
 
-## 2. Diagrama de Despliegue
+## 2. Diagrama de Arquitectura por Capas
+
+![Diagrama de Arquitectura por Capas - Huertos.ec](diagramas/arquitectura_capas.svg)
+
+Huertos.ec sigue una arquitectura por capas. El jugador usa la **capa de presentación** (React + Vite), que se comunica por HTTP/JSON con la **capa de API** (Node.js + Express), encargada de las rutas, las sesiones y los controladores. La **capa de lógica de negocio y persistencia** aplica las reglas del juego (siembra, riego, cosecha, fases lunares y puntos) y consulta la **capa de datos** en Supabase (PostgreSQL y Storage). Open-Meteo aporta el clima y OpenStreetMap el mapa.
+
+---
+
+## 3. Diagrama de Despliegue
 
 ![Diagrama de Despliegue - Arquitectura de Huertos.ec](diagramas/despliegue.svg)
 
@@ -27,7 +35,7 @@ El sistema **Huertos.ec** utiliza una arquitectura Cliente-Servidor dividida en 
 
 ---
 
-## 3. Estructura de Carpetas
+## 4. Estructura de Carpetas
 
 ```text
 GR2_Calidad_Proyecto/
@@ -54,7 +62,7 @@ GR2_Calidad_Proyecto/
 
 ---
 
-## 4. Rutas Principales de la API
+## 5. Rutas Principales de la API
 
 | Módulo | Método | Ruta | Uso |
 | :--- | :---: | :--- | :--- |
@@ -78,7 +86,7 @@ GR2_Calidad_Proyecto/
 
 ---
 
-## 5. Seguridad e Integridad de Datos
+## 6. Seguridad e Integridad de Datos
 
 - **Seguridad:** Las contraseñas se guardan encriptadas con `bcrypt` y la sesión del jugador se maneja en el servidor mediante cookies (`HttpOnly`). El servidor siempre verifica la sesión y el rol del usuario en la base de datos antes de permitir acciones como editar anuncios del gremio.
 - **Integridad de datos:** Los puntos ganados por cada jugador y el puntaje total del gremio se actualizan directamente en la base de datos al completar una tarea, evitando que se sumen puntos repetidos o que el ranking quede desactualizado.

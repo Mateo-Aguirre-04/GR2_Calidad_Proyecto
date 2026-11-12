@@ -1,0 +1,30 @@
+@startuml arquitectura_capas
+!include estilo_moderno.puml
+skinparam ranksep 45
+skinparam nodesep 50
+skinparam rectangle {
+  BackgroundColor #F8FAFC
+  BorderColor #94A3B8
+  FontColor #0F172A
+  FontSize 13
+}
+
+title Diagrama de Arquitectura por Capas — Huertos.ec
+
+actor "Jugador" as jugador
+
+rectangle "**1. Presentación** — React + Vite\n(huertos-ecuador: páginas, componentes, hooks)" as presentacion #DBEAFE;line:2563EB;line.bold
+rectangle "**2. API** — Node.js + Express\n(rutas /api/*, sesiones, controladores)" as api #DCFCE7;line:16A34A;line.bold
+rectangle "**3. Lógica de Negocio y Persistencia**\n(src/data: siembra, riego, cosecha,\nfases lunares, puntos · consultas SQL con pg)" as negocio #FEF3C7;line:D97706;line.bold
+database "**4. Datos** — Supabase\n(PostgreSQL esquema huertos + Storage)" as datos #EDE9FE;line:7C3AED;line.bold
+
+cloud "**Servicios Externos**\nOpen-Meteo (clima)\nOpenStreetMap (mapa)" as externos #F1F5F9;line:64748B;line.dashed
+
+jugador -down-> presentacion : navegador
+presentacion -down-> api : HTTP / JSON
+api -down-> negocio
+negocio -down-> datos : SQL
+presentacion .right.> externos
+negocio .right.> externos : clima
+
+@enduml
