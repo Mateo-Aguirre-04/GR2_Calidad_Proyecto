@@ -290,7 +290,7 @@
         <p><strong>Nro:</strong> HU-007</p>
       </td>
       <td class="hu-col-titulo">
-        <p><strong>Título: Completar recordatorios, cosechar plantas y subir de rango con puntos</strong></p>
+        <p><strong>Título: Completar recordatorios, cosechar plantas y sumar puntos</strong></p>
       </td>
       <td class="hu-col-meta">
         <p><strong>Prioridad:</strong> Alta</p>
@@ -300,14 +300,15 @@
     <tr>
       <td colspan="3">
         <p><strong>Historia de usuario:</strong></p>
-        <p><strong>Como </strong>jugador <strong>quiero </strong>marcar como completados mis recordatorios de cuidado (como regar o deshierbar) y cosechar las plantas listas, <strong>para </strong>ganar puntos para mí y para mi gremio, y subir de rango desde Novato hasta Maestro.</p>
+        <p><strong>Como </strong>jugador <strong>quiero </strong>marcar como completados mis recordatorios de cuidado (como regar o deshierbar) y cosechar las plantas listas, <strong>para </strong>ganar puntos para mí y para mi gremio.</p>
+        <p>Nota: La actualización en tiempo real del rango no está prevista. Se planea implementar en la versión 2.</p>
       </td>
     </tr>
     <tr>
       <td colspan="3">
         <p><strong>Sabré que he terminado cuando se cumplan todos los criterios de aceptación a continuación:</strong></p>
         <ul>
-          <li><strong>Suma de puntos y subida de rango al completar tareas o cosechar: Dada </strong>una tarea pendiente en la lista de recordatorios o una planta que ya está lista para cosechar, <strong>cuando </strong>el jugador completa el recordatorio o cosecha la planta <strong>entonces </strong>el sistema le suma los puntos ganados, actualiza los puntos del gremio y actualiza su rango y medalla según su puntaje (Novato 0-50, Aprendiz 51-120, Oficial 121-250, Maestro más de 250). [ESCENARIO IDEAL]</li>
+          <li><strong>Suma de puntos al completar tareas o cosechar: Dada </strong>una tarea pendiente en la lista de recordatorios o una planta que ya está lista para cosechar, <strong>cuando </strong>el jugador completa el recordatorio o cosecha la planta <strong>entonces </strong>el sistema le suma los puntos ganados, actualiza los puntos del gremio. [ESCENARIO IDEAL]</li>
           <li><strong>Evitar puntos dobles si se intenta cosechar o completar dos veces lo mismo: Dada </strong>una planta que ya fue cosechada o un recordatorio que ya estaba completado, <strong>cuando </strong>el jugador intenta repetir la misma acción <strong>entonces </strong>el sistema no vuelve a sumar puntos ni permite completar dos veces la misma tarea. [ESCENARIO EXCEPCIONAL O PROBLEMÁTICO]</li>
         </ul>
       </td>
@@ -319,7 +320,7 @@
           <li>Diseñar la lista de recordatorios con filtros y el botón de cosechar en el huerto (3 horas).</li>
           <li>Codificar en el servidor las rutas para completar recordatorios, cosechar cultivos y sumar los puntos (4 horas).</li>
           <li>Incluir validaciones para evitar cosechas repetidas y calcular el rango según los puntos acumulados (2 horas).</li>
-          <li>Probar la entrega de puntos, el cambio de medalla y el bloqueo de tareas repetidas (2 horas).</li>
+          <li>Probar la entrega de puntos y el bloqueo de tareas repetidas (2 horas).</li>
           <li>Depurar que los puntos se actualicen al instante en la pantalla del juego y en el perfil (1 hora).</li>
         </ul>
       </td>
