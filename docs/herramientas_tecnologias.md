@@ -57,3 +57,12 @@ Herramientas de apoyo utilizadas durante la programación y depuración del sist
 
 - **Claude:** Se utilizó como asistente para revisar lógica de programación, proponer mejoras en la estructura de componentes y agilizar ajustes en el código.
 - **Antigravity:** Se utilizó para realizar ajustes técnicos en el código, verificar el funcionamiento de las rutas del servidor y apoyar en la elaboración y validación de las pruebas y documentación del proyecto.
+
+---
+
+## 6. Documentación y Despliegue
+
+Herramientas utilizadas para generar y publicar la documentación del proyecto:
+
+- **MkDocs (Material for MkDocs):** Se utilizó para construir el sitio web de documentación a partir de archivos Markdown, organizando las historias de usuario, la arquitectura, las herramientas y los casos de prueba.
+- **GitHub Actions:** Se utilizó para automatizar la compilación y publicación de la página de documentación cada vez que se suben cambios al repositorio.
